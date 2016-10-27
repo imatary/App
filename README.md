@@ -13,25 +13,27 @@ Basic Firmware which supported same AT commands of XBee modules and make it posi
 
 #### Structure
 
-/header  
-/header/\_global.h  
-/header/circularBuffer.h  
-/header/cmd.h  
-/header/defaultConfig.h  
-/header/enum\_cmd.h  
-/header/enum\_error.h  
-/header/enum\_general.h  
+/ATcommands
+* /header  
+  * /\_global.h  
+  * /circularBuffer.h  
+  * /cmd.h  
+  * /defaultConfig.h  
+  * /enum\_cmd.h  
+  * /enum\_error.h  
+  * /enum\_general.h  
 
-/base  
-/base/circularBuffer.c  
-/base/setter.c
+* /base  
+  * /circularBuffer.c  
+  * /setter.c
 
-/stackRelated  
-/stackRelated/stackrelated.h  
-/stackRelated/trx0.c  
-/stackRelated/uart0.c  
+* /atcommands.c (main file) 
 
-/atcommands.c (main file)  
+/ATuracoli  
+* /stackrelated.h  
+* /trx0.c  
+* /uart0.c  
+ 
 /README.md  
 
 #### Links
