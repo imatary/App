@@ -11,17 +11,26 @@
 
 #include "_global.h"
 
+static void ATERROR_print(ATERROR *value);
+
 /**
  * Enumerated error codes,
  * starting with -1 and counted into negative direction.
  *
- * last modified: 2016/10/26
+ * last modified: 2016/10/27
  */
 
 typedef enum
 {
-	NOT_ABLE_TO_WRITE		= -1,
-	NOT_ABLE_TO_READ		= -2,
+	OP_SUCCESS				=  0,
+	TRX_INIT_ERROR			= -1,
+	BUFFER_IN_FAIL			= -2,
+	BUFFER_OUT_FAIL			= -3,
+	TRANSMIT_OUT_FAIL		= -4,
+	TRANSMIT_IN_FAIL		= -5,
+	NOT_ABLE_TO_WRITE		= -6,
+	NOT_ABLE_TO_READ		= -7,
+	COMMAND_MODE_FAIL		= -8,
 
 	/* ADD NEW CODES HERE! */
 }__attribute__((packed)) ATERROR;
