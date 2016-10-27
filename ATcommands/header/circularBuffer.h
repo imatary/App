@@ -14,8 +14,8 @@
 
 #include <inttypes.h>
 
-#define BUFFER_FAIL     0
-#define BUFFER_SUCCESS  1
+#define BUFFER_FAIL		0
+#define BUFFER_SUCCESS	1
 
 #define BUFFER_SIZE 256				// need to be 2^n (8, 16, 32, 64 ...)
 #define BUFFER_MASK (BUFFER_SIZE-1) // do not forget the brackets
@@ -24,9 +24,12 @@ typedef struct {
 	uint8_t data[BUFFER_SIZE];
 	uint8_t read;					// pointer to sector of oldest contend
 	uint8_t write;					// pointer to empty sector
-} Buffer;
+} buffer_t;
 
-uint8_t BufferIn(Buffer *bufType, uint8_t inByte);
-uint8_t BufferOut(Buffer *bufType, uint8_t *pByte);
+buffer_t UART_Xbuf;
+buffer_t   RX_Xbuf;
+	
+uint8_t BufferIn(buffer_t *bufType, uint8_t inByte);
+uint8_t BufferOut(buffer_t *bufType, uint8_t *pByte);
 
 #endif /* CIRCULARBUFFER_H_ */

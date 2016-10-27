@@ -15,11 +15,11 @@
  *
  * Returns:
  *     BUFFER_FAIL       buffer is full. No more space for more bytes.
- *     BUFFER_SUCCESS    the byte was saved
+ *     BUFFER_SUCCESS	 the byte was saved
  *
  * last modified: 2016/10/26
  */
-uint8_t BufferIn(Buffer *bufType, uint8_t inByte)
+bool_t BufferIn(buffer_t *bufType, uint8_t inByte)
 {
 	uint8_t next = ((bufType->write + 1) & BUFFER_MASK);
 
@@ -38,11 +38,11 @@ uint8_t BufferIn(Buffer *bufType, uint8_t inByte)
  *
  * Returns:
  *     BUFFER_FAIL       buffer is empty. he cannot send a byte.
- *     BUFFER_SUCCESS    1 Byte was delivered
+ *     BUFFER_SUCCESS	 1 Byte was delivered
  *
  * last modified: 2016/10/26
  */
-uint8_t BufferOut(Buffer *bufType, uint8_t *pByte)
+bool_t BufferOut(buffer_t *bufType, uint8_t *pByte)
 {
 	if (bufType->read == bufType->write)
 	return BUFFER_FAIL;

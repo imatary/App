@@ -5,17 +5,27 @@
  *  Author: TOE
  */ 
 
-#include "../header/_global.h"
+#include "../ATcommands/header/_global.h"
 #include "stackrelated.h"
 
 #include "board.h"
 
-txStatus tx_stat = {0,FALSE,FALSE};
-rxStatus rx_stat = {0,0,FALSE,FALSE};
+txStatus_t tx_stat = {0,FALSE,FALSE};
+rxStatus_t rx_stat = {0,0,FALSE,FALSE};
 
-void trx_send_action(int i, int *data)
+/*
+ * TRX_sendAction
+ *
+ * Returns:
+ *     XX       buffer is empty. he cannot send a byte.
+ *     SUCCESS			package was delivered
+ * 
+ * last modified: 2016/10/27
+ */
+
+static ATERROR TRX_sendAction()
 {
-	uint8_t send[256];
+	uint8_t send[PACKAGE_SIZE];
 
 	/* Step 1: prepare packed
 	 * - set IEEE data frames
@@ -33,49 +43,16 @@ void trx_send_action(int i, int *data)
 	send[6] = (netCMD.my >> 8),			/* src. short address */
 	send[7] =   42;						/* TX fail counter */
 	
-	for (int k=8;k < (i + 8) ;k++)
+	for ( int pos = 8; 0xD != send[pos]; pos++)
 	{
-		send[k] = *data;
-		UART_printf("%c", *data++);
+		BufferOut(UART_Xbuf, &send[pos]);
+		#if DEBUG
+			UART_printf("%c",send[pos]);
+		#endif
 	}
-
-#ifdef DEBUG
-	UART_print("\rPrepare: ");
-	for (int k=8;k < (i + 8) ;k++)
-	{
-		UART_printf("%c",send[k]);
-	}
-	UART_print("\r");
-#endif
-
-	/* Step 2: setup transmitter 
-     * - configure radio channel
-     * - enable transmitters automatic crc16 generation
-     * - go into RX AACK state,
-     * - configure address filter
-     * - enable "receive end" IRQ
-     */
-	UART_printf("Set channel: 0x%x\n\r",netCMD.ch);
-    trx_bit_write(SR_CHANNEL,netCMD.ch);
-    trx_bit_write(SR_TX_AUTO_CRC_ON,1);
 	
-	UART_printf("Set PAN ID: 0x%x\n\r",netCMD.id);
-    trx_reg_write(RG_PAN_ID_0,(netCMD.id & 0xff));
-    trx_reg_write(RG_PAN_ID_1,(netCMD.id >> 8  ));
-
-    trx_reg_write(RG_SHORT_ADDR_0,(netCMD.my & 0xff));
-    trx_reg_write(RG_SHORT_ADDR_1,(netCMD.my >> 8  ));
-
-    trx_reg_write(RG_TRX_STATE, CMD_RX_AACK_ON);
-    UART_print("RX_AACK_ON ... ok\n\r");
-	
-	#if defined(TRX_IRQ_TRX_END)
-	trx_reg_write(RG_IRQ_MASK,TRX_IRQ_TRX_END);
-	#elif defined(TRX_IRQ_RX_END)
-	trx_reg_write(RG_IRQ_MASK,TRX_IRQ_TX_END | TRX_IRQ_RX_END);
-	#else
-	#  error "Unknown IRQ bits"
-	#endif
+	/* Step 2: send package
+	 */
 
 	if (tx_stat.in_progress == FALSE)
 	{
@@ -99,8 +76,57 @@ void trx_send_action(int i, int *data)
 		UART_printf("<RX FRAME rx: %4d, fail: %3d, rx_seq: %3d\n", rx_stat.cnt, rx_stat.fail, rx_stat.seq);
 	}
 	
+	return OP_SUCCESS;
+	
 }
 
+/* setup transmitter 
+ * - configure radio channel
+ * - enable transmitters automatic crc16 generation
+ * - go into RX AACK state,
+ * - configure address filter
+ * - enable "receive end" IRQ
+ *
+ * Returns:
+ *     nothing
+ *
+ * last modified: 2016/10/27
+ */
+static void TRX_setup()
+{
+#if DEBUG
+	UART_printf("Set channel:  0x%x\n\r",netCMD.ch);
+	UART_printf("Set PAN ID:   0x%x\n\r",netCMD.id);
+	UART_printf("Set short ID: 0x%x\n\r",netCMD.my);
+	UART_print("RX_AACK_ON ... ok\n\r");				// TODO muss umstellbar sein
+#endif
+	
+	trx_bit_write(SR_CHANNEL,netCMD.ch);
+	trx_bit_write(SR_TX_AUTO_CRC_ON,1);
+		
+	trx_reg_write(RG_PAN_ID_0,(netCMD.id & 0xff));
+	trx_reg_write(RG_PAN_ID_1,(netCMD.id >> 8  ));
+
+	trx_reg_write(RG_SHORT_ADDR_0,(netCMD.my & 0xff));
+	trx_reg_write(RG_SHORT_ADDR_1,(netCMD.my >> 8  ));
+
+	trx_reg_write(RG_TRX_STATE, CMD_RX_AACK_ON);
+	
+	
+	#if defined(TRX_IRQ_TRX_END)
+		trx_reg_write(RG_IRQ_MASK,TRX_IRQ_TRX_END);
+	#elif defined(TRX_IRQ_RX_END)
+		trx_reg_write(RG_IRQ_MASK,TRX_IRQ_TX_END | TRX_IRQ_RX_END);
+	#else
+	#  error "Unknown IRQ bits"
+	#endif
+}
+
+/*
+ * IRQ functions
+ *
+ *
+ */
 #if defined(TRX_IF_RFA1)
 ISR(TRX24_TX_END_vect)
 {

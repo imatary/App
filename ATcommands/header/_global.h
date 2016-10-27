@@ -25,7 +25,7 @@
 #define MAXBYTES	(100)
 
 // === conditions =========================================
-typedef enum { FALSE,TRUE }__attribute__((packed)) bool_t;
+typedef enum { FALSE, TRUE }__attribute__((packed)) bool_t;
 
 // === variables & structs ================================
 typedef struct  {
@@ -41,7 +41,9 @@ typedef struct  {
 
 netCommand netCMD;
 
-void set_default();
+// === functions ==========================================
+void SET_netDefault();
+uint8_t AT_localMode();
 
 
 #endif /* _GLOBAL_H_ */
