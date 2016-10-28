@@ -6,6 +6,7 @@
  */ 
 
 #include "../ATcommands/header/_global.h"
+#include "../ATcommands/header/circularBuffer.h"
 #include "stackrelated.h"
 
 #include "board.h"
@@ -20,52 +21,76 @@ rxStatus_t rx_stat = {0,0,FALSE,FALSE};
  *     XX       buffer is empty. he cannot send a byte.
  *     SUCCESS			package was delivered
  * 
- * last modified: 2016/10/27
+ * last modified: 2016/10/28
  */
 
-static ATERROR TRX_sendAction()
+ATERROR TRX_send()
 {
-	uint8_t send[PACKAGE_SIZE];
+	uint8_t send[PACKAGE_SIZE] = {0};
+	int pos = 14;
 
 	/* Step 1: prepare packed
 	 * - set IEEE data frames
 	 * - set sequence counter
-	 * - write short destination PANID
-	 * - write short source ID
-	 * - set TX fail counter
-	*/	
-	send[0] = 0x21;						/* IEEE 802.15.4 FCF: */
-	send[1] = 0x08;						/* data frame with ack request */
-	send[2] =   42;						/* sequence counter */
-	send[3] = (netCMD.id & 0xff);
-	send[4] = (netCMD.id >> 8);			/* destination PAN_ID */
-	send[5] = (netCMD.my & 0xff);
-	send[6] = (netCMD.my >> 8),			/* src. short address */
-	send[7] =   42;						/* TX fail counter */
+	 * - write destination PANID
+	 * - write extended dest. address
+	 * - write src. short address
+	 */	
 	
-	for ( int pos = 8; 0xD != send[pos]; pos++)
-	{
-		BufferOut(UART_Xbuf, &send[pos]);
-		#if DEBUG
-			UART_printf("%c",send[pos]);
-		#endif
-	}
+	send[ 0] = 0x41;						// IEEE 802.15.4 FCF: 
+	send[ 1] = 0x8C;						// data frame  
+	send[ 2] =   0;							// sequence counter 
 	
-	/* Step 2: send package
-	 */
+	send[ 3] = (uint8_t)(netCMD.id & 0xff);
+	send[ 4] = (uint8_t)(netCMD.id >>  8);	// destination PAN_ID 
+	
+	send[ 5] = (uint8_t)(netCMD.dl >>  0);
+	send[ 6] = (uint8_t)(netCMD.dl >>  8);
+	send[ 7] = (uint8_t)(netCMD.dl >> 16);
+	send[ 8] = (uint8_t)(netCMD.dl >> 24);	// destination ext. addr. low 
+	
+	send[ 9] = (uint8_t)(netCMD.dh >>  0);
+	send[10] = (uint8_t)(netCMD.dh >>  8);
+	send[11] = (uint8_t)(netCMD.dh >> 16);
+	send[12] = (uint8_t)(netCMD.dh >> 24);	// destination ext. addr. high 
+	
+	send[13] = (uint8_t)(netCMD.my & 0xff);
+	send[14] = (uint8_t)(netCMD.my >> 8);	// src. short address
+	//send[7] =   42;						// TX fail counter
 
+	do 
+	{
+		pos +=1;
+		BufferOut(&UART_deBuf, &send[pos]);
+		
+#if DEBUG
+		UART_printf("%c", send[pos]);
+#endif
+
+	} while ( 0xD != send[pos-1] );
+	
+	/* Step 2: setup and send package
+	 */
 	if (tx_stat.in_progress == FALSE)
 	{
-		UART_printf(">TX FRAME tx: %4d, fail: %3d, tx_seq: %3d\n", tx_stat.cnt, tx_stat.fail, send[2]);
+		UART_printf(">TX FRAME tx: %4d, fail: %3d, tx_seq: %3d\n\r", tx_stat.cnt, tx_stat.fail, send[2]);
 		/* some older SPI transceivers require this coming from RX_AACK*/
 		trx_reg_write(RG_TRX_STATE, CMD_PLL_ON);
 		trx_reg_write(RG_TRX_STATE, CMD_TX_ARET_ON);
 
 		send[2] = tx_stat.cnt;
-		send[7] = tx_stat.fail;
-		send[8 + i] = 0;
-		UART_printf("\rSend: %s\n\r", send);
-		trx_frame_write(10 + i, send);
+		//send[7] = tx_stat.fail;
+		
+#if DEBUG
+	UART_print(">Send: ");
+	for (int i=0; i<pos; i++)
+	{
+		UART_printf("%02x ", send[i], i);
+	}
+	UART_print("\n\r");
+#endif
+
+		trx_frame_write(pos + 2, send);
 		tx_stat.in_progress = TRUE;
 		TRX_SLPTR_HIGH();
 		TRX_SLPTR_LOW();
@@ -76,11 +101,13 @@ static ATERROR TRX_sendAction()
 		UART_printf("<RX FRAME rx: %4d, fail: %3d, rx_seq: %3d\n", rx_stat.cnt, rx_stat.fail, rx_stat.seq);
 	}
 	
-	return OP_SUCCESS;
-	
+	if		( tx_stat.fail ) { return TRANSMIT_OUT_FAIL; }
+	else if ( rx_stat.fail ) { return TRANSMIT_IN_FAIL; }
+	else					 { return OP_SUCCESS; }
 }
 
-/* setup transmitter 
+/* 
+ * Setup transmitter 
  * - configure radio channel
  * - enable transmitters automatic crc16 generation
  * - go into RX AACK state,
@@ -92,27 +119,17 @@ static ATERROR TRX_sendAction()
  *
  * last modified: 2016/10/27
  */
-static void TRX_setup()
+void TRX_setup()
 {
-#if DEBUG
-	UART_printf("Set channel:  0x%x\n\r",netCMD.ch);
-	UART_printf("Set PAN ID:   0x%x\n\r",netCMD.id);
-	UART_printf("Set short ID: 0x%x\n\r",netCMD.my);
-	UART_print("RX_AACK_ON ... ok\n\r");				// TODO muss umstellbar sein
-#endif
-	
 	trx_bit_write(SR_CHANNEL,netCMD.ch);
-	trx_bit_write(SR_TX_AUTO_CRC_ON,1);
+	trx_bit_write(SR_TX_AUTO_CRC_ON,TRUE);
 		
-	trx_reg_write(RG_PAN_ID_0,(netCMD.id & 0xff));
-	trx_reg_write(RG_PAN_ID_1,(netCMD.id >> 8  ));
+	TRX_setPanId(netCMD.id);										// target PAN ID
+	TRX_setLongAddr( (uint64_t) netCMD.sh<<32 | netCMD.sl );		// destination extended address
 
-	trx_reg_write(RG_SHORT_ADDR_0,(netCMD.my & 0xff));
-	trx_reg_write(RG_SHORT_ADDR_1,(netCMD.my >> 8  ));
+	trx_reg_write(RG_TRX_STATE, CMD_RX_AACK_ON);					// TODO should be changeable 
+	trx_reg_write(RG_TRX_STATE,CMD_TX_ARET_ON);
 
-	trx_reg_write(RG_TRX_STATE, CMD_RX_AACK_ON);
-	
-	
 	#if defined(TRX_IRQ_TRX_END)
 		trx_reg_write(RG_IRQ_MASK,TRX_IRQ_TRX_END);
 	#elif defined(TRX_IRQ_RX_END)
@@ -120,6 +137,7 @@ static void TRX_setup()
 	#else
 	#  error "Unknown IRQ bits"
 	#endif
+	MCU_IRQ_ENABLE();
 }
 
 /*
@@ -130,12 +148,14 @@ static void TRX_setup()
 #if defined(TRX_IF_RFA1)
 ISR(TRX24_TX_END_vect)
 {
-
+	tx_stat.in_progress = FALSE;
+	rx_stat.done = TRUE;
 }
 
 ISR(TRX24_RX_END_vect)
 {
-
+	tx_stat.in_progress = FALSE;
+	rx_stat.done = TRUE;
 }
 #else  /* !RFA1 */
 ISR(TRX_IRQ_vect)

@@ -11,9 +11,7 @@
 
 #include "_global.h"
 
-static void ATERROR_print(ATERROR *value);
-
-/**
+/*
  * Enumerated error codes,
  * starting with -1 and counted into negative direction.
  *
@@ -35,5 +33,6 @@ typedef enum
 	/* ADD NEW CODES HERE! */
 }__attribute__((packed)) ATERROR;
 
+static void ATERROR_print(ATERROR *value);
 
 #endif /* ENUM_ERROR_H_ */

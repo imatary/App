@@ -20,26 +20,26 @@
 void main(void) 
 {
 	int inchar = 0, counter = 0;
-	ATERROR ret;
-	
-	UART_Xbuf = {{}, 0, 0};
-	  RX_Xbuf = {{}, 0, 0};
+	ATERROR ret = 0;
 	
 	/*
 	 * init peripheral devices
 	 */
-	UART_init();			// init uart
-	ret = TRX_baseInit();	// init transceiver base
+	UART_init();									// init uart
+	BufferInit();
+	if( !TRX_baseInit() ) ret =  TRX_INIT_ERROR;	// init transceiver base
+	SET_netDefault();
+	TRX_setup();
 	// TODO trx read mode - nur die Einstellungen für die Antenne ändern
 
-	sei();					// allow interrupts
+	sei();											// allow interrupts
 
 	/*
 	 * starting main loop
 	 */
 	while (TRUE)
 	{
-		if( ret ) { ATERROR_print(ret); }
+		if( ret ) { ATERROR_print(&ret); }
 		
 		/*
 		 * uart operation
@@ -49,15 +49,15 @@ void main(void)
 		inchar = UART_getc();
 		if ( EOF != inchar )
 		{
-			UART_printf("%c", buf ); // return character immediately
+			UART_printf("%c", inchar );				// return character immediately
 			/*
 			 * push the character into the buffer
 			 * neither interrupts allowed
 			 */
 			cli();
-				ret = BufferIn( &UART_Xbuf, inchar );
+				ret = BufferIn( &UART_deBuf, inchar );
 			sei();
-			if( ret ) { ATERROR_print(ret); continue; }
+			if( ret ) { ATERROR_print(&ret); continue; }
 			
 			
 			/*
@@ -65,8 +65,8 @@ void main(void)
 			 */
 			if( 0xD == inchar ) 
 			{ 
-				ret = TRX_sendAction(); 
-				if ( ret )	{ ATERROR_print(ret); }
+				ret = TRX_send(); 
+				if ( ret )	{ ATERROR_print(&ret); }
 				counter = 0;
 				
 			}
@@ -80,8 +80,8 @@ void main(void)
 				counter += 1;
 				if ( 3 == counter )
 				{
-					ret = AT_localMode();
-					if ( ret )	{ ATERROR_print(ret); }
+					//ret = AT_localMode();
+					//if ( ret )	{ ATERROR_print(&ret); }
 					counter = 0;
 					
 				}
@@ -111,5 +111,6 @@ static void ATERROR_print(ATERROR *value)
 		case NOT_ABLE_TO_WRITE	:
 		case NOT_ABLE_TO_READ	: UART_print("error!"); break;
 		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode."); break;
+		default					: break;
 	}
 }

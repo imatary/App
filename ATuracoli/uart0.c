@@ -15,7 +15,7 @@
  * last modified: 2016/10/26
  */
 
-static inline void UART_init(void)
+void UART_init(void)
 {
 	mcu_init();
 	hif_init(HIF_DEFAULT_BAUDRATE);

@@ -23,7 +23,7 @@
  * UART_printf();	pointer to UART formated out function
  * UART_getc();		pointer to UART read function
  */
-static inline void UART_init(void);
+void UART_init(void);
 #define UART_print(fmt)			hif_echo(FLASH_STRING(fmt))
 #define UART_printf(fmt, ...)	hif_printf(FLASH_STRING(fmt), __VA_ARGS__)
 int (*UART_getc) (void);
@@ -39,10 +39,14 @@ int (*UART_getc) (void);
 
 #define PACKAGE_SIZE 127						// size in bytes
 
-static uint8_t (*TRX_baseInit) (void) = trx_init;
-static void TRX_setup();
-static uint8_t TRX_send();
-static uint8_t TRX_receive(); // TODO
+static uint8_t (*TRX_baseInit)    (void)				= trx_init;
+static    void (*TRX_setPanId)    (uint16_t panid)		= trx_set_panid;
+static    void (*TRX_setShortAddr)(uint16_t shortaddr)	= trx_set_shortaddr;
+static    void (*TRX_setLongAddr) (uint64_t longaddr)	= trx_set_longaddr;
+
+void	TRX_setup();
+ATERROR TRX_send();
+ATERROR TRX_receive(); // TODO
 
 typedef struct {
 	volatile uint8_t cnt;

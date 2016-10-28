@@ -14,10 +14,9 @@
 
 #include <inttypes.h>
 
-#define BUFFER_FAIL		0
-#define BUFFER_SUCCESS	1
+#include "enum_error.h"
 
-#define BUFFER_SIZE 256				// need to be 2^n (8, 16, 32, 64 ...)
+#define BUFFER_SIZE 256				// need to be 2^n (8, 16, 32, 64 ...), for each buffer
 #define BUFFER_MASK (BUFFER_SIZE-1) // do not forget the brackets
 
 typedef struct {
@@ -26,10 +25,18 @@ typedef struct {
 	uint8_t write;					// pointer to empty sector
 } buffer_t;
 
-buffer_t UART_Xbuf;
-buffer_t   RX_Xbuf;
-	
-uint8_t BufferIn(buffer_t *bufType, uint8_t inByte);
-uint8_t BufferOut(buffer_t *bufType, uint8_t *pByte);
+/*
+ * two buffer are initialized to allow parallel work without conflicts
+ * one Buffer for UART op
+ * one Buffer for RX op
+ *
+ * remember both buffer have the size of BUFFER_SIZE
+ */	
+buffer_t UART_deBuf;
+buffer_t   RX_deBuf;
+
+void BufferInit();
+ATERROR BufferIn(buffer_t *bufType, uint8_t inByte);
+ATERROR BufferOut(buffer_t *bufType, uint8_t *pByte);
 
 #endif /* CIRCULARBUFFER_H_ */
