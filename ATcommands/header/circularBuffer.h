@@ -14,19 +14,29 @@
 
 #include <inttypes.h>
 
-#define BUFFER_FAIL     0
-#define BUFFER_SUCCESS  1
+#include "enum_error.h"
 
-#define BUFFER_SIZE 256				// need to be 2^n (8, 16, 32, 64 ...)
-#define BUFFER_MASK (BUFFER_SIZE-1) // do not forget the brackets
+#define DE_BUFFER_SIZE 256				// need to be 2^n (8, 16, 32, 64 ...), for each buffer
+#define DE_BUFFER_MASK (DE_BUFFER_SIZE-1) // do not forget the brackets
 
 typedef struct {
-	uint8_t data[BUFFER_SIZE];
+	uint8_t data[DE_BUFFER_SIZE];
 	uint8_t read;					// pointer to sector of oldest contend
 	uint8_t write;					// pointer to empty sector
-} Buffer;
+} deBuffer_t;
 
-uint8_t BufferIn(Buffer *bufType, uint8_t inByte);
-uint8_t BufferOut(Buffer *bufType, uint8_t *pByte);
+/*
+ * two buffer are initialized to allow parallel work without conflicts
+ * one Buffer for UART op
+ * one Buffer for RX op
+ *
+ * remember both buffer have the size of BUFFER_SIZE
+ */	
+deBuffer_t UART_deBuf;
+deBuffer_t   RX_deBuf;
+
+void BufferInit();
+ATERROR BufferIn(deBuffer_t *bufType, uint8_t inByte);
+ATERROR BufferOut(deBuffer_t *bufType, uint8_t *pByte);
 
 #endif /* CIRCULARBUFFER_H_ */

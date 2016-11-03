@@ -17,10 +17,10 @@
 
 typedef enum
 {
-	AT_CMD1 = 0,
-	AT_CMD2,
-	AT_CMD3,
-	AT_CMD4,
+	AT_CH = 0,
+	AT_DH,
+	AT_DL,
+	AT_ID,
 	AT_CMD5,
 	AT_CMD6,
 	AT_CMD7,
