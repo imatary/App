@@ -35,6 +35,10 @@ int (*UART_getc) (void);
  * TRX_setup();			setup the transceiver for sending or receiving data
  * TRX_send();			function to sent data over air
  * TRX_receive();		function to receive data over the air
+ * TRX_msgFrame();		prepare the buffer to send a simple text message
+ * TRX_atRemoteFrame();	prepare the buffer to send a AT Remote command
+ * TRX_txHandler();
+ * TRX_rxHandler();
  */
 
 #define PACKAGE_SIZE 127						// size in bytes
@@ -44,9 +48,15 @@ static    void (*TRX_setPanId)    (uint16_t panid)		= trx_set_panid;
 static    void (*TRX_setShortAddr)(uint16_t shortaddr)	= trx_set_shortaddr;
 static    void (*TRX_setLongAddr) (uint64_t longaddr)	= trx_set_longaddr;
 
-void	TRX_setup();
-ATERROR TRX_send();
-ATERROR TRX_receive(); // TODO
+void	TRX_setup(void);
+void	TRX_ack(void);
+ATERROR TRX_send(void);
+
+int TRX_msgFrame		(uint8_t *send);
+int TRX_atRemoteFrame	(uint8_t *send);
+
+static void TRX_txHandler(void);
+static void TRX_rxHandler(void);
 
 typedef struct {
 	volatile uint8_t cnt;

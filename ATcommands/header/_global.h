@@ -30,6 +30,16 @@ typedef enum { FALSE, TRUE }__attribute__((packed)) bool_t;
 
 // === variables & structs ================================
 typedef struct  {
+	uint8_t	 _type;
+	uint16_t _mac;
+	uint8_t  _seq;
+	uint8_t  _count;
+	uint8_t  _option;
+} deFrame;
+
+deFrame frame;
+
+typedef struct  {
 	uint8_t  ch;
 	uint16_t id;
 	uint32_t dh;

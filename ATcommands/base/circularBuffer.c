@@ -20,15 +20,15 @@
  *
  * last modified: 2016/10/26
  */
-ATERROR BufferIn(buffer_t *bufType, uint8_t inByte)
+ATERROR BufferIn(deBuffer_t *bufType, uint8_t inByte)
 {
-	uint8_t next = ((bufType->write + 1) & BUFFER_MASK);
+	uint8_t next = ((bufType->write + 1) & DE_BUFFER_MASK);
 
 	if (bufType->read == next)
 	return BUFFER_IN_FAIL; // full
 
 	//buffer.data[buffer.write] = byte;
-	bufType->data[bufType->write & BUFFER_MASK] = inByte; // absolutely secure (related to the author)
+	bufType->data[bufType->write & DE_BUFFER_MASK] = inByte; // absolutely secure (related to the author)
 	bufType->write = next;
 
 	return OP_SUCCESS;
@@ -43,14 +43,14 @@ ATERROR BufferIn(buffer_t *bufType, uint8_t inByte)
  *
  * last modified: 2016/10/26
  */
-ATERROR BufferOut(buffer_t *bufType, uint8_t *pByte)
+ATERROR BufferOut(deBuffer_t *bufType, uint8_t *pByte)
 {
 	if (bufType->read == bufType->write)
 	return BUFFER_OUT_FAIL;
 
 	*pByte = bufType->data[bufType->read];
 
-	bufType->read = (bufType->read+1) & BUFFER_MASK;
+	bufType->read = (bufType->read+1) & DE_BUFFER_MASK;
 
 	return OP_SUCCESS;
 }
@@ -65,7 +65,7 @@ ATERROR BufferOut(buffer_t *bufType, uint8_t *pByte)
  */
 void BufferInit()
 {
-	for( int i = 0; BUFFER_SIZE > i; i++ )
+	for( int i = 0; DE_BUFFER_SIZE > i; i++ )
 	{
 		UART_deBuf.data[i] = 0;
 		  RX_deBuf.data[i] = 0;

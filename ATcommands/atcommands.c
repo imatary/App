@@ -23,14 +23,16 @@ void main(void)
 	ATERROR ret = 0;
 	
 	/*
+	 * initialize structs
+	 */
+	SET_netDefault();
+	/*
 	 * init peripheral devices
 	 */
 	UART_init();									// init uart
 	BufferInit();
 	if( !TRX_baseInit() ) ret =  TRX_INIT_ERROR;	// init transceiver base
-	SET_netDefault();
 	TRX_setup();
-	// TODO trx read mode - nur die Einstellungen für die Antenne ändern
 
 	sei();											// allow interrupts
 
@@ -39,7 +41,7 @@ void main(void)
 	 */
 	while (TRUE)
 	{
-		if( ret ) { ATERROR_print(&ret); }
+		if( ret ) { ATERROR_print(&ret); ret = 0; }
 		
 		/*
 		 * uart operation
@@ -57,7 +59,7 @@ void main(void)
 			cli();
 				ret = BufferIn( &UART_deBuf, inchar );
 			sei();
-			if( ret ) { ATERROR_print(&ret); continue; }
+			if( ret ) { ATERROR_print(&ret); ret = 0; continue; }
 			
 			
 			/*
@@ -66,7 +68,7 @@ void main(void)
 			if( 0xD == inchar ) 
 			{ 
 				ret = TRX_send(); 
-				if ( ret )	{ ATERROR_print(&ret); }
+				if ( ret )	{ ATERROR_print(&ret); ret = 0; }
 				counter = 0;
 				
 			}
@@ -89,13 +91,8 @@ void main(void)
 			} /* end of 0x2B condition */
 			
 		} /* end of uart condition */
-		
-		/*
-		 * receiver operation
-		 * 
-		 * last modified:
-		 */
-	}
+
+	} /* end of while loop */ 
 
 }
 
@@ -103,11 +100,11 @@ static void ATERROR_print(ATERROR *value)
 {
 	switch(*value)
 	{
-		case TRX_INIT_ERROR		: UART_print("Cannot initialize trx base!"); break;
+		case TRX_INIT_ERROR		: UART_print("Cannot initialize trx base!\r\n"); break;
 		case BUFFER_IN_FAIL		: UART_print("BufferIn error!"); break;
-		case BUFFER_OUT_FAIL	: UART_print("error!"); break;
+		case BUFFER_OUT_FAIL	: UART_print("BufferOut error!"); break;
 		case TRANSMIT_OUT_FAIL	: UART_print("Transmitter send error! Data can't transmitted."); break;
-		case TRANSMIT_IN_FAIL	:
+		case TRANSMIT_IN_FAIL	: 
 		case NOT_ABLE_TO_WRITE	:
 		case NOT_ABLE_TO_READ	: UART_print("error!"); break;
 		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode."); break;
