@@ -13,16 +13,19 @@
 #define CIRCULARBUFFER_H_
 
 #include <inttypes.h>
+#include <stdint.h>
 
 #include "enum_error.h"
+#include "_global.h"
 
-#define DE_BUFFER_SIZE 256				// need to be 2^n (8, 16, 32, 64 ...), for each buffer
-#define DE_BUFFER_MASK (DE_BUFFER_SIZE-1) // do not forget the brackets
+#define DE_BUFFER_SIZE 256					// need to be 2^n (8, 16, 32, 64 ...), for each buffer
+#define DE_BUFFER_MASK (DE_BUFFER_SIZE-1)	// do not forget the brackets
 
 typedef struct {
 	uint8_t data[DE_BUFFER_SIZE];
-	uint8_t read;					// pointer to sector of oldest contend
-	uint8_t write;					// pointer to empty sector
+	uint8_t read;							// pointer to sector of oldest contend
+	uint8_t write;							// pointer to empty sector
+	bool_t	newContent;						// status if the buffer has new content received 
 } deBuffer_t;
 
 /*
@@ -35,8 +38,10 @@ typedef struct {
 deBuffer_t UART_deBuf;
 deBuffer_t   RX_deBuf;
 
-void BufferInit();
-ATERROR BufferIn(deBuffer_t *bufType, uint8_t inByte);
-ATERROR BufferOut(deBuffer_t *bufType, uint8_t *pByte);
+void BufferInit			(deBuffer_t *bufType, ...);
+void BufferReadReset	(deBuffer_t* bufType, uint8_t len);
+void BufferNewContent	(deBuffer_t *bufType, bool_t val);
+ATERROR BufferIn		(deBuffer_t *bufType, uint8_t inByte);
+ATERROR BufferOut		(deBuffer_t *bufType, uint8_t *pByte);
 
 #endif /* CIRCULARBUFFER_H_ */

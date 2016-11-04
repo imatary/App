@@ -51,6 +51,7 @@ static    void (*TRX_setLongAddr) (uint64_t longaddr)	= trx_set_longaddr;
 void	TRX_setup(void);
 void	TRX_ack(void);
 ATERROR TRX_send(void);
+ATERROR TRX_receive(void);
 
 int TRX_msgFrame		(uint8_t *send);
 int TRX_atRemoteFrame	(uint8_t *send);
@@ -59,16 +60,16 @@ static void TRX_txHandler(void);
 static void TRX_rxHandler(void);
 
 typedef struct {
-	volatile uint8_t cnt;
-	volatile uint8_t fail;
-	volatile bool_t in_progress;
+	uint8_t cnt;
+	uint8_t fail;
+	bool_t in_progress;
 }txStatus_t;
 
 typedef struct {
-	volatile uint8_t cnt;
-	volatile uint8_t seq;
-	volatile bool_t fail;
-	volatile bool_t done;
+	uint8_t cnt;
+	uint8_t seq;
+	bool_t fail;
+	bool_t done;
 }rxStatus_t;
 
 

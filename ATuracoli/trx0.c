@@ -58,7 +58,7 @@ void TRX_setup()
  * last modified: 2016/11/01
  */
 
-ATERROR TRX_send()
+ATERROR TRX_send(void)
 {
 	uint8_t send[PACKAGE_SIZE] = {0};
 	int pos;
@@ -277,7 +277,81 @@ int TRX_atRemoteFrame(uint8_t *send)
 	return pos;
 }
 
+/*
+ * TRX_receive()
+ * translated received packages 
+ *
+ * Returns:
+ *     nothing
+ *
+ * last modified: 2016/11/01
+ */
 
+
+ATERROR TRX_receive(void)
+{
+	uint8_t	outchar = 0, flen = 0;
+	
+	rx_stat.done = FALSE;
+	BufferNewContent(&RX_deBuf, FALSE);
+	
+	cli();
+	BufferOut(&RX_deBuf, &flen);
+	sei();
+	/* 
+	 * if frame larger then 5 bytes, update RX frame counter, send ACK and print to UART 
+	 * if frame equal 5 bytes, packet is a ACK package
+	 * else a error is occurred
+	 */
+	if ( flen > 0x5 ) 
+	{
+		rx_stat.cnt += 1;
+
+		for (uint8_t i = 0; i < flen; i++)
+		{
+			cli();
+			BufferOut(&RX_deBuf, &outchar);
+			sei();
+			if ( i == 0x2 ) {	rx_stat.seq = outchar; }
+			if ( i == flen-3) 
+			{ 
+				if (0xD == outchar) { UART_print("\r\n");			}
+				else				{ UART_printf("%c", outchar);	}
+			}
+		}
+		
+		TRX_ack();
+	}
+	else if ( flen == 0x5 )
+	{
+		// ACK check
+	}
+	else
+	{
+		rx_stat.fail++;
+		return TRANSMIT_IN_FAIL;
+	}	
+	
+	return OP_SUCCESS;
+}
+
+
+void TRX_ack(void)
+{
+	uint8_t send[5];
+	send[0] = 0x2;
+	send[1] = 0x0;
+	send[2] = rx_stat.seq;
+	send[3] = 0x1;
+	send[4] = 0x1;
+	trx_reg_write(RG_TRX_STATE, CMD_PLL_ON);
+	trx_reg_write(RG_TRX_STATE, CMD_TX_ARET_ON);
+	trx_frame_write(5, send);
+	tx_stat.in_progress = TRUE;
+	TRX_SLPTR_HIGH();
+	TRX_SLPTR_LOW();
+	trx_reg_write(RG_TRX_STATE, CMD_RX_ON);
+}
 
 /*
  * Handler for tx and rx frames
@@ -297,71 +371,49 @@ static void TRX_txHandler()
 	if (TRAC_SUCCESS != trac_status)
 	{
 		tx_stat.fail++;
-		UART_print("tx fail\r\n");
 	}
 	else
 	{
 		tx_stat.cnt++;
-		UART_print("tx success\r\n");
 	}
 }
 
 static void TRX_rxHandler()
 {
-	uint8_t counter, flen = 0, *pfrm;
-	static uint8_t buf[PACKAGE_SIZE] = {0};
-	uint16_t crc;
-	pfrm = buf;
-	rx_stat.done = TRUE;
+	uint8_t flen = 0, receive[PACKAGE_SIZE];
+	uint16_t crc = 0;
+	
+	flen = trx_frame_read(&receive[0], sizeof(receive), NULL);
+	if ( 0x07F < flen ) // 0x7f == 127(dez)
+	{
+		UART_print("buffer overflow\r\n");
+		return;
+	}
+	/*
+	 * save the length of the frame in the first field of the buffer
+	 */
+	cli();
+	BufferIn(&RX_deBuf, flen);
+	sei();
 	
 	/*
-	 * upload frame and check for CRC16 validity 
-	 */
-	counter = flen = trx_frame_read(pfrm, sizeof(buf), NULL);
-	crc = 0;
-	do
+	 * check frame for CRC16 validity and upload into RX buffer
+	 */	
+	for (uint8_t i = 0; i < flen; i++)
 	{
-		crc = _crc_ccitt_update(crc, *pfrm++);
+		cli();
+		BufferIn( &RX_deBuf, receive[i] );
+		sei();
+		crc = _crc_ccitt_update(crc, receive[i]);
 	}
-	while(flen--);
 	
 	/* 
-	 * if crc is correct and frame larger then 5 bytes, update RX frame counter, send ACK and print to UART 
-	 * if crc is correct and frame equal 5 bytes, packet is a ACK package
-	 * else a error is occurred
+	 * if crc is correct update var newContent 
 	 */
-	if ( crc == 0 && counter > 5 )
-	{
-		rx_stat.cnt += 1;
-		rx_stat.seq  = buf[2];
-UART_printf("<RX FRAME rx: %4d, fail: %3d, rx_seq: %3d\r\n", rx_stat.cnt, rx_stat.fail, rx_stat.seq);
-		UART_printf("%c",buf[counter-3]);
-		//TRX_ack();
-	}
-	else if ( crc == 0 && counter == 5 )
-	{
-		// ACK check
-	}
-	else
-	{
-		UART_print("Receiver error!\r\n");
-		rx_stat.fail++;
-	}	
-	UART_print("\r\n");
-}
+	if ( crc == 0 ) { BufferNewContent(&RX_deBuf, TRUE); }
 
-void TRX_ack(void)
-{
-	uint8_t send[5];
-	send[0] = 0x2;
-	send[1] = 0x0;
-	send[2] = rx_stat.seq;
-	send[3] = 0x1;
-	send[4] = 0x1;
-	trx_reg_write(RG_TRX_STATE, CMD_PLL_ON);
-
-	trx_frame_write(5, send);
-	trx_reg_write(RG_TRX_STATE, CMD_RX_ON); 
+	rx_stat.done = TRUE;
+	
 }
 
 /*

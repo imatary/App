@@ -29,6 +29,7 @@ typedef enum
 	NOT_ABLE_TO_WRITE		= -6,
 	NOT_ABLE_TO_READ		= -7,
 	COMMAND_MODE_FAIL		= -8,
+	TRANSMIT_CRC_FAIL		= -9,
 
 	/* ADD NEW CODES HERE! */
 }__attribute__((packed)) ATERROR;

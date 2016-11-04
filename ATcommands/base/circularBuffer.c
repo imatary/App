@@ -8,6 +8,7 @@
  * http://www.mikrocontroller.net/articles/FIFO
  */ 
 
+#include <stdarg.h>
 #include "../header/circularBuffer.h"
 #include "../header/_global.h"
 
@@ -27,8 +28,8 @@ ATERROR BufferIn(deBuffer_t *bufType, uint8_t inByte)
 	if (bufType->read == next)
 	return BUFFER_IN_FAIL; // full
 
-	//buffer.data[buffer.write] = byte;
-	bufType->data[bufType->write & DE_BUFFER_MASK] = inByte; // absolutely secure (related to the author)
+	bufType->data[bufType->write] = inByte;
+	//bufType->data[bufType->write & DE_BUFFER_MASK] = inByte; // absolutely secure (related to the author)
 	bufType->write = next;
 
 	return OP_SUCCESS;
@@ -57,21 +58,41 @@ ATERROR BufferOut(deBuffer_t *bufType, uint8_t *pByte)
 
 /*
  * Initialize the UART and the RX buffer
+ * it takes a variable list of buffer
+ * the last value need to be the NULL argument
  *
  * Returns:
  *     nothing
  *
  * last modified: 2016/10/28
  */
-void BufferInit()
+void BufferInit(deBuffer_t *bufType, ...)
 {
-	for( int i = 0; DE_BUFFER_SIZE > i; i++ )
+	static va_list arg;
+	deBuffer_t *bufout = bufType;
+	
+	va_start(arg,bufType);
+	do 
 	{
-		UART_deBuf.data[i] = 0;
-		  RX_deBuf.data[i] = 0;
-	}
-	UART_deBuf.read  = 0;
-	UART_deBuf.write = 0;
-	  RX_deBuf.read  = 0;
-	  RX_deBuf.write = 0;
+		for( int i = 0; DE_BUFFER_SIZE > i; i++ )
+		{
+			bufout->data[i] = 0;
+		}
+		bufout->read = 0;
+		bufout->write = 0;
+		bufout->newContent	= FALSE;
+		bufout = va_arg(arg, deBuffer_t*);
+		
+	} while (bufout != NULL);
+	va_end(arg);
+}
+
+void BufferNewContent(deBuffer_t *bufType, bool_t val)
+{
+	bufType->newContent = val;
+}
+
+void BufferReadReset (deBuffer_t* bufType, uint8_t len)
+{
+	bufType->read -= len;
 }
