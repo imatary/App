@@ -31,8 +31,7 @@ int (*UART_getc) (void);
 /*
  * transceiver (trx) functions
  *
- * TRX_baseInit();		pointer to trx base initializer function
- * TRX_setup();			setup the transceiver for sending or receiving data
+ * TRX_baseInit();		base initializer and setup the transceiver for sending or receiving data
  * TRX_send();			function to sent data over air
  * TRX_receive();		function to receive data over the air
  * TRX_msgFrame();		prepare the buffer to send a simple text message
@@ -43,13 +42,11 @@ int (*UART_getc) (void);
 
 #define PACKAGE_SIZE 127						// size in bytes
 
-static uint8_t (*TRX_baseInit)    (void)				= trx_init;
 static    void (*TRX_setPanId)    (uint16_t panid)		= trx_set_panid;
 static    void (*TRX_setShortAddr)(uint16_t shortaddr)	= trx_set_shortaddr;
 static    void (*TRX_setLongAddr) (uint64_t longaddr)	= trx_set_longaddr;
 
-void	TRX_setup(void);
-void	TRX_ack(void);
+uint8_t TRX_baseInit(void);
 ATERROR TRX_send(void);
 ATERROR TRX_receive(void);
 

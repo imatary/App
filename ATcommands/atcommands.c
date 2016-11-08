@@ -16,10 +16,9 @@
 #include "header/circularBuffer.h"
 #include "../ATuracoli/stackrelated.h"
 
-
 void main(void) 
 {
-	int inchar = 0, counter = 0;
+	volatile int inchar = 0, counter = 0;
 	ATERROR ret = 0;
 	
 	/*
@@ -32,7 +31,6 @@ void main(void)
 	UART_init();									// init uart
 	BufferInit(&UART_deBuf, &RX_deBuf, NULL);
 	if( !TRX_baseInit() ) ret =  TRX_INIT_ERROR;	// init transceiver base
-	TRX_setup();
 
 	sei();											// allow interrupts
 
