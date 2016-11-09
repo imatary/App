@@ -43,9 +43,9 @@ uint8_t TRX_baseInit(void)
 	trx_bit_write(SR_CHANNEL,netCMD.ch);
 	trx_bit_write(SR_TX_AUTO_CRC_ON,TRUE);
 		
-	TRX_setPanId( netCMD.id );										// target PAN ID
-	TRX_setLongAddr( (uint64_t) netCMD.sh<<32 | netCMD.sl );		// device long address
-	TRX_setShortAddr( netCMD.my );									// short address
+	TRX_setPanId( RFmodul.netCMD_id );										// target PAN ID
+	TRX_setLongAddr( (uint64_t) RFmodul.netCMD_sh<<32 | RFmodul.netCMD_sl );		// device long address
+	TRX_setShortAddr( RFmodul.netCMD_my );									// short address
 
 	trx_reg_write(RG_TRX_STATE, CMD_RX_AACK_ON); 
 	
@@ -182,27 +182,27 @@ int TRX_msgFrame(uint8_t *send)
 	 * - write src. short address
 	 */	
 	
-	sprintf((char*)(send+ 0),"%c",0x61);				// IEEE 802.15.4 FCF: 
-	sprintf((char*)(send+ 1),"%c",0x8c);				// data frame  
-	sprintf((char*)(send+ 2),"%c",0x0);					// sequence counter 
+	sprintf((char*)(send+ 0),"%c",0x61);						// IEEE 802.15.4 FCF: 
+	sprintf((char*)(send+ 1),"%c",0x8c);						// data frame  
+	sprintf((char*)(send+ 2),"%c",0x0);							// sequence counter 
 	
-	sprintf((char*)(send+ 3),"%c",netCMD.id & 0xff);
-	sprintf((char*)(send+ 4),"%c",netCMD.id >>  8);		// destination PAN_ID
+	sprintf((char*)(send+ 3),"%c",RFmodul.netCMD_id & 0xff);
+	sprintf((char*)(send+ 4),"%c",RFmodul.netCMD_id >>  8);		// destination PAN_ID
 	
-	sprintf((char*)(send+ 5),"%c",netCMD.dl >>  0);
-	sprintf((char*)(send+ 6),"%c",netCMD.dl >>  8);
-	sprintf((char*)(send+ 7),"%c",netCMD.dl >> 16);
-	sprintf((char*)(send+ 8),"%c",netCMD.dl >> 24);		// destination ext. addr. low 
+	sprintf((char*)(send+ 5),"%c",RFmodul.netCMD_dl >>  0);
+	sprintf((char*)(send+ 6),"%c",RFmodul.netCMD_dl >>  8);
+	sprintf((char*)(send+ 7),"%c",RFmodul.netCMD_dl >> 16);
+	sprintf((char*)(send+ 8),"%c",RFmodul.netCMD_dl >> 24);		// destination ext. addr. low 
 	
-	sprintf((char*)(send+ 9),"%c",netCMD.dh >>  0);
-	sprintf((char*)(send+10),"%c",netCMD.dh >>  8);
-	sprintf((char*)(send+11),"%c",netCMD.dh >> 16);
-	sprintf((char*)(send+12),"%c",netCMD.dh >> 24);		// destination ext. addr. high 
+	sprintf((char*)(send+ 9),"%c",RFmodul.netCMD_dh >>  0);
+	sprintf((char*)(send+10),"%c",RFmodul.netCMD_dh >>  8);
+	sprintf((char*)(send+11),"%c",RFmodul.netCMD_dh >> 16);
+	sprintf((char*)(send+12),"%c",RFmodul.netCMD_dh >> 24);		// destination ext. addr. high 
 	
-	sprintf((char*)(send+13),"%c",netCMD.my & 0xff);
-	sprintf((char*)(send+14),"%c",netCMD.my >> 8);		// src. short address
+	sprintf((char*)(send+13),"%c",RFmodul.netCMD_my & 0xff);
+	sprintf((char*)(send+14),"%c",RFmodul.netCMD_my >> 8);		// src. short address
 	sprintf((char*)(send+15),"%c",0x0);					
-	sprintf((char*)(send+16),"%c",0x0);					// I do not know in which relation this value stands, but it is in all test 04
+	sprintf((char*)(send+16),"%c",0x0);							// I do not know in which relation this value stands, but it is in all test 04
 	pos += 16;
 	do
 	{
@@ -240,41 +240,41 @@ int TRX_atRemoteFrame(uint8_t *send)
 	sprintf((char*)(send+ 1),"%c",0x8c);
 	sprintf((char*)(send+ 2),"%c",0x0);
 	
-	sprintf((char*)(send+ 3),"%c",netCMD.id & 0xff);
-	sprintf((char*)(send+ 4),"%c",netCMD.id >>  8);		// destination PAN_ID
+	sprintf((char*)(send+ 3),"%c",RFmodul.netCMD_id & 0xff);
+	sprintf((char*)(send+ 4),"%c",RFmodul.netCMD_id >>  8);		// destination PAN_ID
 	
-	sprintf((char*)(send+ 5),"%c",netCMD.dl >>  0);
-	sprintf((char*)(send+ 6),"%c",netCMD.dl >>  8);
-	sprintf((char*)(send+ 7),"%c",netCMD.dl >> 16);
-	sprintf((char*)(send+ 8),"%c",netCMD.dl >> 24);		// destination ext. addr. low
+	sprintf((char*)(send+ 5),"%c",RFmodul.netCMD_dl >>  0);
+	sprintf((char*)(send+ 6),"%c",RFmodul.netCMD_dl >>  8);
+	sprintf((char*)(send+ 7),"%c",RFmodul.netCMD_dl >> 16);
+	sprintf((char*)(send+ 8),"%c",RFmodul.netCMD_dl >> 24);		// destination ext. addr. low
 	
-	sprintf((char*)(send+ 9),"%c",netCMD.dh >>  0);
-	sprintf((char*)(send+10),"%c",netCMD.dh >>  8);
-	sprintf((char*)(send+11),"%c",netCMD.dh >> 16);
-	sprintf((char*)(send+12),"%c",netCMD.dh >> 24);		// destination ext. addr. high
+	sprintf((char*)(send+ 9),"%c",RFmodul.netCMD_dh >>  0);
+	sprintf((char*)(send+10),"%c",RFmodul.netCMD_dh >>  8);
+	sprintf((char*)(send+11),"%c",RFmodul.netCMD_dh >> 16);
+	sprintf((char*)(send+12),"%c",RFmodul.netCMD_dh >> 24);		// destination ext. addr. high
 	
-	sprintf((char*)(send+13),"%c",netCMD.my & 0xff);
-	sprintf((char*)(send+14),"%c",netCMD.my >> 8);		// src. short address
+	sprintf((char*)(send+13),"%c",RFmodul.netCMD_my & 0xff);
+	sprintf((char*)(send+14),"%c",RFmodul.netCMD_my >> 8);		// src. short address
 	
 	sprintf((char*)(send+15),"%c",0xB5);				
-	sprintf((char*)(send+16),"%c",0x04);				// I do not know in which relation this line stands, but it is in all test 04
+	sprintf((char*)(send+16),"%c",0x04);						// I do not know in which relation this line stands, but it is in all test 04
 	
 	// begin data
-	sprintf((char*)(send+17),"%c",0x01);				// Frame ID
+	sprintf((char*)(send+17),"%c",0x01);						// Frame ID
 	
-	sprintf((char*)(send+18),"%c",netCMD.dh >> 24);
-	sprintf((char*)(send+19),"%c",netCMD.dh >> 16);
-	sprintf((char*)(send+20),"%c",netCMD.dh >>  8);
-	sprintf((char*)(send+21),"%c",netCMD.dh >>  0);
-	sprintf((char*)(send+22),"%c",netCMD.dl >> 24);
-	sprintf((char*)(send+23),"%c",netCMD.dl >> 16);
-	sprintf((char*)(send+24),"%c",netCMD.dl >>  8);
-	sprintf((char*)(send+25),"%c",netCMD.dl >>  0);		// destination long addr.
+	sprintf((char*)(send+18),"%c",RFmodul.netCMD_dh >> 24);
+	sprintf((char*)(send+19),"%c",RFmodul.netCMD_dh >> 16);
+	sprintf((char*)(send+20),"%c",RFmodul.netCMD_dh >>  8);
+	sprintf((char*)(send+21),"%c",RFmodul.netCMD_dh >>  0);
+	sprintf((char*)(send+22),"%c",RFmodul.netCMD_dl >> 24);
+	sprintf((char*)(send+23),"%c",RFmodul.netCMD_dl >> 16);
+	sprintf((char*)(send+24),"%c",RFmodul.netCMD_dl >>  8);
+	sprintf((char*)(send+25),"%c",RFmodul.netCMD_dl >>  0);		// destination long addr.
 	
 	sprintf((char*)(send+26),"%c",0xff);
-	sprintf((char*)(send+27),"%c",0xfe);				// destination short addr.
+	sprintf((char*)(send+27),"%c",0xfe);						// destination short addr.
 	
-	sprintf((char*)(send+28),"%c",0x02);				// cmd option
+	sprintf((char*)(send+28),"%c",0x02);						// cmd option
 	pos = 28;
 	// content	
 	do

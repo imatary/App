@@ -24,13 +24,13 @@ void main(void)
 	/*
 	 * initialize structs
 	 */
-	SET_netDefault();
+	SET_allDefault();
 	/*
 	 * init peripheral devices
 	 */
-	UART_init();									// init uart
+	UART_init();									
 	BufferInit(&UART_deBuf, &RX_deBuf, NULL);
-	if( !TRX_baseInit() ) ret =  TRX_INIT_ERROR;	// init transceiver base
+	if( !TRX_baseInit() ) ret =  TRX_INIT_ERROR;
 
 	sei();											// allow interrupts
 
