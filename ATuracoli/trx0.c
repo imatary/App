@@ -11,17 +11,19 @@
 #include "../ATcommands/header/_global.h"
 #include "../ATcommands/header/circularBuffer.h"
 #include "stackrelated.h"
+#include "stackdefines.h"
 
 #include "board.h"
 #include "transceiver.h"
 
-#define API 0
+#define PACKAGE_SIZE 127	// size in bytes
 
 txStatus_t tx_stat = {1,FALSE,FALSE};
 rxStatus_t rx_stat = {0,0,FALSE,FALSE};
 
 /* 
  * Setup transmitter 
+ * - set the function pointer
  * - configure radio channel
  * - configure address filter 
  * - enable transmitters automatic crc16 generation
@@ -32,28 +34,45 @@ rxStatus_t rx_stat = {0,0,FALSE,FALSE};
  * Returns:
  *     nothing
  *
- * last modified: 2016/11/08
+ * last modified: 2016/11/10
  */
 uint8_t TRX_baseInit(void)
 {	
 	uint8_t ret;
-	trx_io_init(SPI_RATE_1_2);
-	ret = trx_init();
 	
-	trx_bit_write(SR_CHANNEL,netCMD.ch);
-	trx_bit_write(SR_TX_AUTO_CRC_ON,TRUE);
+	TRX_setPanId	 = trx_set_panid;
+	TRX_setShortAddr = trx_set_shortaddr;
+	TRX_setLongAddr	 = trx_set_longaddr;
+	TRX_init		 = trx_init;
+	TRX_spiInit		 = trx_io_init;
+	TRX_writeReg	 = trx_reg_write;
+	TRX_readReg		 = trx_reg_read;
+	TRX_writeBit	 = trx_bit_write;
+	TRX_readBit		 = trx_bit_read;	
+	TRX_writeTX		 = trx_frame_write;
+	TRX_readRX		 = trx_frame_read;
+	TRX_getRxLength  = trx_frame_get_length;
+	
+	
+	TRX_spiInit(deSPI_RATE_1_2);
+	ret = TRX_init();
+	
+	TRX_writeBit(deSR_CHANNEL, RFmodul.netCMD_ch);
+	TRX_writeBit(deSR_TX_AUTO_CRC_ON, TRUE);
 		
-	TRX_setPanId( RFmodul.netCMD_id );										// target PAN ID
-	TRX_setLongAddr( (uint64_t) RFmodul.netCMD_sh<<32 | RFmodul.netCMD_sl );		// device long address
-	TRX_setShortAddr( RFmodul.netCMD_my );									// short address
+	TRX_setPanId( RFmodul.netCMD_id );											// target PAN ID
+	TRX_setLongAddr( (uint64_t) RFmodul.netCMD_sh << 32 | RFmodul.netCMD_sl );	// device long address
+	TRX_setShortAddr( RFmodul.netCMD_my );										// short address
 
-	trx_reg_write(RG_TRX_STATE, CMD_RX_AACK_ON); 
+	TRX_writeReg(deRG_TRX_STATE, deCMD_RX_AACK_ON); 
 	
 	
-	#if defined(TRX_IRQ_TRX_END)
-		trx_reg_write(RG_IRQ_MASK,TRX_IRQ_TRX_END);
-	#elif defined(TRX_IRQ_RX_END)
-		trx_reg_write(RG_IRQ_MASK,TRX_IRQ_RX_END | TRX_IRQ_TX_END );
+	#if defined(deTRX_IRQ_TRX_END)
+		TRX_writeReg(deRG_IRQ_MASK, deTRX_IRQ_TRX_END);
+		
+	#elif defined(deTRX_IRQ_RX_END)
+		TRX_writeReg(deRG_IRQ_MASK, deTRX_IRQ_RX_END | deTRX_IRQ_TX_END );
+		
 	#else
 	#  error "Unknown IRQ bits"
 	#endif
@@ -74,61 +93,27 @@ uint8_t TRX_baseInit(void)
 ATERROR TRX_send(void)
 {
 	uint8_t send[PACKAGE_SIZE] = {0};
+	static uint16_t type = 0;
 	int pos;
 
 	/*
-	 * Switch/case handling
-	 * == not completely included in prototype ==
-	 *
-	 */
-	frame._type = 0x0;
-	switch (frame._type)
-	{
-		case 0x00 : pos = TRX_msgFrame(&send[0]);		break;	// TX Transmit Request 64-bit
-		case 0x17 : pos = TRX_atRemoteFrame(&send[0]);	break;	// Remote AT Command
-		
-		case 0x01 : // TX Transmit Request 16-bit
-		case 0x08 : // AT Command
-		case 0x09 : // AT Command Queue Register Value
-		case 0x80 : // RX Receive Packet: 64-bit
-		case 0x81 : // RX Receive Packet: 16-bit
-		case 0x82 : // RX Receive Packet: 64-bit IO
-		case 0x83 : // RX Receive Packet: 16-bit IO
-		case 0x88 : // AT Command Response
-		case 0x89 : // TX Transmit Status
-		case 0x8A : // Modem Status
-		case 0x97 : // Remote AT Command Response
-
-		default: // Error zum speichern setzten
-			UART_print("Value not valid! Please chose one of them:\r\n");
-			UART_print("00 : TX (Transmit) Request 64-bit address\r\n");
-			UART_print("01 : not implemented\r\n");
-			UART_print("08 : not implemented\r\n");
-			UART_print("09 : not implemented\r\n");
-			UART_print("17 : Remote AT Command\r\n");
-			UART_print("80 : not implemented\r\n");
-			UART_print("81 : not implemented\r\n");
-			UART_print("82 : not implemented\r\n");
-			UART_print("83 : not implemented\r\n");
-			UART_print("88 : not implemented\r\n");
-			UART_print("89 : not implemented\r\n");
-			UART_print("8A : not implemented\r\n");
-			UART_print("97 : not implemented\r\n");
-		break;
-	}
+	 * Handle buffer dependent on API mode on or off and return pointer position in the array
+	 */	 
+	if( RFmodul.serintCMD_ap ) { pos = TRX_atRemoteFrame(&send[0]);	break; }	// API Frame	
+	else					   { pos = TRX_msgFrame(&send[0]);		break; }	// std TX Transmit Request 64-bit
 	
-	
-	/* Step 2: setup and send package
+	/*
+	 * Step 2: setup and send package
 	 */
-	trx_reg_write(RG_TRX_STATE, CMD_RX_AACK_ON);
+	TRX_writeReg(deRG_TRX_STATE, deCMD_RX_AACK_ON);
 	if (tx_stat.in_progress == FALSE)
 	{
 #if DEBUG
 		UART_printf(">TX FRAME tx: %4d, fail: %3d, tx_seq: %3d\r\n", tx_stat.cnt, tx_stat.fail, send[2]);
 #endif
 		/* some older SPI transceivers require this coming from RX_AACK*/
-		trx_reg_write(RG_TRX_STATE, CMD_PLL_ON);
-		trx_reg_write(RG_TRX_STATE, CMD_TX_ARET_ON);
+		TRX_writeReg(deRG_TRX_STATE, deCMD_PLL_ON);
+		TRX_writeReg(deRG_TRX_STATE, deCMD_TX_ARET_ON);
 
 		send[2] = tx_stat.cnt;
 		
@@ -141,7 +126,7 @@ ATERROR TRX_send(void)
 	UART_print("\r\n");
 #endif
 
-		trx_frame_write(pos + 2, send);
+		TRX_writeTX(pos + 2, send);
 		tx_stat.in_progress = TRUE;
 		TRX_SLPTR_HIGH();
 		TRX_SLPTR_LOW();
@@ -171,8 +156,22 @@ ATERROR TRX_send(void)
  * last modified: 2016/11/01
  */
 
-int TRX_msgFrame(uint8_t *send)
+int TRX_msgFrame(uint8_t *send) // TODO REWORK
 {
+		/*uint8_t tmp[2] = {0};
+		do{
+			for(int c = 0; c < 2; c++)
+			{
+				BufferOut(&UART_deBuf, tmp[c] );
+				if(tmp[c] == 0x20 ) BufferOut(&UART_deBuf, tmp[c] );
+				if(tmp[c] == 0x0D ) return pos;
+			}
+			
+			sprintf((char*)(send+pos),"%c", (unsigned int) strtoul((const char*)tmp,NULL,16) >> 8 );
+			pos++;
+
+		}while(TRUE);*/
+	
 	int pos;
 	/* Step 1: prepare packed
 	 * - set IEEE data frames
@@ -295,13 +294,12 @@ int TRX_atRemoteFrame(uint8_t *send)
  *     OP_SCCESS			frame is received successfully without error
  *	   TRANSMIT_IN_FAIL		frame is received and an error has occurred
  *
- * last modified: 2016/11/08
+ * last modified: 2016/11/12
  */
 
 
 ATERROR TRX_receive(void)
 {
-	uint8_t	outchar		= 0;	// received the data of the buffer
 	uint8_t flen		= 0;	// total length of the frame which is stored in the buffer
 	uint8_t dataStart	= 0;	// start pointer to print the data through UART
 	uint16_t frameType	= 0;	// received the frame type for frame handling
@@ -341,7 +339,7 @@ ATERROR TRX_receive(void)
 	{
 		cli(); BufferOut(&RX_deBuf, &outchar); sei();
 		
-		if ( ( i == dataStart || (API && i <= dataStart) ) && 0xD != outchar )
+		if ( ( i == dataStart || (RFmodul.serintCMD_ap && i <= dataStart) ) && 0xD != outchar )
 		{
 			UART_printf("%c", outchar);
 		}
@@ -351,7 +349,7 @@ ATERROR TRX_receive(void)
 		}
 	}
 	
-	//if (API) { UART_print("\r\n"); }
+	if (RFmodul.serintCMD_ap) { UART_print("\r\n"); }
 	
 	rx_stat.cnt += 1;
 	rx_stat.done = FALSE;
@@ -375,14 +373,14 @@ ATERROR TRX_receive(void)
 static void TRX_txHandler()
 {	
 	static volatile uint8_t trac_status;
-	trac_status = trx_bit_read(SR_TRAC_STATUS);
+	trac_status = TRX_readBit(deSR_TRAC_STATUS);
 	
-	trx_reg_write(RG_TRX_STATE, CMD_PLL_ON);
-	trx_reg_write(RG_TRX_STATE, CMD_TX_ARET_ON);
+	TRX_writeReg(deRG_TRX_STATE, deCMD_PLL_ON);
+	TRX_writeReg(deRG_TRX_STATE, deCMD_TX_ARET_ON);
 	
 	tx_stat.in_progress = FALSE;
 	
-	if (TRAC_SUCCESS != trac_status)
+	if (deTRAC_SUCCESS != trac_status)
 	{
 		tx_stat.fail++;
 	}
@@ -391,14 +389,14 @@ static void TRX_txHandler()
 		tx_stat.cnt++;
 	}
 	
-	trx_reg_write(RG_TRX_STATE, CMD_RX_AACK_ON);
+	TRX_writeReg(deRG_TRX_STATE, deCMD_RX_AACK_ON);
 }
 
 static void TRX_rxHandler()
 {
 	uint8_t flen = 0, receive[PACKAGE_SIZE];
 	
-	flen = trx_frame_read(&receive[0], sizeof(receive), NULL);
+	flen = TRX_readRX(&receive[0], sizeof(receive), NULL);
 	if ( 0x7F < flen ) // 0x7f == 127(dez)
 	{
 		UART_print("buffer overflow\r\n");
@@ -431,23 +429,23 @@ static void TRX_rxHandler()
  *
  * last modified: 2016/11/01
  */
-#if defined(TRX_IF_RFA1)
-ISR(TRX24_TX_END_vect)
+#if defined(deTRX_IF_RFA1)
+ISR(deTRX24_TX_END_vect)
 {
 	TRX_txHandler();
 }
 
-ISR(TRX24_RX_END_vect)
+ISR(deTRX24_RX_END_vect)
 {
 	TRX_rxHandler();
 }
 #else  /* !RFA1 */
-ISR(TRX_IRQ_vect)
+ISR(deTRX_IRQ_vect)
 {
 	static volatile uint8_t irq_cause;
-	irq_cause = trx_reg_read(RG_IRQ_STATUS);	
+	irq_cause = TRX_readReg(deRG_IRQ_STATUS);	
 	
-	if (irq_cause & TRX_IRQ_TRX_END)
+	if (irq_cause & deTRX_IRQ_TRX_END)
 	{
 		if (tx_stat.in_progress)
 		{

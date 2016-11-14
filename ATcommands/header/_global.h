@@ -17,10 +17,10 @@
 // === user includes ======================================
 #include "cmd.h"
 #include "enum_error.h"
-#include "defaultConfig.h"
 
 // === miscellaneous ======================================
 #define DEBUG 1					// debug mode ( 0 = off / 1 = on )
+#define FLASH_ATTR
 
 // === default values =====================================
 #define AT_VERSION	"0.1"
@@ -30,15 +30,10 @@
 typedef enum { FALSE, TRUE }__attribute__((packed)) bool_t;
 
 // === variables & structs ================================
-typedef struct  {
-	uint8_t	 _type;
-	uint16_t _mac;
-	uint8_t  _seq;
-	uint8_t  _count;
-	uint8_t  _option;
-} deFrame;
-
-deFrame frame;
+static int     inchar  = 0; // received the data of the UART input (byte by byte)
+static uint8_t outchar = 0;	// received the data of the buffer (byte by byte)
+static int     counter = 0;
+ATERROR ret = 0;
 
 typedef struct  {
 	uint8_t  netCMD_ch : 6;     // max 0x1A                    =   6 bit
@@ -64,7 +59,7 @@ typedef struct  {
 	bool_t   secCMD_ee : 1;     // max 0x1                     =   1 bit
 		 
 	uint8_t  rfiCMD_pl : 3;     // max 0x4                     =   3 bit
-	uint8_t  rfiCMD_ce : 7;     // ax 0x50                     =   7 bit
+	uint8_t  rfiCMD_ca : 7;     // max 0x50                    =   7 bit
 		 
 	uint8_t  sleepmCMD_sm : 3;  // max 0x6                     =   3 bit
 	uint16_t sleepmCMD_st : 16; // max 0xFFFF                  =  16 bit
@@ -124,6 +119,15 @@ device_t RFmodul;
 
 // === functions ==========================================
 void SET_netDefault();
+void SET_secDefault();
+void SET_rfiDefault();
+void SET_sleepDafault();
+void SET_siDefault();
+void SET_iosDefault();
+void SET_iolpDefault();
+void SET_diagDefault();
+void SET_cmdoDefault();
+void SET_allDefault();
 //ATERROR AT_localMode();
 
 

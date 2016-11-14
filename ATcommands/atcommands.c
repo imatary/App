@@ -9,7 +9,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <inttypes.h>
+#include <stdint.h>
 
 #include "header/_global.h"
 #include "header/enum_error.h"
@@ -18,13 +18,11 @@
 
 void main(void) 
 {
-	volatile int inchar = 0, counter = 0;
-	ATERROR ret = 0;
-	
 	/*
 	 * initialize structs
 	 */
 	SET_allDefault();
+	
 	/*
 	 * init peripheral devices
 	 */
@@ -32,14 +30,14 @@ void main(void)
 	BufferInit(&UART_deBuf, &RX_deBuf, NULL);
 	if( !TRX_baseInit() ) ret =  TRX_INIT_ERROR;
 
-	sei();											// allow interrupts
+	sei();	// allow interrupts
 
 	/*
 	 * starting main loop
 	 */
 	while (TRUE)
 	{
-		if( ret ) { ATERROR_print(&ret); ret = 0; }
+		if( ret ) { ATERROR_print(&ret); }
 		
 		/*
 		 * Receiver operation
@@ -49,7 +47,7 @@ void main(void)
 		if (RX_deBuf.newContent)
 		{
 			ret = TRX_receive();
-			if ( ret )	{ ATERROR_print(&ret); ret = 0; }
+			if ( ret )	{ ATERROR_print(&ret); }
 		}
 
 		
@@ -69,16 +67,16 @@ void main(void)
 			cli();
 				ret = BufferIn( &UART_deBuf, inchar );
 			sei();
-			if( ret ) { ATERROR_print(&ret); ret = 0; continue; }
+			if( ret ) { ATERROR_print(&ret); continue; }
 			
 			
 			/*
 			 * if a carriage return (0xD) received, send the buffer content 
 			 */
-			if( 0xD == inchar ) 
+			if( '\r' == inchar ) 
 			{ 
 				ret = TRX_send(); 
-				if ( ret )	{ ATERROR_print(&ret); ret = 0; }
+				if ( ret )	{ ATERROR_print(&ret); }
 				counter = 0;
 				
 			}
@@ -87,13 +85,13 @@ void main(void)
 			 * if a plus (0x2B) received, count it 
 			 * if the user hit three times the plus button switch to local command mode
 			 */
-			if ( 0x2B == inchar )
+			if ( RFmodul.atcopCMD_cc == inchar )
 			{
 				counter += 1;
 				if ( 3 == counter )
 				{
-					//ret = AT_localMode();
-					//if ( ret )	{ ATERROR_print(&ret); }
+					ret = AT_localMode();
+					if ( ret )	{ ATERROR_print(&ret); }
 					counter = 0;
 					
 				}
@@ -110,15 +108,13 @@ static void ATERROR_print(ATERROR *value)
 {
 	switch(*value)
 	{
-		case TRX_INIT_ERROR		: UART_print("Cannot initialize trx base!\r\n");						break;
-		case BUFFER_IN_FAIL		: UART_print("BufferIn error!");										break;
-		case BUFFER_OUT_FAIL	: UART_print("BufferOut error!");										break;
-		case TRANSMIT_OUT_FAIL	: UART_print("Transmitter send error! Data can't transmitted.");		break;
-		case TRANSMIT_IN_FAIL	: UART_print("Receiver error! Can't receive or translate the data.");	break;
-		case TRANSMIT_CRC_FAIL  : UART_print("Receiver error! CRC code does not match.");				break;
-		case NOT_ABLE_TO_WRITE	:
-		case NOT_ABLE_TO_READ	: UART_print("error!");													break;
-		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode.");				break;
-		default					:																		break;
+		case TRX_INIT_ERROR		: UART_print("Cannot initialize trx base!\r\n"); ret = 0;						break;
+		case BUFFER_IN_FAIL		: UART_print("BufferIn error!"); ret = 0;										break;
+		case BUFFER_OUT_FAIL	: UART_print("BufferOut error!"); ret = 0;										break;
+		case TRANSMIT_OUT_FAIL	: UART_print("Transmitter send error! Data can't transmitted."); ret = 0;		break;
+		case TRANSMIT_IN_FAIL	: UART_print("Receiver error! Can't receive or translate the data."); ret = 0;	break;
+		case TRANSMIT_CRC_FAIL  : UART_print("Receiver error! CRC code does not match."); ret = 0;				break;
+		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode."); ret = 0;				break;
+		default					: ret = 0;																		break;
 	}
 }
