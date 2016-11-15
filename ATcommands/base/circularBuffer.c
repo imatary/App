@@ -8,9 +8,10 @@
  * http://www.mikrocontroller.net/articles/FIFO
  */ 
 
-#include <stdarg.h>
-#include "../header/circularBuffer.h"
-#include "../header/_global.h"
+#include <stdlib.h>
+#include <stdarg.h>						// variable argument list for buffer init
+#include "../header/circularBuffer.h"	// struct, prototypes, defines
+
 
 /*
  * Set one byte in to circular buffer

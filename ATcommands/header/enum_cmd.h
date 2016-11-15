@@ -39,7 +39,8 @@ typedef enum
 	AT_A2,
 	AT_AI,
 	// security
-	AT_EE,							// = 20
+	AT_KY,							// = 20
+	AT_EE,
 	// RF interface
 	AT_PL,
 	AT_CA,
@@ -62,8 +63,8 @@ typedef enum
 	AT_D4,
 	AT_D3,
 	AT_D2,
-	AT_D1,
-	AT_D0,							// = 40
+	AT_D1,							// = 40
+	AT_D0,
 	AT_PR,
 	AT_IU,
 	AT_IT,
@@ -84,8 +85,8 @@ typedef enum
 	AT_T6,
 	AT_T7,
 	// diagnostics
-	AT_VR,
-	AT_HV,						   // = 60
+	AT_VR,						   // = 60
+	AT_HV,
 	AT_DB,
 	AT_EC,
 	AT_EA,

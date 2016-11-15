@@ -12,9 +12,12 @@
 #include <stdint.h>
 
 #include "header/_global.h"
-#include "header/enum_error.h"
+#include "header/atlocal.h"
+#include "header/setter.h"
 #include "header/circularBuffer.h"
 #include "../ATuracoli/stackrelated.h"
+
+static void ATERROR_print(ATERROR *value);
 
 void main(void) 
 {

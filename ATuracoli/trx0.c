@@ -6,7 +6,9 @@
  *
  */ 
 
-#include <stdint-gcc.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include "../ATcommands/header/_global.h"
 #include "../ATcommands/header/circularBuffer.h"
@@ -99,8 +101,8 @@ ATERROR TRX_send(void)
 	/*
 	 * Handle buffer dependent on API mode on or off and return pointer position in the array
 	 */	 
-	if( RFmodul.serintCMD_ap ) { pos = TRX_atRemoteFrame(&send[0]);	break; }	// API Frame	
-	else					   { pos = TRX_msgFrame(&send[0]);		break; }	// std TX Transmit Request 64-bit
+	if( RFmodul.serintCMD_ap ) { pos = TRX_atRemoteFrame(&send[0]);	}	// API Frame	
+	else					   { pos = TRX_msgFrame(&send[0]);		}	// std TX Transmit Request 64-bit
 	
 	/*
 	 * Step 2: setup and send package

@@ -5,8 +5,9 @@
  *  Author: TOE
  */ 
 
-#include "../header/_global.h"
-#include "../header/defaultConfig.h"
+#include "../header/_global.h"			// RFmodul struct
+#include "../header/defaultConfig.h"	// defines for default configuration
+#include "../header/setter.h"			// prototypes
 #include <string.h>
 
 /*

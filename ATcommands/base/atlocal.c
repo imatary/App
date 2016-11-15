@@ -5,20 +5,15 @@
  *  Author: TOE
  */ 
 
-#include <stdlib.h>
-#include <ctype.h>
+#include <stdlib.h>							// size_t, strtol
+#include <ctype.h>							// malloc, free
+#include <stdint.h>							// PRIX8/16/32
 
-#include "../header/circularBuffer.h"
-#include "../header/_global.h"
-#include "../../ATuracoli/stackrelated.h"
-#include "../../ATuracoli/stackdefines.h"
-
-bool_t noTimeout = TRUE;
-
-static CMD	CMD_findInTable(void);
-static void CMD_readOrExec(void);
-static void CMD_write(unsigned int *len);
-static bool_t charToUint8(uint8_t **ppCmdString, int *len);
+#include "../header/_global.h"				// RFmodul struct
+#include "../header/atlocal.h"				// prototypes
+#include "../header/circularBuffer.h"		// buffer
+#include "../../ATuracoli/stackrelated.h"	// UART_print(f)
+#include "../../ATuracoli/stackdefines.h"	// defined register addresses
 
 /*
  * AT_localMode()
@@ -75,9 +70,9 @@ ATERROR AT_localMode(void)
 				 * - counter >  4 -> write
 				 * - reset counter to 0 for next cmd
 				 */
-				if     ( counter <  4 ) UART_printf("\nInvalid command!");
-				else if( counter == 4 ) CMD_readOrExec();
-				else if( counter >  4 ) CMD_write(counter);
+				if     ( *counter <  4 ) UART_print("\nInvalid command!");
+				else if( *counter == 4 ) CMD_readOrExec();
+				else if( *counter >  4 ) CMD_write(counter);
 				
 				*counter = 0;
 				
@@ -102,7 +97,7 @@ ATERROR AT_localMode(void)
  *
  * last modified: 2016/11/14
  */
-static CMD CMD_findInTable(void)
+static CMD* CMD_findInTable(void)
 {
 	uint8_t *pCmdString = NULL;
 	pCmdString = malloc( sizeof(uint8_t) * 5 );
@@ -110,7 +105,7 @@ static CMD CMD_findInTable(void)
 	{
 		free(pCmdString);
 		UART_print("No memory available!");
-		return;
+		return NO_AT_CMD;
 	}
 	
 	for (int i = 0; i < 4 ; i++)
@@ -120,12 +115,12 @@ static CMD CMD_findInTable(void)
 	*(pCmdString+4) = '\0';
 	
 	// TODO -> search parser
-	for (int i = 0; i < command_count ; i++)
+	for (int i = 0; i < command_count ; i++, pStdCmdTable++)
 	{
-		if( strcmp( (const char*) pCmdString, StdCmdTable[i].name ) == 0 )
+		if( strcmp( (const char*) pCmdString, pStdCmdTable->name ) == 0 )
 		{
 			free(pCmdString);
-			return pStdCmdTable[i];
+			return (CMD*) pStdCmdTable;
 		}
 	}
 	
@@ -143,7 +138,7 @@ static CMD CMD_findInTable(void)
  *
  * last modified: 2016/11/14
  */
-static void CMD_readOrExec(void)
+static void CMD_readOrExec(void) 
 {
 	CMD *pCommand = NULL;
 	pCommand = malloc( sizeof(CMD) );
@@ -172,7 +167,11 @@ static void CMD_readOrExec(void)
 		switch(pCommand->ID)
 		{
 			// leave command mode command
-			case AT_CN : noTimeout = FALSE; break;
+			case AT_CN : {
+							noTimeout = FALSE; 
+							UART_print("OK\r\n");
+						{
+						break;
 			
 			default: break;
 		}
@@ -263,7 +262,7 @@ static void CMD_readOrExec(void)
 	}
 	else	
 	{		 
-		UART_print("No valid operation!");
+		UART_print("Invalid operation!\r\n");
 	}
 }
 
@@ -318,7 +317,7 @@ static void CMD_write(unsigned int *len)
 	if (AT_NI == pCommand->ID && \
 		(*len)-4 > 20 )
 	{
-		UART_print("No valid parameter!\r\n");
+		UART_print("Invalid parameter!\r\n");
 		free(pCommand);
 		return;
 	}
@@ -348,595 +347,754 @@ static void CMD_write(unsigned int *len)
 
 	/*
 	 * if writing is allowed store the value of the string into RFmodel struct and register
+	 * copy value for comparison in tmp buffer
+	 * if - the command size smaller or equal then the unit of the tmp buffer (related to the uint8 buffer)
+	 *    - the buffer value greater or equal than the min value
+	 *    - the buffer value smaller or equal than the max value
+	 * save the value into the memory
+	 * else it is a invalid parameter
 	 */	
 	if (pCommand->rwxAttrib & WRITE )
 	{
 		switch(pCommand->ID)
 		{
-			case AT_CH : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A ) 
-						{ 
-							TRX_writeBit(deSR_CHANNEL, *pCmdString);
-							RFmodul.netCMD_ch = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+			/*
+			 * AT commands: network
+			 *
+			 * last modified: 2016/11/15
+			 */
+			case AT_CH : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0B && *pCmdString <= 0x1A )
+							{
+								TRX_writeBit(deSR_CHANNEL, *pCmdString);
+								RFmodul.netCMD_ch = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}						
+						break;
 			
-			case AT_ID :
-						if ( *pCmdString >= 0x0 && \
-						     *pCmdString << 8 | *(pCmdString+1) <= 0xFFFF )
-						{
-							RFmodul.netCMD_id = (uint16_t) (*(pCmdString+0) << 8 |\
-														    *(pCmdString+1) );
-							UART_print("OK\r\n");
-				
+			case AT_ID : {
+							uint16_t tmp = (uint16_t) *(pCmdString+0) << 8 | *(pCmdString+1);
+							
+							if ( cmdSize/2 <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
+							{
+								RFmodul.netCMD_id = tmp;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
 			
-			case AT_DH : 
-						if ( *pCmdString >= 0x0 && *pCmdString <= 0xFFFFFFFF )
-						{
-							RFmodul.netCMD_dh = (uint32_t) (*(pCmdString+0) << 24 |\
-														    *(pCmdString+1) << 16 |\
-														    *(pCmdString+2) <<  8 |\
-														    *(pCmdString+3) );
-							UART_print("OK\r\n");
+			case AT_DH : {
+							uint32_t tmp = (uint32_t) *(pCmdString+0) << 24 | (uint32_t) *(pCmdString+1) << 16 | (uint32_t) *(pCmdString+2) <<  8 | *(pCmdString+3);
 							
+							if ( cmdSize/2 <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
+							{
+								RFmodul.netCMD_dh = tmp;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
 			
-			case AT_DL : 
-						if ( *pCmdString >= 0x0 && *pCmdString <= 0xFFFFFFFF )
-						{
-							RFmodul.netCMD_dl = (uint32_t) (*(pCmdString+0) << 24 |\
-															*(pCmdString+1) << 16 |\
-							                                *(pCmdString+2) <<  8 |\
-							                                *(pCmdString+3) );
-							UART_print("OK\r\n");
+			case AT_DL : {
+							uint32_t tmp = (uint32_t) *(pCmdString+0) << 24 | (uint32_t) *(pCmdString+1) << 16 | (uint32_t) *(pCmdString+2) <<  8 | *(pCmdString+3);
 							
+							if ( cmdSize/2 <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
+							{
+								RFmodul.netCMD_dl = tmp;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
 			
-			case AT_MY : 
-						if ( *pCmdString >= 0x0 && *pCmdString <= 0xFFFF )
-						{
-							RFmodul.netCMD_my = (uint16_t) (*(pCmdString+0) << 8 |\
-															*(pCmdString+1) );
-							UART_print("OK\r\n");
+			case AT_MY : {
+							uint16_t tmp = (uint16_t) *(pCmdString+0) << 8 | *(pCmdString+1);
 							
+							if ( cmdSize/2 <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
+							{
+								RFmodul.netCMD_my = tmp;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
 			
-			case AT_SH : 
-						if ( *pCmdString >= 0x0 && *pCmdString <= 0xFFFFFFFF )
-						{
-							RFmodul.netCMD_dh = (uint32_t) (*(pCmdString+0) << 24 |\
-															*(pCmdString+1) << 16 |\
-															*(pCmdString+2) <<  8 |\
-															*(pCmdString+3) );
-							UART_print("OK\r\n");
+			case AT_SH : {
+							uint32_t tmp = (uint32_t) *(pCmdString+0) << 24 | (uint32_t) *(pCmdString+1) << 16 | (uint32_t) *(pCmdString+2) <<  8 | *(pCmdString+3);
 							
+							if ( cmdSize/2 <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
+							{
+								RFmodul.netCMD_dh = tmp;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
 			
-			case AT_SL : 
-						if ( *pCmdString >= 0x0 && *pCmdString <= 0xFFFFFFFF )
-						{
-							RFmodul.netCMD_dh = (uint32_t) (*(pCmdString+0) << 24 |\
-															*(pCmdString+1) << 16 |\
-															*(pCmdString+2) <<  8 |\
-															*(pCmdString+3) );
-							UART_print("OK\r\n");
+			case AT_SL : { 
+							uint32_t tmp = (uint32_t) *(pCmdString+0) << 24 | (uint32_t) *(pCmdString+1) << 16 | (uint32_t) *(pCmdString+2) <<  8 | *(pCmdString+3);
 							
+							if ( cmdSize/2 <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
+							{
+								RFmodul.netCMD_dh = tmp;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
 			
-			case AT_CE : 
-						if ( *pCmdString >= 0x0 && *pCmdString <= 0x1 )
-						{
-							RFmodul.netCMD_ce = *pCmdString;
-							UART_print("OK\r\n");
-							
+			case AT_CE : { 						
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x1 )
+							{
+								RFmodul.netCMD_ce = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
 			
-			case AT_SC : 
-						if ( *pCmdString >= 0x0 && *pCmdString <= 0xFFFF )
-						{
-							RFmodul.netCMD_sc = *pCmdString;
-							UART_print("OK\r\n");
-							
+			case AT_SC : { 
+							uint16_t tmp = (uint16_t) *(pCmdString+0) << 8 | *(pCmdString+1);
+							 
+							if ( cmdSize/2 <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
+							{
+								RFmodul.netCMD_sc = tmp;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
 			
-			case AT_MM : 
-						if ( *pCmdString >= 0x00 && *pCmdString <= 0x3 )
-						{
-							RFmodul.netCMD_mm = *pCmdString;
-							UART_print("OK\r\n");
-							
+			case AT_MM : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x00 && *pCmdString <= 0x3 )
+							{
+								RFmodul.netCMD_mm = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
 			
-			case AT_RR : 
-						if ( *pCmdString >= 0x0 && *pCmdString <= 0x6 )
-						{
-							RFmodul.netCMD_rr = *pCmdString;
-							UART_print("OK\r\n");
-							
+			case AT_RR : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x6 )
+							{
+								RFmodul.netCMD_rr = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
 			
-			case AT_RN : 
-						if ( *pCmdString >= 0x00 && *pCmdString <= 0x3 )
-						{
-							RFmodul.netCMD_rn = *pCmdString;
-							UART_print("OK\r\n");
-							
+			case AT_RN : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x00 && *pCmdString <= 0x3 )
+							{
+								RFmodul.netCMD_rn = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
 			
-			case AT_NT : 
-						if ( *pCmdString >= 0x01 && *pCmdString <= 0xFC )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
+			case AT_NT : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x01 && *pCmdString <= 0xFC )
+							{
+								RFmodul.netCMD_nt = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_NO : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
+						break;
+			
+			case AT_NO : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x1 )
+							{
+								RFmodul.netCMD_no = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_SD : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
+						break;
+			
+			case AT_SD : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xF )
+							{
+								RFmodul.netCMD_sd = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_A1 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
+						break;
+			
+			case AT_A1 : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xF )
+							{
+								RFmodul.netCMD_a1 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_A2 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
+						break;
+			
+			case AT_A2 : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xF )
+							{
+								RFmodul.netCMD_a2 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
+			/*
+			 * AT commands: security
+			 *
+			 * last modified: 2016/11/15
+			 */			
+			case AT_KY : UART_print("Not implemented.\r\n"); break;
 
-			case AT_EE : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
+			case AT_EE : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x1 )
+							{
+								RFmodul.secCMD_ee = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-
-			case AT_PL : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
+						break;
+			/*
+			 * AT commands: RF interface
+			 *
+			 * last modified: 2016/11/15
+			 */
+			case AT_PL : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x4 )
+							{
+								RFmodul.rfiCMD_pl = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_CA : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-
-			case AT_SM : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_ST : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_SP : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_DP : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_SO : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-
-			case AT_AP : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_BD : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_NB : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_RO : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-
-			case AT_D8 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_D7 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_D6 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_D5 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_D4 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_D3 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_D2 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_D1 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_D0 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_PR : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_IU : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_IT : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_IC : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_IR : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_P0 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_P1 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_PT : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
 			
-			case AT_RP : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
+			case AT_CA : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x24 && *pCmdString <= 0x50 )
+							{
+								RFmodul.rfiCMD_ca = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-
-			case AT_IA : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
+						break;
+			/*
+			 * AT commands: sleep modes
+			 *
+			 * last modified: 2016/11/15
+			 */
+			case AT_SM : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x6 )
+							{
+								RFmodul.sleepmCMD_sm = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_T0 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
+						break;
+			
+			case AT_ST : { 
+							uint16_t tmp = (uint16_t) *(pCmdString+0) << 8 | *(pCmdString+1);
 							
+							if ( cmdSize/2 <= 2 && *pCmdString >= 0x1 && *pCmdString <= 0xFFFF )
+							{
+								RFmodul.sleepmCMD_st = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_T1 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
+						break;
+			
+			case AT_SP : {
+							uint16_t tmp = (uint16_t) *(pCmdString+0) << 8 | *(pCmdString+1);
 							
+							if ( cmdSize/2 <= 2 && *pCmdString >= 0x0 && *pCmdString <= 0x68B0 )
+							{
+								RFmodul.sleepmCMD_sp = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_T2 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
+						break;
+			
+			case AT_DP : { 
+							uint16_t tmp = (uint16_t) *(pCmdString+0) << 8 | *(pCmdString+1);
 							
+							if ( cmdSize/2 <= 2 && *pCmdString >= 0x1 && *pCmdString <= 0x68B0 )
+							{
+								RFmodul.sleepmCMD_dp = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_T3 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
+						break;
+			
+			case AT_SO : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x6 )
+							{
+								RFmodul.sleepmCMD_so = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			/*
+			 * AT commands: serial interfacing
+			 *
+			 * last modified: 2016/11/15
+			 */
+			case AT_AP : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x2 )
+							{
+								RFmodul.serintCMD_ap = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_BD : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x7 )
+							{
+								RFmodul.serintCMD_bd = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_NB : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x4 )
+							{
+								RFmodul.serintCMD_nb = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_RO : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xFF )
+							{
+								RFmodul.serintCMD_ro = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			/*
+			 * AT commands: IO settings
+			 *
+			 * last modified: 2016/11/15
+			 */
+			case AT_D8 : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x5 )
+							{
+								RFmodul.ioserCMD_d8 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_D7 : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x5 )
+							{
+								RFmodul.ioserCMD_d7 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_D6 : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x5 )
+							{
+								RFmodul.ioserCMD_d6 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_D5 : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x5 )
+							{
+								RFmodul.ioserCMD_d5 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_D4 : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x5 )
+							{
+								RFmodul.ioserCMD_d4 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_D3 : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x5 )
+							{
+								RFmodul.ioserCMD_d3 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_D2 : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x5 )
+							{
+								RFmodul.ioserCMD_d2 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_D1 : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x5 )
+							{
+								RFmodul.ioserCMD_d1 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_D0 : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x5 )
+							{
+								RFmodul.ioserCMD_d0 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_PR : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xFF )
+							{
+								RFmodul.ioserCMD_pr = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_IU : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x1 )
+							{
+								RFmodul.ioserCMD_iu = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_IT : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x1 && *pCmdString <= 0xFF )
+							{
+								RFmodul.ioserCMD_it = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_IC : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xFF )
+							{
+								RFmodul.ioserCMD_ic = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_IR : {
+							uint16_t tmp = (uint16_t) *(pCmdString+0) << 8 | *(pCmdString+1);
 							
+							if ( cmdSize/2 <= 2 && *pCmdString >= 0x0 && *pCmdString <= 0xFFFF )
+							{
+								RFmodul.ioserCMD_ir = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_T4 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
+						break;
+			
+			case AT_P0 : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x2 )
+							{
+								RFmodul.ioserCMD_p0 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_P1 : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0x2 )
+							{
+								RFmodul.ioserCMD_p1 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_PT : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0xB && *pCmdString <= 0xFF )
+							{
+								RFmodul.ioserCMD_pt = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_RP : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xFF )
+							{
+								RFmodul.ioserCMD_rp = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			/*
+			 * AT commands: IO line passing
+			 *
+			 * last modified: 2016/11/15
+			 */
+			case AT_IA : {
+							uint64_t tmp = (uint64_t) *(pCmdString+0) << 56 | (uint64_t) *(pCmdString+1) << 48 | (uint64_t) *(pCmdString+2) <<  40 | (uint64_t) *(pCmdString+3) << 32 |\
+										   (uint64_t) *(pCmdString+4) << 24 | (uint64_t) *(pCmdString+5) << 16 | (uint64_t) *(pCmdString+6) <<   8 | (uint64_t) *(pCmdString+7);
 							
+							if ( cmdSize/2 <= 8 && tmp >= 0x0 && tmp <= 0xFFFFFFFFFFFFFFFF )
+							{
+								RFmodul.iolpCMD_ia = tmp;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_T5 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
+						break;
+			
+			case AT_T0 : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xFF )
+							{
+								RFmodul.iolpCMD_T0 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_T1 : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xFF )
+							{
+								RFmodul.iolpCMD_T1 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_T2 : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xFF )
+							{
+								RFmodul.iolpCMD_T2 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+	
+			case AT_T3 : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xFF )
+							{
+								RFmodul.iolpCMD_T3 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_T4 : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xFF )
+							{
+								RFmodul.iolpCMD_T4 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_T5 : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xFF )
+							{
+								RFmodul.iolpCMD_T5 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_T6 : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xFF )
+							{
+								RFmodul.iolpCMD_T6 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			
+			case AT_T7 : {
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xFF )
+							{
+								RFmodul.iolpCMD_T7 = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
+						}
+						break;
+			/*
+			 * AT commands: diagnostics
+			 *
+			 * last modified: 2016/11/15
+			 */
+			case AT_DD : { 
+							uint32_t tmp = (uint32_t) *(pCmdString+0) << 24 | (uint32_t) *(pCmdString+1) << 16 | (uint32_t) *(pCmdString+2) <<  8 | *(pCmdString+3);
 							
+							if ( cmdSize/2 <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
+							{
+								RFmodul.diagCMD_dd = tmp;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_T6 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
+						break;
+			/*
+			 * AT commands: AT command options
+			 *
+			 * last modified: 2016/11/15
+			 */
+			case AT_CT : { 
+							uint16_t tmp = (uint16_t) *(pCmdString+0) << 8 | *(pCmdString+1);
 							
+							if ( cmdSize/2 <= 2 && tmp >= 0x02 && tmp <= 0x1770 )
+							{
+								RFmodul.atcopCMD_ct = tmp;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_T7 : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
+						break;
+			
+			case AT_GT : { 
+							uint16_t tmp = (uint16_t) *(pCmdString+0) << 8 | *(pCmdString+1);
 							
+							if ( cmdSize/2 <= 2 && tmp >= 0x02 && tmp <= 0xCE4 )
+							{
+								RFmodul.atcopCMD_gt = tmp;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-
-			case AT_DD : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
+						break;
+			
+			case AT_CC : { 
+							if ( cmdSize/2 <= 1 && *pCmdString >= 0x0 && *pCmdString <= 0xFF )
+							{
+								RFmodul.atcopCMD_cc = *pCmdString;
+								UART_print("OK\r\n");
+								
+							}
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-
-			case AT_CT : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_GT : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
-			case AT_CC : 
-						if ( *pCmdString >= 0x0B && *pCmdString <= 0x1A )
-						{
-							RFmodul.XXX = *pCmdString;
-							UART_print("OK\r\n");
-							
-						}
-						else { UART_print("No valid parameter!\r\n"); }
-			break;
+						break;
 			
 			default : UART_print("No function available.\r\n"); break;		
 		}
 	}
 	else
 	{
-		UART_print("No valid operation!");
+		UART_print("Invalid operation!");
 	}
 	
 	free(pCmdString);
@@ -962,7 +1120,7 @@ static bool_t charToUint8(uint8_t **ppCmdString, int *len)
 	if ( !tmp )
 	{ 
 		free(tmp);
-		UART_print("Error while converting input!")
+		UART_print("Error while converting input!");
 		return FALSE;
 	}
 	int pos = 0, c = 0;
@@ -976,7 +1134,7 @@ static bool_t charToUint8(uint8_t **ppCmdString, int *len)
 	do{
 		for(; c < 2; c++)
 		{
-			BufferOut( &UART_deBuf, &tmp[c] );
+			cli(); BufferOut( &UART_deBuf, &tmp[c] ); sei();
 			if( *(tmp+c) == 0x20 ) BufferOut( &UART_deBuf, &tmp[c] );	// ' ' == 0x20
 			if( *(tmp+c) == 0x0D ) return TRUE;							// '\r' == 0x0D
 		}

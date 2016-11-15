@@ -5,6 +5,7 @@
  *  Author: TOE
  */ 
 
+#include <stdlib.h>
 #include "stackrelated.h"
 #include "board.h"
 

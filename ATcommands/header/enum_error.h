@@ -9,8 +9,6 @@
 #ifndef ENUM_ERROR_H_
 #define ENUM_ERROR_H_
 
-#include "_global.h"
-
 /*
  * Enumerated error codes,
  * starting with -1 and counted into negative direction.
@@ -33,7 +31,5 @@ typedef enum
 
 	/* ADD NEW CODES HERE! */
 }__attribute__((packed)) ATERROR;
-
-static void ATERROR_print(ATERROR *value);
 
 #endif /* ENUM_ERROR_H_ */

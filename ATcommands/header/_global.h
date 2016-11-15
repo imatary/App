@@ -10,13 +10,7 @@
 #define _GLOBAL_H_
 
 // === std. includes ======================================
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-
-// === user includes ======================================
-#include "cmd.h"
-#include "enum_error.h"
+#include <stdint.h>	// uintX_t
 
 // === miscellaneous ======================================
 #define DEBUG 1					// debug mode ( 0 = off / 1 = on )
@@ -33,7 +27,6 @@ typedef enum { FALSE, TRUE }__attribute__((packed)) bool_t;
 static int     inchar  = 0; // received the data of the UART input (byte by byte)
 static uint8_t outchar = 0;	// received the data of the buffer (byte by byte)
 static int     counter = 0;
-ATERROR ret = 0;
 
 typedef struct  {
 	uint8_t  netCMD_ch : 6;     // max 0x1A                    =   6 bit
@@ -118,17 +111,6 @@ typedef struct  {
 device_t RFmodul;
 
 // === functions ==========================================
-void SET_netDefault();
-void SET_secDefault();
-void SET_rfiDefault();
-void SET_sleepDafault();
-void SET_siDefault();
-void SET_iosDefault();
-void SET_iolpDefault();
-void SET_diagDefault();
-void SET_cmdoDefault();
-void SET_allDefault();
-//ATERROR AT_localMode();
 
 
 #endif /* _GLOBAL_H_ */
