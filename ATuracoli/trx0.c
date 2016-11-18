@@ -155,7 +155,7 @@ ATERROR TRX_send(void)
  * Returns:
  *     final position in array
  *
- * last modified: 2016/11/01
+ * last modified: 2016/11/17
  */
 
 int TRX_msgFrame(uint8_t *send) // TODO REWORK
@@ -208,7 +208,7 @@ int TRX_msgFrame(uint8_t *send) // TODO REWORK
 	do
 	{
 		pos +=1;
-		BufferOut(&UART_deBuf, send + pos );
+		cli(); BufferOut(&UART_deBuf, send + pos ); sei();
 
 	} while ( 0xD != *(send + pos - 1) );
 	
@@ -258,7 +258,7 @@ int TRX_atRemoteFrame(uint8_t *send)
 	sprintf((char*)(send+14),"%c",RFmodul.netCMD_my >> 8);		// src. short address
 	
 	sprintf((char*)(send+15),"%c",0xB5);				
-	sprintf((char*)(send+16),"%c",0x04);						// I do not know in which relation this line stands, but it is in all test 04
+	sprintf((char*)(send+16),"%c",0x04);						// I do not know in which relation this line stands, but it is in all test 04  // Anz. Endpoints?
 	
 	// begin data
 	sprintf((char*)(send+17),"%c",0x01);						// Frame ID
@@ -281,7 +281,7 @@ int TRX_atRemoteFrame(uint8_t *send)
 	do
 	{
 		pos +=1;
-		BufferOut(&UART_deBuf, send + pos );
+		cli(); BufferOut(&UART_deBuf, send + pos ); sei();
 
 	} while ( 0xD != *(send + pos) );
 	
@@ -303,6 +303,7 @@ int TRX_atRemoteFrame(uint8_t *send)
 ATERROR TRX_receive(void)
 {
 	uint8_t flen		= 0;	// total length of the frame which is stored in the buffer
+	uint8_t outchar		= 0;	// received the data of the buffer (byte by byte)
 	uint8_t dataStart	= 0;	// start pointer to print the data through UART
 	uint16_t frameType	= 0;	// received the frame type for frame handling
 	

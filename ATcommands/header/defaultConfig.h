@@ -22,7 +22,7 @@
 #define CH_CHANNEL					(0xC)			// 0x0B-0x1A (XBee default 'C')
 #define ID_PANID					(0x3332)		// 0x0-0xFFFF (XBee default '3332')
 #define DH_DEST_HIGH				(0x0)			// 0x0-0xFFFFFFFF (XBee default '0')	
-#define DL_DEST_LOW					(0x414640C2)	// 0x0-0xFFFFFFFF (XBee default '0')
+#define DL_DEST_LOW					(0x0)			// 0x0-0xFFFFFFFF (XBee default '0')
 #define MY_SHORT_ADDR				(0xDE)			// 0x0-0xFFFF (XBee default '0')
 #define SH_SERIAL_HIGH				(0x00212eff)	// modems unique IEEE 64-bit source address (high 32-bit) -> read only
 #define SL_SERIAL_LOW				(0xff00c327)	// modems unique IEEE 64-bit source address (low 32-bit)  -> read only
@@ -71,7 +71,7 @@
  * last modified: 2016/11/10
  */
 #define AP_API_ENABLE				(0x0)			// 0x0-0x2 (XBee default '0')
-#define BD_INTERFACE_DATA_RATE		(0x3)			// 0x0-0x7 (XBee default '3')
+#define BD_INTERFACE_DATA_RATE		(0x5)			// 0x0-0x7 (XBee default '3')
 #define NB_PARITY					(0x0)			// 0x0-0x4 (XBee default '0')
 #define RO_PACKETIZATION_TIMEOUT	(0x3)			// 0x0-0xFF (XBee default '3')
 

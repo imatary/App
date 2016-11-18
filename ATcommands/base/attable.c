@@ -28,7 +28,7 @@ static const CMD StdCmdTable[] =
 	{ "ATA2", AT_A2, READ | WRITE       },
 	{ "ATAI", AT_AI, READ               },
 
-	{ "ATKY", AT_KY,        WRITE       },
+	{ "ATKY", AT_KY, READ | WRITE       },
 	{ "ATEE", AT_EE, READ | WRITE       },
 
 	{ "ATPL", AT_PL, READ | WRITE       },
@@ -39,6 +39,7 @@ static const CMD StdCmdTable[] =
 	{ "ATSP", AT_SP, READ | WRITE       },
 	{ "ATDP", AT_DP, READ | WRITE       },
 	{ "ATSO", AT_SO, READ | WRITE       },
+	{ "ATSS", AT_SO, READ               },
 
 	{ "ATAP", AT_AP, READ | WRITE       },
 	{ "ATBD", AT_BD, READ | WRITE       },
@@ -80,12 +81,21 @@ static const CMD StdCmdTable[] =
 	{ "ATEC", AT_EC, READ               },
 	{ "ATEA", AT_EA, READ               },
 	{ "ATDD", AT_DD, READ | WRITE       },
+	{ "AT%V", AT_pV, READ               },
 
 	{ "ATCT", AT_CT, READ | WRITE       },
 	{ "ATGT", AT_GT, READ | WRITE       },
 	{ "ATCC", AT_CC, READ | WRITE       },
 
 	{ "ATCN", AT_CN,			   EXEC },
+	{ "ATWR", AT_WR,			   EXEC },
+	{ "ATWR", AT_RE,			   EXEC },
+	{ "ATAC", AT_AC,			   EXEC },
+		
+	{ "ATR?", AT_Rq, READ               },
+	{ "AT%C", AT_pC, READ               },
+		
+	{ "ATSB", AT_SB, READ               },
 
 };
 

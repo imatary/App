@@ -17,10 +17,15 @@
 #include "header/circularBuffer.h"
 #include "../ATuracoli/stackrelated.h"
 
+device_t RFmodul;
+
 static void ATERROR_print(ATERROR *value);
 
 void main(void) 
 {
+	ATERROR ret     = 0;
+	int		inchar  = 0; // received the data of the UART input (byte by byte)
+	int     counter = 0;
 	/*
 	 * initialize structs
 	 */
@@ -40,7 +45,7 @@ void main(void)
 	 */
 	while (TRUE)
 	{
-		if( ret ) { ATERROR_print(&ret); }
+		if( ret ) { ATERROR_print(&ret);  ret = 0; }
 		
 		/*
 		 * Receiver operation
@@ -50,7 +55,7 @@ void main(void)
 		if (RX_deBuf.newContent)
 		{
 			ret = TRX_receive();
-			if ( ret )	{ ATERROR_print(&ret); }
+			if ( ret )	{ ATERROR_print(&ret);  ret = 0; }
 		}
 
 		
@@ -67,10 +72,8 @@ void main(void)
 			 * push the character into the buffer
 			 * neither interrupts allowed
 			 */
-			cli();
-				ret = BufferIn( &UART_deBuf, inchar );
-			sei();
-			if( ret ) { ATERROR_print(&ret); continue; }
+			cli(); ret = BufferIn( &UART_deBuf, inchar ); sei();
+			if( ret ) { ATERROR_print(&ret); ret = 0; continue; }
 			
 			
 			/*
@@ -79,7 +82,7 @@ void main(void)
 			if( '\r' == inchar ) 
 			{ 
 				ret = TRX_send(); 
-				if ( ret )	{ ATERROR_print(&ret); }
+				if ( ret )	{ ATERROR_print(&ret); ret = 0; }
 				counter = 0;
 				
 			}
@@ -93,8 +96,15 @@ void main(void)
 				counter += 1;
 				if ( 3 == counter )
 				{
+					/*
+					 * if a API frame is received reset the read counter
+					 */
+					BufferOut( &UART_deBuf, (uint8_t*) &inchar);
+					//UART_printf("#%02x#", inchar);
+					if ( 0x7e == inchar ) deBufferReadReset( &UART_deBuf, '+', 10 );
+					else				  deBufferReadReset( &UART_deBuf, '+', 2 );
 					ret = AT_localMode();
-					if ( ret )	{ ATERROR_print(&ret); }
+					if ( ret )	{ ATERROR_print(&ret); ret = 0; }
 					counter = 0;
 					
 				}
@@ -111,13 +121,13 @@ static void ATERROR_print(ATERROR *value)
 {
 	switch(*value)
 	{
-		case TRX_INIT_ERROR		: UART_print("Cannot initialize trx base!\r\n"); ret = 0;						break;
-		case BUFFER_IN_FAIL		: UART_print("BufferIn error!"); ret = 0;										break;
-		case BUFFER_OUT_FAIL	: UART_print("BufferOut error!"); ret = 0;										break;
-		case TRANSMIT_OUT_FAIL	: UART_print("Transmitter send error! Data can't transmitted."); ret = 0;		break;
-		case TRANSMIT_IN_FAIL	: UART_print("Receiver error! Can't receive or translate the data."); ret = 0;	break;
-		case TRANSMIT_CRC_FAIL  : UART_print("Receiver error! CRC code does not match."); ret = 0;				break;
-		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode."); ret = 0;				break;
-		default					: ret = 0;																		break;
+		case TRX_INIT_ERROR		: UART_print("Cannot initialize trx base!\r");							break;
+		case BUFFER_IN_FAIL		: UART_print("BufferIn error!\r"); 										break;
+		case BUFFER_OUT_FAIL	: UART_print("BufferOut error!\r"); 									break;
+		case TRANSMIT_OUT_FAIL	: UART_print("Transmitter send error! Data can't transmitted.\r");		break;
+		case TRANSMIT_IN_FAIL	: UART_print("Receiver error! Can't receive or translate the data.\r");	break;
+		case TRANSMIT_CRC_FAIL  : UART_print("Receiver error! CRC code does not match.\r");				break;
+		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode.\r");			break;
+		default					: 																		break;
 	}
 }

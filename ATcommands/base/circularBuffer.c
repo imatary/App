@@ -12,6 +12,8 @@
 #include <stdarg.h>						// variable argument list for buffer init
 #include "../header/circularBuffer.h"	// struct, prototypes, defines
 
+deBuffer_t UART_deBuf;
+deBuffer_t   RX_deBuf;
 
 /*
  * Set one byte in to circular buffer
@@ -30,9 +32,10 @@ ATERROR BufferIn(deBuffer_t *bufType, uint8_t inByte)
 	return BUFFER_IN_FAIL; // full
 
 	bufType->data[bufType->write] = inByte;
+
 	//bufType->data[bufType->write & DE_BUFFER_MASK] = inByte; // absolutely secure (related to the author)
 	bufType->write = next;
-
+	
 	return OP_SUCCESS;
 }
 
@@ -88,12 +91,29 @@ void BufferInit(deBuffer_t *bufType, ...)
 	va_end(arg);
 }
 
+/*
+ * Helper functions
+ *
+ * Returns:
+ *     nothing
+ *
+ * last modified: 2016/11/17
+ */
 void BufferNewContent(deBuffer_t *bufType, bool_t val)
 {
 	bufType->newContent = val;
 }
 
-void BufferReadReset (deBuffer_t* bufType, uint8_t len)
+void deBufferReadReset(deBuffer_t* bufType,char operand ,uint8_t len)
 {
-	bufType->read -= len;
+	if ( '-' == operand )
+	{
+		bufType->read -= len;
+	}
+	
+	if ( '+' == operand )
+	{
+		bufType->read += len;
+	}
+	
 }

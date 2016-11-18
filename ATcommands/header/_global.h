@@ -24,9 +24,6 @@
 typedef enum { FALSE, TRUE }__attribute__((packed)) bool_t;
 
 // === variables & structs ================================
-static int     inchar  = 0; // received the data of the UART input (byte by byte)
-static uint8_t outchar = 0;	// received the data of the buffer (byte by byte)
-static int     counter = 0;
 
 typedef struct  {
 	uint8_t  netCMD_ch : 6;     // max 0x1A                    =   6 bit
@@ -108,7 +105,7 @@ typedef struct  {
 	//                            Total:                         816 bit // if compiler pack the struct, next full size 1024
 }__attribute__((packed)) device_t;
 
-device_t RFmodul;
+extern device_t RFmodul;
 
 // === functions ==========================================
 

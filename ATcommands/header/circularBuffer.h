@@ -35,11 +35,11 @@ typedef struct {
  *
  * remember both buffer have the size of BUFFER_SIZE
  */	
-deBuffer_t UART_deBuf;
-deBuffer_t   RX_deBuf;
+extern deBuffer_t UART_deBuf;
+extern deBuffer_t   RX_deBuf;
 
 void BufferInit			(deBuffer_t *bufType, ...);
-void BufferReadReset	(deBuffer_t* bufType, uint8_t len);
+void deBufferReadReset	(deBuffer_t* bufType,char operand ,uint8_t len);
 void BufferNewContent	(deBuffer_t *bufType, bool_t val);
 ATERROR BufferIn		(deBuffer_t *bufType, uint8_t inByte);
 ATERROR BufferOut		(deBuffer_t *bufType, uint8_t *pByte);
