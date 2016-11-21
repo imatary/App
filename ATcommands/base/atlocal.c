@@ -4,16 +4,17 @@
  * Created: 10.11.2016 13:14:32
  *  Author: TOE
  */
-#include <inttypes.h>						// PRIX8/16/32
-#include <stdlib.h>							// size_t, strtol
-#include <ctype.h>							// malloc, free
+#include <inttypes.h>							// PRIX8/16/32
+#include <stdlib.h>								// size_t, strtol
+#include <ctype.h>								// malloc, free
 
-#include "../header/_global.h"				// RFmodul struct
-#include "../header/atlocal.h"				// prototypes
+#include "../header/_global.h"					// RFmodul struct
+#include "../header/atlocal.h"					// prototypes
 #include "../header/setter.h"
-#include "../header/circularBuffer.h"		// buffer
-#include "../../ATuracoli/stackrelated.h"	// UART_print(f)
-#include "../../ATuracoli/stackdefines.h"	// defined register addresses
+#include "../header/circularBuffer.h"			// buffer
+#include "../../ATuracoli/stackrelated.h"		// UART_print(f)
+#include "../../ATuracoli/stackrelated_timer.h"	// UART_print(f)
+#include "../../ATuracoli/stackdefines.h"		// defined register addresses
 
 bool_t noTimeout = TRUE;
 
@@ -33,21 +34,24 @@ bool_t noTimeout = TRUE;
  */
 ATERROR AT_localMode(void)
 {
-	ATERROR ret     = 0;
-	int		inchar  = 0;
-	int     counter = 0;	
-	noTimeout       = TRUE;
+	ATERROR ret       = 0;
+	int		inchar    = 0;
+	int     counter   = 0;
+	uint32_t th		  = 0;
+	noTimeout         = TRUE;
 	
-	// TIMER_start(); // timer_hdl_t timer_start(timer_handler_t *thfunc, time_t duration, timer_arg_t arg);
+	th = deTIMER_start(CMD_timeHandle, deMSEC( RFmodul.atcopCMD_ct * 0x64), 0); // start( *thfunc, duration, arg for callback );
+	if ( FALSE == th ) 
+	{
+		UART_print("Timer could not start!\rPlease quit commandmode with ATCN.\r");
+	}
 	
-	UART_print("\rOK\r");
+	UART_print("OK\r");
 	while (noTimeout)	// runs until timer interrupt returns
 	{
 		inchar = UART_getc();
 		if ( EOF != inchar && (isgraph(inchar) || isspace(inchar)) )
-		{
-			// TIMER_refresh();
-			
+		{			
 			/*
 			 * If within the first 5 characters a space character, don't store it in the buffer and don't count,
 			 * count the length of the command
@@ -71,12 +75,13 @@ ATERROR AT_localMode(void)
 				 * - counter >  5 -> write
 				 * - reset counter to 0 for next cmd
 				 */
+				th = deTIMER_restart(th, deMSEC( RFmodul.atcopCMD_ct * 0x64) );
 				if     ( counter <  5 ) 
 				{
 					UART_print("Invalid command!\r");
 					deBufferReadReset( &UART_deBuf, '+', counter );
 				}
-				else if( counter == 5 ) CMD_readOrExec();
+				else if( counter == 5 ) CMD_readOrExec(&th);
 				else if( counter >  5 ) CMD_write(&counter);
 				
 				counter = 0;
@@ -133,7 +138,7 @@ static CMD* CMD_findInTable(void)
  *
  * last modified: 2016/11/18
  */
-static void CMD_readOrExec(void) 
+static void CMD_readOrExec(uint32_t *th) 
 {
 	CMD *pCommand = CMD_findInTable();
 	/*
@@ -157,6 +162,7 @@ static void CMD_readOrExec(void)
 		{
 			// leave command mode command
 			case AT_CN : {
+				*th = deTIMER_stop(*th);
 				noTimeout = FALSE; 
 				UART_print("OK\r");
 			}
@@ -1179,6 +1185,22 @@ static void CMD_write(unsigned int *len)
 	{
 		UART_print("Invalid operation!\r");
 	}
+}
+
+/*
+ * CMD_timeHandle()
+ * - received the buffer content and converted content to uint8 hex values
+ * - the char 'A' will be uint8_t hex 0xA and so on
+ * 
+ * Returns:
+ *	   FALSE	to stop the timer
+ *
+ * last modified: 2016/11/21
+ */
+uint32_t CMD_timeHandle(uint32_t arg)
+{
+	noTimeout = FALSE;
+	return 0;
 }
 
 

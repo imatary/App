@@ -94,5 +94,4 @@ typedef struct {
 	bool_t done;
 }rxStatus_t;
 
-
 #endif /* STACKRELATED_H_ */

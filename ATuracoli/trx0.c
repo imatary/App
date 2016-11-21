@@ -86,8 +86,9 @@ uint8_t TRX_baseInit(void)
  * TRX_send
  *
  * Returns:
- *     XX       buffer is empty. he cannot send a byte.
- *     SUCCESS			package was delivered
+ *     TRANSMIT_OUT_FAIL    buffer is empty, module cannot send a byte.
+ *	   TRANSMIT_IN_FAIL		no ACK received
+ *     OP_SUCCESS			package was delivered
  * 
  * last modified: 2016/11/01
  */
@@ -258,7 +259,7 @@ int TRX_atRemoteFrame(uint8_t *send)
 	sprintf((char*)(send+14),"%c",RFmodul.netCMD_my >> 8);		// src. short address
 	
 	sprintf((char*)(send+15),"%c",0xB5);				
-	sprintf((char*)(send+16),"%c",0x04);						// I do not know in which relation this line stands, but it is in all test 04  // Anz. Endpoints?
+	sprintf((char*)(send+16),"%c",0x04);						// I do not know in which relation this lines stands, but it is in all test 04
 	
 	// begin data
 	sprintf((char*)(send+17),"%c",0x01);						// Frame ID

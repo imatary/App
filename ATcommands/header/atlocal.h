@@ -17,9 +17,9 @@
 ATERROR		AT_localMode(void);
 
 static CMD*	CMD_findInTable(void);
-static void CMD_readOrExec(void);
+static void CMD_readOrExec(uint32_t *th);
 static void CMD_write(unsigned int *len);
-
+uint32_t    CMD_timeHandle(uint32_t arg);
 static bool_t charToUint8(uint8_t *pCmdString, int *len);
 
 #endif /* ATLOCAL_H_ */

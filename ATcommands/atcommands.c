@@ -16,6 +16,7 @@
 #include "header/setter.h"
 #include "header/circularBuffer.h"
 #include "../ATuracoli/stackrelated.h"
+#include "../ATuracoli/stackrelated_timer.h"
 
 device_t RFmodul;
 
@@ -34,7 +35,8 @@ void main(void)
 	/*
 	 * init peripheral devices
 	 */
-	UART_init();									
+	UART_init();
+	deTIMER_init();									
 	BufferInit(&UART_deBuf, &RX_deBuf, NULL);
 	if( !TRX_baseInit() ) ret =  TRX_INIT_ERROR;
 
