@@ -10,7 +10,7 @@
 
 #include "../header/_global.h"					// RFmodul struct
 #include "../header/atlocal.h"					// prototypes
-#include "../header/setter.h"
+#include "../header/rfmodul.h"
 #include "../header/circularBuffer.h"			// buffer
 #include "../../ATuracoli/stackrelated.h"		// UART_print(f)
 #include "../../ATuracoli/stackrelated_timer.h"	// UART_print(f)
@@ -30,13 +30,13 @@ bool_t noTimeout = TRUE;
  *     COMMAND_MODE_FAIL	if the working buffer not correctly initialized
  *							if the incoming buffer unable to receive characters
  *
- * last modified: 2016/11/18
+ * last modified: 2016/11/22
  */
 ATERROR AT_localMode(void)
 {
 	ATERROR ret       = 0;
 	int		inchar    = 0;
-	int     counter   = 0;
+	size_t  counter   = 0;
 	uint32_t th		  = 0;
 	noTimeout         = TRUE;
 	
@@ -76,6 +76,10 @@ ATERROR AT_localMode(void)
 				 * - reset counter to 0 for next cmd
 				 */
 				th = deTIMER_restart(th, deMSEC( RFmodul.atcopCMD_ct * 0x64) );
+				if ( FALSE == th )
+				{
+					UART_print("Timer could not start!\rPlease quit commandmode with ATCN.\r");
+				}
 				if     ( counter <  5 ) 
 				{
 					UART_print("Invalid command!\r");
@@ -297,10 +301,11 @@ static void CMD_readOrExec(uint32_t *th)
  * Returns:
  *     nothing
  *				 
- * last modified: 2016/11/18
+ * last modified: 2016/11/22
  */				 
-static void CMD_write(unsigned int *len)
+static void CMD_write(size_t *len)
 {
+	size_t cmdSize = (((*len-1) % 2) + (*len-5))/2;
 	CMD *pCommand = CMD_findInTable();
 	/*
 	 * if there no valid command, free pCommand and leave function
@@ -333,16 +338,6 @@ static void CMD_write(unsigned int *len)
 		return;
 	}
 
-
-	/*
-	 * if there a valid command, allocate mem for the command string
-	 * fill the command string with content of the buffer
-	 */
-	size_t cmdSize = ( (*len-1) % 2) + (*len-4);
-	uint8_t cmdString[cmdSize/2];
-	
-	if ( charToUint8( &cmdString[0], len ) == FALSE ) return;
-
 	/*
 	 * if writing is allowed store the value of the string into RFmodel struct and register
 	 * copy value for comparison in tmp buffer
@@ -359,15 +354,15 @@ static void CMD_write(unsigned int *len)
 			/*
 			 * AT commands: network
 			 *
-			 * last modified: 2016/11/18
+			 * last modified: 2016/11/22
 			 */
 			case AT_CH : { 
-							uint8_t tmp = cmdString[0];
-							UART_printf("%d - %d - %d\r", cmdSize/2 <= 1, tmp >= 0x0B, tmp <= 0x1A);
-							UART_printf("%d - %x\r", cmdSize/2, tmp);
-							if ( cmdSize/2 <= 1 && tmp >= 0x0B && tmp <= 0x1A )
+							uint8_t tmp = 0;								
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
+							
+							if ( cmdSize <= 1 && tmp >= 0x0B && tmp <= 0x1A )
 							{
-								TRX_writeBit(deSR_CHANNEL, cmdString[0]);
+								TRX_writeBit(deSR_CHANNEL, tmp);
 								RFmodul.netCMD_ch = tmp;
 								UART_print("OK\r");
 								
@@ -377,9 +372,11 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_ID : {
+							uint8_t cmdString[2] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return;
 							uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
 							
-							if ( cmdSize/2 <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
+							if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 							{
 								RFmodul.netCMD_id = tmp;
 								UART_print("OK\r");
@@ -390,9 +387,11 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_DH : {
+							uint8_t cmdString[4] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 4 ) == FALSE ) return;
 							uint32_t tmp = (uint32_t) cmdString[0] << 24 | (uint32_t) cmdString[1] << 16 | (uint32_t) cmdString[2] <<   8 | (uint32_t) cmdString[3];
 							
-							if ( cmdSize/2 <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
+							if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
 							{
 								RFmodul.netCMD_dh = tmp;
 								UART_print("OK\r");
@@ -403,9 +402,11 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_DL : {
+							uint8_t cmdString[4] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 4 ) == FALSE ) return;
 							uint32_t tmp = (uint32_t) cmdString[0] << 24 | (uint32_t) cmdString[1] << 16 | (uint32_t) cmdString[2] <<   8 | (uint32_t) cmdString[3];
 							
-							if ( cmdSize/2 <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
+							if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
 							{
 								RFmodul.netCMD_dl = tmp;
 								UART_print("OK\r");
@@ -416,9 +417,11 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_MY : {
+							uint8_t cmdString[2] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return;
 							uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
 							
-							if ( cmdSize/2 <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
+							if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 							{
 								RFmodul.netCMD_my = tmp;
 								UART_print("OK\r");
@@ -429,9 +432,11 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_SH : {
+							uint8_t cmdString[4] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 4 ) == FALSE ) return;
 							uint32_t tmp = (uint32_t) cmdString[0] << 24 | (uint32_t) cmdString[1] << 16 | (uint32_t) cmdString[2] <<   8 | (uint32_t) cmdString[3];
 							
-							if ( cmdSize/2 <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
+							if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
 							{
 								RFmodul.netCMD_dh = tmp;
 								UART_print("OK\r");
@@ -442,9 +447,11 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_SL : { 
+							uint8_t cmdString[4] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 4 ) == FALSE ) return;
 							uint32_t tmp = (uint32_t) cmdString[0] << 24 | (uint32_t) cmdString[1] << 16 | (uint32_t) cmdString[2] <<   8 | (uint32_t) cmdString[3];
 							
-							if ( cmdSize/2 <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
+							if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
 							{
 								RFmodul.netCMD_dh = tmp;
 								UART_print("OK\r");
@@ -454,10 +461,11 @@ static void CMD_write(unsigned int *len)
 						}
 						break;
 			
-			case AT_CE : { 		
-							uint8_t tmp = cmdString[0];
+			case AT_CE : { 	
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 											
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x1 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
 							{
 								RFmodul.netCMD_ce = tmp;
 								UART_print("OK\r");
@@ -468,9 +476,11 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_SC : { 
+							uint8_t cmdString[2] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return;
 							uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
 							 
-							if ( cmdSize/2 <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
+							if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 							{
 								RFmodul.netCMD_sc = tmp;
 								UART_print("OK\r");
@@ -481,9 +491,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_MM : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x00 && tmp <= 0x3 )
+							if ( cmdSize <= 1 && tmp >= 0x00 && tmp <= 0x3 )
 							{
 								RFmodul.netCMD_mm = tmp;
 								UART_print("OK\r");
@@ -494,9 +505,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_RR : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x6 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x6 )
 							{
 								RFmodul.netCMD_rr = tmp;
 								UART_print("OK\r");
@@ -507,9 +519,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_RN : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x00 && tmp <= 0x3 )
+							if ( cmdSize <= 1 && tmp >= 0x00 && tmp <= 0x3 )
 							{
 								RFmodul.netCMD_rn = tmp;
 								UART_print("OK\r");
@@ -520,9 +533,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_NT : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x01 && tmp <= 0xFC )
+							if ( cmdSize <= 1 && tmp >= 0x01 && tmp <= 0xFC )
 							{
 								RFmodul.netCMD_nt = tmp;
 								UART_print("OK\r");
@@ -533,9 +547,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_NO : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x1 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
 							{
 								RFmodul.netCMD_no = tmp;
 								UART_print("OK\r");
@@ -546,9 +561,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_SD : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xF )
 							{
 								RFmodul.netCMD_sd = tmp;
 								UART_print("OK\r");
@@ -559,9 +575,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_A1 : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xF )
 							{
 								RFmodul.netCMD_a1 = tmp;
 								UART_print("OK\r");
@@ -572,9 +589,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_A2 : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xF )
 							{
 								RFmodul.netCMD_a2 = tmp;
 								UART_print("OK\r");
@@ -586,14 +604,15 @@ static void CMD_write(unsigned int *len)
 			/*
 			 * AT commands: security
 			 *
-			 * last modified: 2016/11/18
+			 * last modified: 2016/11/22
 			 */			
 			case AT_KY : UART_print("Not implemented.\r"); break;
 
 			case AT_EE : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x1 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
 							{
 								RFmodul.secCMD_ee = tmp;
 								UART_print("OK\r");
@@ -605,12 +624,13 @@ static void CMD_write(unsigned int *len)
 			/*
 			 * AT commands: RF interface
 			 *
-			 * last modified: 2016/11/18
+			 * last modified: 2016/11/22
 			 */
 			case AT_PL : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x4 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x4 )
 							{
 								RFmodul.rfiCMD_pl = tmp;
 								UART_print("OK\r");
@@ -621,9 +641,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_CA : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x24 && tmp <= 0x50 )
+							if ( cmdSize <= 1 && tmp >= 0x24 && tmp <= 0x50 )
 							{
 								RFmodul.rfiCMD_ca = tmp;
 								UART_print("OK\r");
@@ -635,12 +656,13 @@ static void CMD_write(unsigned int *len)
 			/*
 			 * AT commands: sleep modes
 			 *
-			 * last modified: 2016/11/18
+			 * last modified: 2016/11/22
 			 */
 			case AT_SM : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x6 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x6 )
 							{
 								RFmodul.sleepmCMD_sm = tmp;
 								UART_print("OK\r");
@@ -651,9 +673,11 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_ST : { 
+							uint8_t cmdString[2] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return;
 							uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
 							
-							if ( cmdSize/2 <= 2 && tmp >= 0x1 && tmp <= 0xFFFF )
+							if ( cmdSize <= 2 && tmp >= 0x1 && tmp <= 0xFFFF )
 							{
 								RFmodul.sleepmCMD_st = tmp;
 								UART_print("OK\r");
@@ -664,9 +688,11 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_SP : {
+							uint8_t cmdString[2] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return;
 							uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
 							
-							if ( cmdSize/2 <= 2 && tmp >= 0x0 && tmp <= 0x68B0 )
+							if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0x68B0 )
 							{
 								RFmodul.sleepmCMD_sp = tmp;
 								UART_print("OK\r");
@@ -677,9 +703,11 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_DP : { 
+							uint8_t cmdString[2] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return;
 							uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
 							
-							if ( cmdSize/2 <= 2 && tmp >= 0x1 && tmp <= 0x68B0 )
+							if ( cmdSize <= 2 && tmp >= 0x1 && tmp <= 0x68B0 )
 							{
 								RFmodul.sleepmCMD_dp = tmp;
 								UART_print("OK\r");
@@ -690,9 +718,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_SO : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x6 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x6 )
 							{
 								RFmodul.sleepmCMD_so = tmp;
 								UART_print("OK\r");
@@ -704,12 +733,13 @@ static void CMD_write(unsigned int *len)
 			/*
 			 * AT commands: serial interfacing
 			 *
-			 * last modified: 2016/11/18
+			 * last modified: 2016/11/22
 			 */
 			case AT_AP : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x2 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x2 )
 							{
 								RFmodul.serintCMD_ap = tmp;
 								UART_print("OK\r");
@@ -720,9 +750,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_BD : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x7 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x7 )
 							{
 								RFmodul.serintCMD_bd = tmp;
 								UART_print("OK\r");
@@ -733,9 +764,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_NB : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x4 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x4 )
 							{
 								RFmodul.serintCMD_nb = tmp;
 								UART_print("OK\r");
@@ -746,9 +778,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_RO : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.serintCMD_ro = tmp;
 								UART_print("OK\r");
@@ -760,12 +793,13 @@ static void CMD_write(unsigned int *len)
 			/*
 			 * AT commands: IO settings
 			 *
-			 * last modified: 2016/11/18
+			 * last modified: 2016/11/22
 			 */
 			case AT_D8 : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x5 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d8 = tmp;
 								UART_print("OK\r");
@@ -776,9 +810,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_D7 : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x5 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d7 = tmp;
 								UART_print("OK\r");
@@ -789,9 +824,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_D6 : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x5 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d6 = tmp;
 								UART_print("OK\r");
@@ -802,9 +838,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_D5 : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x5 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d5 = tmp;
 								UART_print("OK\r");
@@ -815,9 +852,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_D4 : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x5 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d4 = tmp;
 								UART_print("OK\r");
@@ -828,9 +866,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_D3 : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x5 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d3 = tmp;
 								UART_print("OK\r");
@@ -841,9 +880,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_D2 : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x5 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d2 = tmp;
 								UART_print("OK\r");
@@ -854,9 +894,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_D1 : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x5 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d1 = tmp;
 								UART_print("OK\r");
@@ -867,9 +908,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_D0 : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x5 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d0 = tmp;
 								UART_print("OK\r");
@@ -880,9 +922,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_PR : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.ioserCMD_pr = tmp;
 								UART_print("OK\r");
@@ -893,9 +936,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_IU : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x1 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
 							{
 								RFmodul.ioserCMD_iu = tmp;
 								UART_print("OK\r");
@@ -906,9 +950,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_IT : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x1 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x1 && tmp <= 0xFF )
 							{
 								RFmodul.ioserCMD_it = tmp;
 								UART_print("OK\r");
@@ -919,9 +964,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_IC : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.ioserCMD_ic = tmp;
 								UART_print("OK\r");
@@ -932,9 +978,11 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_IR : {
+							uint8_t cmdString[2] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return;
 							uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
 							
-							if ( cmdSize/2 <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
+							if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 							{
 								RFmodul.ioserCMD_ir = tmp;
 								UART_print("OK\r");
@@ -945,9 +993,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_P0 : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x2 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x2 )
 							{
 								RFmodul.ioserCMD_p0 = tmp;
 								UART_print("OK\r");
@@ -958,9 +1007,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_P1 : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0x2 )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x2 )
 							{
 								RFmodul.ioserCMD_p1 = tmp;
 								UART_print("OK\r");
@@ -971,9 +1021,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_PT : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0xB && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0xB && tmp <= 0xFF )
 							{
 								RFmodul.ioserCMD_pt = tmp;
 								UART_print("OK\r");
@@ -984,9 +1035,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_RP : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.ioserCMD_rp = tmp;
 								UART_print("OK\r");
@@ -998,13 +1050,15 @@ static void CMD_write(unsigned int *len)
 			/*
 			 * AT commands: IO line passing
 			 *
-			 * last modified: 2016/11/18
+			 * last modified: 2016/11/22
 			 */
 			case AT_IA : {
+							uint8_t cmdString[8] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 8 ) == FALSE ) return;
 							uint64_t tmp = (uint64_t) cmdString[0] << 56 | (uint64_t) cmdString[1] << 48 | (uint64_t) cmdString[2] <<  40 | (uint64_t) cmdString[3] << 32 |\
 										   (uint64_t) cmdString[4] << 24 | (uint64_t) cmdString[5] << 16 | (uint64_t) cmdString[6] <<   8 | (uint64_t) cmdString[7];
 							
-							if ( cmdSize/2 <= 8 && tmp >= 0x0 && tmp <= 0xFFFFFFFFFFFFFFFF )
+							if ( cmdSize <= 8 && tmp >= 0x0 && tmp <= 0xFFFFFFFFFFFFFFFF )
 							{
 								RFmodul.iolpCMD_ia = tmp;
 								UART_print("OK\r");
@@ -1015,9 +1069,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_T0 : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T0 = tmp;
 								UART_print("OK\r");
@@ -1028,9 +1083,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_T1 : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T1 = tmp;
 								UART_print("OK\r");
@@ -1041,9 +1097,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_T2 : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T2 = tmp;
 								UART_print("OK\r");
@@ -1054,9 +1111,10 @@ static void CMD_write(unsigned int *len)
 						break;
 	
 			case AT_T3 : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T3 = tmp;
 								UART_print("OK\r");
@@ -1067,9 +1125,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_T4 : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T4 = tmp;
 								UART_print("OK\r");
@@ -1080,9 +1139,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_T5 : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T5 = tmp;
 								UART_print("OK\r");
@@ -1093,9 +1153,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_T6 : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T6 = tmp;
 								UART_print("OK\r");
@@ -1106,9 +1167,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_T7 : {
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 														
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T7 = tmp;
 								UART_print("OK\r");
@@ -1120,12 +1182,14 @@ static void CMD_write(unsigned int *len)
 			/*
 			 * AT commands: diagnostics
 			 *
-			 * last modified: 2016/11/18
+			 * last modified: 2016/11/22
 			 */
 			case AT_DD : { 
+							uint8_t cmdString[4] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 4 ) == FALSE ) return;
 							uint32_t tmp = (uint32_t) cmdString[0] << 24 | (uint32_t) cmdString[1] << 16 | (uint32_t) cmdString[2] <<   8 | (uint32_t) cmdString[3];
 							
-							if ( cmdSize/2 <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
+							if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
 							{
 								RFmodul.diagCMD_dd = tmp;
 								UART_print("OK\r");
@@ -1137,12 +1201,14 @@ static void CMD_write(unsigned int *len)
 			/*
 			 * AT commands: AT command options
 			 *
-			 * last modified: 2016/11/18
+			 * last modified: 2016/11/22
 			 */
 			case AT_CT : { 
+							uint8_t cmdString[2] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return;
 							uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
 							
-							if ( cmdSize/2 <= 2 && tmp >= 0x02 && tmp <= 0x1770 )
+							if ( cmdSize <= 2 && tmp >= 0x02 && tmp <= 0x1770 )
 							{
 								RFmodul.atcopCMD_ct = tmp;
 								UART_print("OK\r");
@@ -1153,9 +1219,11 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_GT : { 
+							uint8_t cmdString[2] = {0x0};
+							if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return;
 							uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
 							
-							if ( cmdSize/2 <= 2 && tmp >= 0x02 && tmp <= 0xCE4 )
+							if ( cmdSize <= 2 && tmp >= 0x02 && tmp <= 0xCE4 )
 							{
 								RFmodul.atcopCMD_gt = tmp;
 								UART_print("OK\r");
@@ -1166,9 +1234,10 @@ static void CMD_write(unsigned int *len)
 						break;
 			
 			case AT_CC : { 
-							uint8_t tmp = cmdString[0];
+							uint8_t tmp = 0;
+							if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
 							
-							if ( cmdSize/2 <= 1 && tmp >= 0x0 && tmp <= 0xFF )
+							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.atcopCMD_cc = tmp;
 								UART_print("OK\r");
@@ -1192,10 +1261,13 @@ static void CMD_write(unsigned int *len)
  * - received the buffer content and converted content to uint8 hex values
  * - the char 'A' will be uint8_t hex 0xA and so on
  * 
- * Returns:
- *	   FALSE	to stop the timer
+ * Received:
+ *		uint32_t arg	this argument can be used in this function
  *
- * last modified: 2016/11/21
+ * Returns:
+ *		FALSE	to stop the timer
+ *
+ * last modified: 2016/11/22
  */
 uint32_t CMD_timeHandle(uint32_t arg)
 {
@@ -1209,23 +1281,38 @@ uint32_t CMD_timeHandle(uint32_t arg)
  * - received the buffer content and converted content to uint8 hex values
  * - the char 'A' will be uint8_t hex 0xA and so on
  * 
+ * Received:
+ *		uint8_t *cmdString		pointer to the string buffer
+ *		size_t  *strlength		complete string length
+ *		size_t  *cmdSize		final command size 
+ *		size_t  *maxCmdSize		maximum length of the string buffer
+ *		
  * Returns:
  *     TRUE  on success
  *	   FALSE on failure
  *
- * last modified: 2016/11/14
+ * last modified: 2016/11/22
  */
-static bool_t charToUint8(uint8_t *cmdString, int *len)
+static bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize, size_t maxCmdSize)
 {
-	if ( 1 >= *len ) return FALSE;
-	uint8_t tmp[2] = {0};
-	int pos = 0, c = 0;
+	uint8_t tmp[2] = {0};	
+	/*
+	 * this case should not occur: 
+	 * if only a '\r' or '\n' left (one byte after the AT command) return false because there is nothing to write
+	 */
+	if ( 1 >= *strlength-4 ) 
+	{
+		if ( 1 == *strlength-4 ) { cli(); BufferOut( &UART_deBuf, &tmp[0] ); sei(); } // dummy read to reset the buffer read pointer
+		return FALSE;
+	}
+
+	int pos = (*cmdSize < maxCmdSize)? maxCmdSize - *cmdSize : 0 , c = 0;
 	
 	/*
 	 * if the len is an uneven number, set the first field to zero
 	 * to avoid a false calculation
 	 */
-	if ( ((*len)-5) % 2 == 1 )
+	if ( ((*strlength)-5) % 2 == 1 )
 	{
 		tmp[c] = '0';
 		c = 1;
@@ -1236,14 +1323,14 @@ static bool_t charToUint8(uint8_t *cmdString, int *len)
 		{
 			cli(); BufferOut( &UART_deBuf, &tmp[c] ); sei();
 			if( tmp[c] == 0x20 ) BufferOut( &UART_deBuf, &tmp[c] );	// ' ' == 0x20	ignore spaces
-			if( tmp[c] == 0x0D ) return TRUE;						// '\r' == 0x0D and line break
+			if( tmp[c] == '\r' || tmp[c] == '\n') return TRUE;		// line break	return true
 		}
 		/*
 		 * if the calculated position size greater than calculated array size return failure
 		 * else print the new hex value into the array
 		 */
-		if ( ((*len-1) % 2) + (*len-4) < pos ) return FALSE;
-		sprintf((char*)(cmdString+pos),"%c", (unsigned int) strtol( (const char*) &tmp, NULL, 16) );
+		if ( pos > maxCmdSize ) return FALSE;
+		sprintf((char*)(cmdString+pos),"%c", (uint8_t) strtoul( (const char*) tmp, NULL, 16) );
 		c = 0;
 		pos++;
 

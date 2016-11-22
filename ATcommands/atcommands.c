@@ -9,11 +9,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
+#include <inttypes.h>
 
 #include "header/_global.h"
 #include "header/atlocal.h"
-#include "header/setter.h"
+#include "header/rfmodul.h"
 #include "header/circularBuffer.h"
 #include "../ATuracoli/stackrelated.h"
 #include "../ATuracoli/stackrelated_timer.h"
@@ -48,7 +48,6 @@ void main(void)
 	while (TRUE)
 	{
 		if( ret ) { ATERROR_print(&ret);  ret = 0; }
-		
 		/*
 		 * Receiver operation
 		 *

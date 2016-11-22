@@ -24,8 +24,6 @@
 #define DH_DEST_HIGH				(0x0)			// 0x0-0xFFFFFFFF (XBee default '0')	
 #define DL_DEST_LOW					(0x0)			// 0x0-0xFFFFFFFF (XBee default '0')
 #define MY_SHORT_ADDR				(0xDE)			// 0x0-0xFFFF (XBee default '0')
-#define SH_SERIAL_HIGH				(0x00212eff)	// modems unique IEEE 64-bit source address (high 32-bit) -> read only
-#define SL_SERIAL_LOW				(0xff00c327)	// modems unique IEEE 64-bit source address (low 32-bit)  -> read only
 #define CE_COORDINATOR_ENABLE		(FALSE)			// 0x0-0x1 (XBee default '0')
 #define SC_SCAN_CHANNELS			(0x1FFE)		// 0x0-0xFFFF (XBee default '1FFE')
 #define NI_NODE_IDENTIFY			"deConBee\0"	// 0-20 ASCII characters (XBee default '')	

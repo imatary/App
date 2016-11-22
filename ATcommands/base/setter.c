@@ -5,10 +5,13 @@
  *  Author: TOE
  */ 
 
+#include <string.h>
+#include <avr/eeprom.h>
+
 #include "../header/_global.h"			// RFmodul struct
 #include "../header/defaultConfig.h"	// defines for default configuration
-#include "../header/setter.h"			// prototypes
-#include <string.h>
+#include "../header/rfmodul.h"			// prototypes
+
 
 /*
  * Set network parameter to default
@@ -25,8 +28,8 @@ void SET_netDefault()
 	RFmodul.netCMD_dh = DH_DEST_HIGH;
 	RFmodul.netCMD_dl = DL_DEST_LOW;
 	RFmodul.netCMD_my = MY_SHORT_ADDR;
-	RFmodul.netCMD_sh = SH_SERIAL_HIGH;
-	RFmodul.netCMD_sl = SL_SERIAL_LOW;
+	RFmodul.netCMD_sh = eeprom_read_dword( (uint32_t*) ADDR_SH );
+	RFmodul.netCMD_sl = eeprom_read_dword( (uint32_t*) ADDR_SL );
 	RFmodul.netCMD_ce = CE_COORDINATOR_ENABLE;
 	RFmodul.netCMD_sc = SC_SCAN_CHANNELS;
 	strcpy(RFmodul.netCMD_ni,  NI_NODE_IDENTIFY);
@@ -199,8 +202,8 @@ void SET_cmdoDefault()
 	 RFmodul.netCMD_dh = DH_DEST_HIGH;
 	 RFmodul.netCMD_dl = DL_DEST_LOW;
 	 RFmodul.netCMD_my = MY_SHORT_ADDR;
-	 RFmodul.netCMD_sh = SH_SERIAL_HIGH;
-	 RFmodul.netCMD_sl = SL_SERIAL_LOW;
+	 RFmodul.netCMD_sh = eeprom_read_dword( (uint32_t*) ADDR_SH );
+	 RFmodul.netCMD_sl = eeprom_read_dword( (uint32_t*) ADDR_SL );
 	 RFmodul.netCMD_ce = CE_COORDINATOR_ENABLE;
 	 RFmodul.netCMD_sc = SC_SCAN_CHANNELS;
 	 strcpy(RFmodul.netCMD_ni,  NI_NODE_IDENTIFY);

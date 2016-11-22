@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 #include "../ATcommands/header/_global.h"
+#include "../ATcommands/header/rfmodul.h"
 #include "../ATcommands/header/circularBuffer.h"
 #include "stackrelated.h"
 #include "stackdefines.h"
