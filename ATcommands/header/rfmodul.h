@@ -10,6 +10,7 @@
 #define RFMODUL_H_
 
 #include <inttypes.h>
+#include "_global.h"
 
 // === struct =============================================
 typedef struct  {
@@ -106,86 +107,14 @@ void SET_diagDefault(void);
 void SET_cmdoDefault(void);
 void SET_allDefault(void);
 
-// === get functions ==========================================
-void GET_allOfMem(void);
+// === EEPROM functions =======================================
+void GET_allFromEEPROM(void);
+void SET_defaultInEEPROM(void);
+void SET_userValInEEPROM(void);
 
 // === addresses of eeprom ====================================
-#define ADDR_CH 0x1DE0
-#define ADDR_ID 0x1DE1
-#define ADDR_DH
-#define ADDR_DL
-#define ADDR_MY
+// position of the MAC address of dresden-elektronik ConBee modules
 #define ADDR_SH 0x1FE8
 #define ADDR_SL 0x1FE4
-#define ADDR_CE
-#define ADDR_SC
-#define ADDR_NI
-#define ADDR_MM
-#define ADDR_RR
-#define ADDR_RN
-#define ADDR_NT
-#define ADDR_NO
-#define ADDR_SD
-#define ADDR_A1
-#define ADDR_A2
-#define ADDR_AI
-
-#define ADDR_EE
-#define ADDR_KY
-
-#define ADDR_PL
-#define ADDR_CA
-
-#define ADDR_SM
-#define ADDR_ST
-#define ADDR_SP
-#define ADDR_DP
-#define ADDR_SO
-
-#define ADDR_AP
-#define ADDR_BD
-#define ADDR_NB
-#define ADDR_RO
-
-#define ADDR_D8
-#define ADDR_D7
-#define ADDR_D6
-#define ADDR_D5
-#define ADDR_D4
-#define ADDR_D3
-#define ADDR_D2
-#define ADDR_D1
-#define ADDR_D0
-#define ADDR_PR
-#define ADDR_IU
-#define ADDR_IT
-#define ADDR_IC
-#define ADDR_IR
-#define ADDR_P0
-#define ADDR_P1
-#define ADDR_PT
-#define ADDR_RP
-
-#define ADDR_IA
-#define ADDR_T0
-#define ADDR_T1
-#define ADDR_T2
-#define ADDR_T3
-#define ADDR_T4
-#define ADDR_T5
-#define ADDR_T6
-#define ADDR_T7
-
-#define ADDR_VR
-#define ADDR_HV
-#define ADDR_DB
-#define ADDR_EC
-#define ADDR_EA
-#define ADDR_DD
-
-#define ADDR_CT
-#define ADDR_GT
-#define ADDR_CC
-
 
 #endif /* RFMODUL_H_ */

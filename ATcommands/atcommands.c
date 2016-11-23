@@ -22,24 +22,25 @@ device_t RFmodul;
 
 static void ATERROR_print(ATERROR *value);
 
+
 void main(void) 
 {
 	ATERROR ret     = 0;
 	int		inchar  = 0; // received the data of the UART input (byte by byte)
 	int     counter = 0;
 	/*
-	 * initialize structs
+	 * initialize structs and buffer
 	 */
-	SET_allDefault();
+	GET_allFromEEPROM();
+	BufferInit(&UART_deBuf, &RX_deBuf, NULL);
 	
 	/*
 	 * init peripheral devices
 	 */
 	UART_init();
 	deTIMER_init();									
-	BufferInit(&UART_deBuf, &RX_deBuf, NULL);
 	if( !TRX_baseInit() ) ret =  TRX_INIT_ERROR;
-
+	
 	sei();	// allow interrupts
 
 	/*
@@ -68,7 +69,8 @@ void main(void)
 		inchar = UART_getc();
 		if ( EOF != inchar )
 		{
-			UART_printf("%c", inchar );				// return character immediately
+			//UART_printf("%c", inchar );				// return character immediately
+
 			/*
 			 * push the character into the buffer
 			 * neither interrupts allowed
