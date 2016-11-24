@@ -26,7 +26,7 @@
 #define MY_SHORT_ADDR				(0xDE)			// 0x0-0xFFFF (XBee default '0')
 #define CE_COORDINATOR_ENABLE		(FALSE)			// 0x0-0x1 (XBee default '0')
 #define SC_SCAN_CHANNELS			(0x1FFE)		// 0x0-0xFFFF (XBee default '1FFE')
-#define NI_NODE_IDENTIFY			"deConBee\0"	// 0-20 ASCII characters (XBee default '')	
+#define NI_NODE_IDENTIFY			"deConBee"		// 0-20 ASCII characters (XBee default '')	
 #define MM_MAC_MODE					(0x0)			// 0x0-0x3 (XBee default '0')
 #define RR_XBEE_RETRIES				(0x0)			// 0x0-0x6 (XBee default '0')
 #define RN_RANDOM_DELAY_SLOTS		(0x0)			// 0x0-0x3 (XBee default '0')

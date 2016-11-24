@@ -13,10 +13,10 @@
 
 #include "header/_global.h"
 #include "header/atlocal.h"
-#include "header/rfmodul.h"
-#include "header/circularBuffer.h"
-#include "../ATuracoli/stackrelated.h"
-#include "../ATuracoli/stackrelated_timer.h"
+#include "header/rfmodul.h"							// RFmodul struct
+#include "header/circularBuffer.h"					// buffer
+#include "../ATuracoli/stackrelated.h"				// trx init, uart init
+#include "../ATuracoli/stackrelated_timer.h"		// timer init
 
 device_t RFmodul;
 
@@ -82,7 +82,7 @@ void main(void)
 			/*
 			 * if a carriage return (0xD) received, send the buffer content 
 			 */
-			if( '\r' == inchar ) 
+			if( '\r' == inchar || '\n' == inchar ) 
 			{ 
 				ret = TRX_send(); 
 				if ( ret )	{ ATERROR_print(&ret); ret = 0; }
@@ -103,7 +103,7 @@ void main(void)
 					 * if a API frame is received reset the read counter
 					 */
 					BufferOut( &UART_deBuf, (uint8_t*) &inchar);
-					//UART_printf("#%02x#", inchar);
+					
 					if ( 0x7e == inchar ) deBufferReadReset( &UART_deBuf, '+', 10 );
 					else				  deBufferReadReset( &UART_deBuf, '+', 2 );
 					ret = AT_localMode();
@@ -124,13 +124,13 @@ static void ATERROR_print(ATERROR *value)
 {
 	switch(*value)
 	{
-		case TRX_INIT_ERROR		: UART_print("Cannot initialize trx base!\r");							break;
-		case BUFFER_IN_FAIL		: UART_print("BufferIn error!\r"); 										break;
-		case BUFFER_OUT_FAIL	: UART_print("BufferOut error!\r"); 									break;
-		case TRANSMIT_OUT_FAIL	: UART_print("Transmitter send error! Data can't transmitted.\r");		break;
-		case TRANSMIT_IN_FAIL	: UART_print("Receiver error! Can't receive or translate the data.\r");	break;
-		case TRANSMIT_CRC_FAIL  : UART_print("Receiver error! CRC code does not match.\r");				break;
-		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode.\r");			break;
-		default					: 																		break;
+		case TRX_INIT_ERROR		: UART_print("Cannot initialize trx base!\r\n");							break;
+		case BUFFER_IN_FAIL		: UART_print("BufferIn error!\r\n"); 										break;
+		case BUFFER_OUT_FAIL	: UART_print("BufferOut error!\r\n"); 										break;
+		case TRANSMIT_OUT_FAIL	: UART_print("Transmitter send error! Data can't transmitted.\r\n");		break;
+		case TRANSMIT_IN_FAIL	: UART_print("Receiver error! Can't receive or translate the data.\r\n");	break;
+		case TRANSMIT_CRC_FAIL  : UART_print("Receiver error! CRC code does not match.\r\n");				break;
+		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode.\r\n");				break;
+		default					: 																			break;
 	}
 }

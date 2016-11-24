@@ -14,6 +14,7 @@
 
 // === struct =============================================
 typedef struct  {
+	uint8_t	 netCMD_ni[21];     // max 20* 0xFF                = 168 bit
 	uint8_t  netCMD_ch : 6;     // max 0x1A                    =   6 bit
 	uint16_t netCMD_id;         // max 0xFFFF                  =  16 bit
 	uint32_t netCMD_dh;         // max 0xFFFFFFFF              =  32 bit
@@ -23,7 +24,6 @@ typedef struct  {
 	uint32_t netCMD_sl;         // max 0xFFFFFFFF              =  32 bit
 	bool_t	 netCMD_ce;	        // max 0x1                     =   1 bit
 	uint16_t netCMD_sc;         // max 0xFFFF                  =  16 bit
-	uint8_t	 netCMD_ni[21];     // max 20* 0xFF                = 168 bit
 	uint8_t	 netCMD_mm : 3;     // max 0x4                     =   3 bit
 	uint8_t  netCMD_rr : 2;     // max 0x3                     =   2 bit
 	uint8_t  netCMD_rn : 2;     // max 0x3                     =   2 bit
@@ -35,6 +35,7 @@ typedef struct  {
 	uint8_t  netCMD_ai : 6;     // a1(0xF) & a2(0xF) = ax 0x10 =   6 bit
 	
 	bool_t   secCMD_ee : 1;     // max 0x1                     =   1 bit
+	uint8_t  secCMD_ky[16];		// max FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF (32 characters) 128 Bit
 	
 	uint8_t  rfiCMD_pl : 3;     // max 0x4                     =   3 bit
 	uint8_t  rfiCMD_ca : 7;     // max 0x50                    =   7 bit
@@ -90,7 +91,7 @@ typedef struct  {
 	uint16_t atcopCMD_gt : 12; // max 0xCE4                    =  12 bit
 	uint8_t  atcopCMD_cc;      // max 0xFF                     =   8 bit
 	// ------------------------------------------------------------------
-	//                            Total:                         816 bit // if compiler pack the struct, next full size 1024
+	//                            Total:                        1076 bit // if compiler pack the struct
 }__attribute__((packed)) device_t;
 
 extern device_t RFmodul;
@@ -111,10 +112,5 @@ void SET_allDefault(void);
 void GET_allFromEEPROM(void);
 void SET_defaultInEEPROM(void);
 void SET_userValInEEPROM(void);
-
-// === addresses of eeprom ====================================
-// position of the MAC address of dresden-elektronik ConBee modules
-#define ADDR_SH 0x1FE8
-#define ADDR_SL 0x1FE4
 
 #endif /* RFMODUL_H_ */

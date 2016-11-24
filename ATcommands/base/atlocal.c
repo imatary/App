@@ -30,7 +30,7 @@ bool_t noTimeout = TRUE;
  *     COMMAND_MODE_FAIL	if the working buffer not correctly initialized
  *							if the incoming buffer unable to receive characters
  *
- * last modified: 2016/11/22
+ * last modified: 2016/11/24
  */
 ATERROR AT_localMode(void)
 {
@@ -43,10 +43,10 @@ ATERROR AT_localMode(void)
 	th = deTIMER_start(CMD_timeHandle, deMSEC( RFmodul.atcopCMD_ct * 0x64), 0); // start( *thfunc, duration, arg for callback );
 	if ( FALSE == th ) 
 	{
-		UART_print("Timer could not start!\rPlease quit commandmode with ATCN.\r");
+		UART_print("Timer could not start!\r\nPlease quit commandmode with ATCN.\r\n");
 	}
 	
-	UART_print("OK\r");
+	UART_print("OK\r\n");
 	while (noTimeout)	// runs until timer interrupt returns
 	{
 		inchar = UART_getc();
@@ -78,11 +78,11 @@ ATERROR AT_localMode(void)
 				th = deTIMER_restart(th, deMSEC( RFmodul.atcopCMD_ct * 0x64) );
 				if ( FALSE == th )
 				{
-					UART_print("Timer could not start!\rPlease quit commandmode with ATCN.\r");
+					UART_print("Timer could not start!\r\nPlease quit commandmode with ATCN.\r\n");
 				}
 				if     ( counter <  5 ) 
 				{
-					UART_print("Invalid command!\r");
+					UART_print("Invalid command!\r\n");
 					deBufferReadReset( &UART_deBuf, '+', counter );
 				}
 				else if( counter == 5 ) CMD_readOrExec(&th);
@@ -96,7 +96,7 @@ ATERROR AT_localMode(void)
 		
 	}/* end of while loop */
 
-	UART_print("Leave Command Mode.\r");
+	UART_print("Leave Command Mode.\r\n");
 	return OP_SUCCESS;
 }
 
@@ -157,7 +157,7 @@ static void CMD_readOrExec(uint32_t *th)
 	 */
 	if (NO_AT_CMD == pCommand) 
 	{ 
-		UART_print("Command not found.\r"); 
+		UART_print("Command not found.\r\n"); 
 		return; 
 	}
 	else if ( pCommand->rwxAttrib & EXEC )	// exec
@@ -168,26 +168,27 @@ static void CMD_readOrExec(uint32_t *th)
 			case AT_CN : {
 				*th = deTIMER_stop(*th);
 				noTimeout = FALSE; 
-				UART_print("OK\r");
+				UART_print("OK\r\n");
 			}
 			break;
 			
-			// write config to firmware - currently only a dummy
+			// write config to firmware
 			case AT_WR : {
-				UART_print("OK\r");
+				SET_userValInEEPROM();
+				UART_print("OK\r\n");
 			}
 			break;
 			
 			// apply changes - currently only a dummy
 			case AT_AC : {
-				UART_print("OK\r");
+				UART_print("OK\r\n");
 			}
 			break;
 			
 			// reset all parameter
 			case AT_RE : {
 				SET_allDefault();
-				UART_print("OK\r");
+				UART_print("OK\r\n");
 			}
 			break;
 			
@@ -198,100 +199,100 @@ static void CMD_readOrExec(uint32_t *th)
 	{
 		switch(pCommand->ID)
 		{
-			case AT_CH : UART_printf("%"PRIX8"\r", RFmodul.netCMD_ch); break;
-			case AT_ID : UART_printf("%"PRIX16"\r",RFmodul.netCMD_id); break;
-			case AT_DH : UART_printf("%"PRIX32"\r",RFmodul.netCMD_dh); break;
-			case AT_DL : UART_printf("%"PRIX32"\r",RFmodul.netCMD_dl); break;
-			case AT_MY : UART_printf("%"PRIX16"\r",RFmodul.netCMD_my); break;
-			case AT_SH : UART_printf("%"PRIX32"\r",RFmodul.netCMD_sh); break;
-			case AT_SL : UART_printf("%"PRIX32"\r",RFmodul.netCMD_sl); break;
-			case AT_CE : UART_printf("%d\r",       RFmodul.netCMD_ce); break;
-			case AT_SC : UART_printf("%"PRIX16"\r",RFmodul.netCMD_sc); break;
-			case AT_NI : UART_printf("%s\r",       RFmodul.netCMD_ni); break;
-			case AT_MM : UART_printf("%"PRIX8"\r", RFmodul.netCMD_mm); break;
-			case AT_RR : UART_printf("%"PRIX8"\r", RFmodul.netCMD_rr); break;
-			case AT_RN : UART_printf("%"PRIX8"\r", RFmodul.netCMD_rn); break;
-			case AT_NT : UART_printf("%"PRIX8"\r", RFmodul.netCMD_nt); break;
-			case AT_NO : UART_printf("%d\r",       RFmodul.netCMD_no); break;
-			case AT_SD : UART_printf("%"PRIX8"\r", RFmodul.netCMD_sd); break;
-			case AT_A1 : UART_printf("%"PRIX8"\r", RFmodul.netCMD_a1); break;
-			case AT_A2 : UART_printf("%"PRIX8"\r", RFmodul.netCMD_a2); break;
-			case AT_AI : UART_printf("%"PRIX8"\r", RFmodul.netCMD_ai); break;
+			case AT_CH : UART_printf("%"PRIX8"\r\n", RFmodul.netCMD_ch); break;
+			case AT_ID : UART_printf("%"PRIX16"\r\n",RFmodul.netCMD_id); break;
+			case AT_DH : UART_printf("%"PRIX32"\r\n",RFmodul.netCMD_dh); break;
+			case AT_DL : UART_printf("%"PRIX32"\r\n",RFmodul.netCMD_dl); break;
+			case AT_MY : UART_printf("%"PRIX16"\r\n",RFmodul.netCMD_my); break;
+			case AT_SH : UART_printf("%"PRIX32"\r\n",RFmodul.netCMD_sh); break;
+			case AT_SL : UART_printf("%"PRIX32"\r\n",RFmodul.netCMD_sl); break;
+			case AT_CE : UART_printf("%d\r\n",       RFmodul.netCMD_ce); break;
+			case AT_SC : UART_printf("%"PRIX16"\r\n",RFmodul.netCMD_sc); break;
+			case AT_NI : UART_printf("%s\r\n",       RFmodul.netCMD_ni); break;
+			case AT_MM : UART_printf("%"PRIX8"\r\n", RFmodul.netCMD_mm); break;
+			case AT_RR : UART_printf("%"PRIX8"\r\n", RFmodul.netCMD_rr); break;
+			case AT_RN : UART_printf("%"PRIX8"\r\n", RFmodul.netCMD_rn); break;
+			case AT_NT : UART_printf("%"PRIX8"\r\n", RFmodul.netCMD_nt); break;
+			case AT_NO : UART_printf("%d\r\n",       RFmodul.netCMD_no); break;
+			case AT_SD : UART_printf("%"PRIX8"\r\n", RFmodul.netCMD_sd); break;
+			case AT_A1 : UART_printf("%"PRIX8"\r\n", RFmodul.netCMD_a1); break;
+			case AT_A2 : UART_printf("%"PRIX8"\r\n", RFmodul.netCMD_a2); break;
+			case AT_AI : UART_printf("%"PRIX8"\r\n", RFmodul.netCMD_ai); break;
 
-			case AT_EE : UART_printf("%d\r",       RFmodul.secCMD_ee); break;
-			case AT_KY : UART_print("\r"); break;
+			case AT_EE : UART_printf("%d\r\n",       RFmodul.secCMD_ee); break;
+			case AT_KY : UART_print("\r\n"); break;
 
-			case AT_PL : UART_printf("%"PRIX8"\r", RFmodul.rfiCMD_pl); break;
-			case AT_CA : UART_printf("%"PRIX8"\r", RFmodul.rfiCMD_ca); break;
+			case AT_PL : UART_printf("%"PRIX8"\r\n", RFmodul.rfiCMD_pl); break;
+			case AT_CA : UART_printf("%"PRIX8"\r\n", RFmodul.rfiCMD_ca); break;
 
-			case AT_SM : UART_printf("%"PRIX8"\r", RFmodul.sleepmCMD_sm); break;
-			case AT_ST : UART_printf("%"PRIX16"\r",RFmodul.sleepmCMD_st); break;
-			case AT_SP : UART_printf("%"PRIX16"\r",RFmodul.sleepmCMD_sp); break;
-			case AT_DP : UART_printf("%"PRIX16"\r",RFmodul.sleepmCMD_dp); break;
-			case AT_SO : UART_printf("%"PRIX8"\r", RFmodul.sleepmCMD_so); break;
-			case AT_SS : UART_print("ERROR\r"); break;
+			case AT_SM : UART_printf("%"PRIX8"\r\n", RFmodul.sleepmCMD_sm); break;
+			case AT_ST : UART_printf("%"PRIX16"\r\n",RFmodul.sleepmCMD_st); break;
+			case AT_SP : UART_printf("%"PRIX16"\r\n",RFmodul.sleepmCMD_sp); break;
+			case AT_DP : UART_printf("%"PRIX16"\r\n",RFmodul.sleepmCMD_dp); break;
+			case AT_SO : UART_printf("%"PRIX8"\r\n", RFmodul.sleepmCMD_so); break;
+			case AT_SS : UART_print("ERROR\r\n"); break;
 
-			case AT_AP : UART_printf("%"PRIX8"\r",RFmodul.serintCMD_ap); break;
-			case AT_BD : UART_printf("%"PRIX8"\r",RFmodul.serintCMD_bd); break;
-			case AT_NB : UART_printf("%"PRIX8"\r",RFmodul.serintCMD_nb); break;
-			case AT_RO : UART_printf("%"PRIX8"\r",RFmodul.serintCMD_ro); break;
+			case AT_AP : UART_printf("%"PRIX8"\r\n",RFmodul.serintCMD_ap); break;
+			case AT_BD : UART_printf("%"PRIX8"\r\n",RFmodul.serintCMD_bd); break;
+			case AT_NB : UART_printf("%"PRIX8"\r\n",RFmodul.serintCMD_nb); break;
+			case AT_RO : UART_printf("%"PRIX8"\r\n",RFmodul.serintCMD_ro); break;
 
-			case AT_D8 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d8); break;
-			case AT_D7 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d7); break;
-			case AT_D6 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d6); break;
-			case AT_D5 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d5); break;
-			case AT_D4 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d4); break;
-			case AT_D3 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d3); break;
-			case AT_D2 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d2); break;
-			case AT_D1 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d1); break;
-			case AT_D0 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d0); break;
-			case AT_PR : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_pr); break;
-			case AT_IU : UART_printf("%d\r",       RFmodul.ioserCMD_iu); break;
-			case AT_IT : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_it); break;
-			case AT_IC : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_ic); break;
-			case AT_IR : UART_printf("%"PRIX16"\r",RFmodul.ioserCMD_ir); break;
-			case AT_P0 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_p0); break;
-			case AT_P1 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_p1); break;
-			case AT_PT : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_pt); break;
-			case AT_RP : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_rp); break;
+			case AT_D8 : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_d8); break;
+			case AT_D7 : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_d7); break;
+			case AT_D6 : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_d6); break;
+			case AT_D5 : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_d5); break;
+			case AT_D4 : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_d4); break;
+			case AT_D3 : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_d3); break;
+			case AT_D2 : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_d2); break;
+			case AT_D1 : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_d1); break;
+			case AT_D0 : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_d0); break;
+			case AT_PR : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_pr); break;
+			case AT_IU : UART_printf("%d\r\n",       RFmodul.ioserCMD_iu); break;
+			case AT_IT : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_it); break;
+			case AT_IC : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_ic); break;
+			case AT_IR : UART_printf("%"PRIX16"\r\n",RFmodul.ioserCMD_ir); break;
+			case AT_P0 : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_p0); break;
+			case AT_P1 : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_p1); break;
+			case AT_PT : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_pt); break;
+			case AT_RP : UART_printf("%"PRIX8"\r\n", RFmodul.ioserCMD_rp); break;
 
 			case AT_IA : {	// the compile don't like the PRIX64 command
 					uint32_t a = RFmodul.iolpCMD_ia >> 32;
 					uint32_t b = RFmodul.iolpCMD_ia & 0xFFFFFFFF;
-					UART_printf("%"PRIX32"%"PRIX32"\r",a,b);
+					UART_printf("%"PRIX32"%"PRIX32"\r\n",a,b);
 				}
 				break;
-			case AT_T0 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T0); break;
-			case AT_T1 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T1); break;
-			case AT_T2 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T2); break;
-			case AT_T3 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T3); break;
-			case AT_T4 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T4); break;
-			case AT_T5 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T5); break;
-			case AT_T6 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T6); break;
-			case AT_T7 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T7); break;
+			case AT_T0 : UART_printf("%"PRIX8"\r\n",RFmodul.iolpCMD_T0); break;
+			case AT_T1 : UART_printf("%"PRIX8"\r\n",RFmodul.iolpCMD_T1); break;
+			case AT_T2 : UART_printf("%"PRIX8"\r\n",RFmodul.iolpCMD_T2); break;
+			case AT_T3 : UART_printf("%"PRIX8"\r\n",RFmodul.iolpCMD_T3); break;
+			case AT_T4 : UART_printf("%"PRIX8"\r\n",RFmodul.iolpCMD_T4); break;
+			case AT_T5 : UART_printf("%"PRIX8"\r\n",RFmodul.iolpCMD_T5); break;
+			case AT_T6 : UART_printf("%"PRIX8"\r\n",RFmodul.iolpCMD_T6); break;
+			case AT_T7 : UART_printf("%"PRIX8"\r\n",RFmodul.iolpCMD_T7); break;
 
-			case AT_VR : UART_printf("%"PRIX16"\r",RFmodul.diagCMD_vr); break;
-			case AT_HV : UART_printf("%"PRIX16"\r",RFmodul.diagCMD_hv); break;
-			case AT_DB : UART_printf("%"PRIX8"\r", RFmodul.diagCMD_db); break;
-			case AT_EC : UART_printf("%"PRIX16"\r",RFmodul.diagCMD_ec); break;
-			case AT_EA : UART_printf("%"PRIX16"\r",RFmodul.diagCMD_ea); break;
-			case AT_DD : UART_printf("%"PRIX32"\r",RFmodul.diagCMD_dd); break;
+			case AT_VR : UART_printf("%"PRIX16"\r\n",RFmodul.diagCMD_vr); break;
+			case AT_HV : UART_printf("%"PRIX16"\r\n",RFmodul.diagCMD_hv); break;
+			case AT_DB : UART_printf("%"PRIX8"\r\n", RFmodul.diagCMD_db); break;
+			case AT_EC : UART_printf("%"PRIX16"\r\n",RFmodul.diagCMD_ec); break;
+			case AT_EA : UART_printf("%"PRIX16"\r\n",RFmodul.diagCMD_ea); break;
+			case AT_DD : UART_printf("%"PRIX32"\r\n",RFmodul.diagCMD_dd); break;
 
-			case AT_CT : UART_printf("%"PRIX16"\r",RFmodul.atcopCMD_ct); break;
-			case AT_GT : UART_printf("%"PRIX16"\r",RFmodul.atcopCMD_gt); break;
-			case AT_CC : UART_printf("%"PRIX8"\r", RFmodul.atcopCMD_cc); break;
+			case AT_CT : UART_printf("%"PRIX16"\r\n",RFmodul.atcopCMD_ct); break;
+			case AT_GT : UART_printf("%"PRIX16"\r\n",RFmodul.atcopCMD_gt); break;
+			case AT_CC : UART_printf("%"PRIX8"\r\n", RFmodul.atcopCMD_cc); break;
 			
-			case AT_Rq : UART_print("ERROR\r"); break;
-			case AT_pC : UART_print("1\r"); break;
+			case AT_Rq : UART_print("ERROR\r\n"); break;
+			case AT_pC : UART_print("1\r\n"); break;
 			
-			case AT_SB : UART_print("ERROR\r"); break;
+			case AT_SB : UART_print("ERROR\r\n"); break;
 			
 			default : break;			 
 		}	
 	}
 	else	
 	{		 
-		UART_print("Invalid operation!\r");
+		UART_print("Invalid operation!\r\n");
 	}
 }
 
@@ -301,7 +302,7 @@ static void CMD_readOrExec(uint32_t *th)
  * Returns:
  *     nothing
  *				 
- * last modified: 2016/11/22
+ * last modified: 2016/11/24
  */				 
 static void CMD_write(size_t *len)
 {
@@ -312,7 +313,7 @@ static void CMD_write(size_t *len)
 	 */
 	if ( NO_AT_CMD == pCommand )
 	{
-		UART_print("Command not found.\r");
+		UART_print("Command not found.\r\n");
 		return;
 	}
 	
@@ -329,12 +330,12 @@ static void CMD_write(size_t *len)
 		}
 		
 		RFmodul.netCMD_ni[(*len)-3] = 0x0;
-		UART_print("OK\r");
+		UART_print("OK\r\n");
 		return;
 	}
 	if (AT_NI == pCommand->ID && (*len)-4 > 20 )
 	{
-		UART_print("Please insert max 20 characters!\r");
+		UART_print("Please insert max 20 characters!\r\n");
 		return;
 	}
 
@@ -354,7 +355,7 @@ static void CMD_write(size_t *len)
 			/*
 			 * AT commands: network
 			 *
-			 * last modified: 2016/11/22
+			 * last modified: 2016/11/24
 			 */
 			case AT_CH : { 
 							uint8_t tmp = 0;								
@@ -364,10 +365,10 @@ static void CMD_write(size_t *len)
 							{
 								TRX_writeBit(deSR_CHANNEL, tmp);
 								RFmodul.netCMD_ch = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}						
 						break;
 			
@@ -379,10 +380,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 							{
 								RFmodul.netCMD_id = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -394,10 +395,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
 							{
 								RFmodul.netCMD_dh = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -409,10 +410,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
 							{
 								RFmodul.netCMD_dl = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -424,10 +425,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 							{
 								RFmodul.netCMD_my = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -439,10 +440,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
 							{
 								RFmodul.netCMD_dh = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -454,10 +455,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
 							{
 								RFmodul.netCMD_dh = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -468,10 +469,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
 							{
 								RFmodul.netCMD_ce = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -483,10 +484,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 							{
 								RFmodul.netCMD_sc = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -497,10 +498,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x00 && tmp <= 0x3 )
 							{
 								RFmodul.netCMD_mm = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -511,10 +512,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x6 )
 							{
 								RFmodul.netCMD_rr = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -525,10 +526,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x00 && tmp <= 0x3 )
 							{
 								RFmodul.netCMD_rn = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -539,10 +540,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x01 && tmp <= 0xFC )
 							{
 								RFmodul.netCMD_nt = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -553,10 +554,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
 							{
 								RFmodul.netCMD_no = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -567,10 +568,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xF )
 							{
 								RFmodul.netCMD_sd = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -581,10 +582,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xF )
 							{
 								RFmodul.netCMD_a1 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -595,18 +596,18 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xF )
 							{
 								RFmodul.netCMD_a2 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			/*
 			 * AT commands: security
 			 *
-			 * last modified: 2016/11/22
+			 * last modified: 2016/11/24
 			 */			
-			case AT_KY : UART_print("Not implemented.\r"); break;
+			case AT_KY : UART_print("Not implemented.\r\n"); break;
 
 			case AT_EE : { 
 							uint8_t tmp = 0;
@@ -615,16 +616,16 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
 							{
 								RFmodul.secCMD_ee = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			/*
 			 * AT commands: RF interface
 			 *
-			 * last modified: 2016/11/22
+			 * last modified: 2016/11/24
 			 */
 			case AT_PL : { 
 							uint8_t tmp = 0;
@@ -633,10 +634,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x4 )
 							{
 								RFmodul.rfiCMD_pl = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -647,16 +648,16 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x24 && tmp <= 0x50 )
 							{
 								RFmodul.rfiCMD_ca = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			/*
 			 * AT commands: sleep modes
 			 *
-			 * last modified: 2016/11/22
+			 * last modified: 2016/11/24
 			 */
 			case AT_SM : { 
 							uint8_t tmp = 0;
@@ -665,10 +666,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x6 )
 							{
 								RFmodul.sleepmCMD_sm = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -680,10 +681,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 2 && tmp >= 0x1 && tmp <= 0xFFFF )
 							{
 								RFmodul.sleepmCMD_st = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -695,10 +696,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0x68B0 )
 							{
 								RFmodul.sleepmCMD_sp = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -710,10 +711,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 2 && tmp >= 0x1 && tmp <= 0x68B0 )
 							{
 								RFmodul.sleepmCMD_dp = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -724,16 +725,16 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x6 )
 							{
 								RFmodul.sleepmCMD_so = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			/*
 			 * AT commands: serial interfacing
 			 *
-			 * last modified: 2016/11/22
+			 * last modified: 2016/11/24
 			 */
 			case AT_AP : { 
 							uint8_t tmp = 0;
@@ -742,10 +743,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x2 )
 							{
 								RFmodul.serintCMD_ap = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -756,10 +757,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x7 )
 							{
 								RFmodul.serintCMD_bd = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -770,10 +771,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x4 )
 							{
 								RFmodul.serintCMD_nb = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -784,16 +785,16 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.serintCMD_ro = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			/*
 			 * AT commands: IO settings
 			 *
-			 * last modified: 2016/11/22
+			 * last modified: 2016/11/24
 			 */
 			case AT_D8 : { 
 							uint8_t tmp = 0;
@@ -802,10 +803,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d8 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -816,10 +817,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d7 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -830,10 +831,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d6 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -844,10 +845,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d5 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -858,10 +859,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d4 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -872,10 +873,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d3 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -886,10 +887,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d2 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -900,10 +901,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d1 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -914,10 +915,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 							{
 								RFmodul.ioserCMD_d0 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -928,10 +929,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.ioserCMD_pr = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -942,10 +943,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
 							{
 								RFmodul.ioserCMD_iu = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -956,10 +957,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x1 && tmp <= 0xFF )
 							{
 								RFmodul.ioserCMD_it = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -970,10 +971,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.ioserCMD_ic = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -985,10 +986,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 							{
 								RFmodul.ioserCMD_ir = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -999,10 +1000,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x2 )
 							{
 								RFmodul.ioserCMD_p0 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -1013,10 +1014,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x2 )
 							{
 								RFmodul.ioserCMD_p1 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -1027,10 +1028,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0xB && tmp <= 0xFF )
 							{
 								RFmodul.ioserCMD_pt = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -1041,16 +1042,16 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.ioserCMD_rp = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			/*
 			 * AT commands: IO line passing
 			 *
-			 * last modified: 2016/11/22
+			 * last modified: 2016/11/24
 			 */
 			case AT_IA : {
 							uint8_t cmdString[8] = {0x0};
@@ -1061,10 +1062,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 8 && tmp >= 0x0 && tmp <= 0xFFFFFFFFFFFFFFFF )
 							{
 								RFmodul.iolpCMD_ia = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -1075,10 +1076,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T0 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -1089,10 +1090,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T1 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -1103,10 +1104,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T2 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 	
@@ -1117,10 +1118,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T3 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -1131,10 +1132,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T4 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -1145,10 +1146,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T5 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -1159,10 +1160,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T6 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -1173,16 +1174,16 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.iolpCMD_T7 = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			/*
 			 * AT commands: diagnostics
 			 *
-			 * last modified: 2016/11/22
+			 * last modified: 2016/11/24
 			 */
 			case AT_DD : { 
 							uint8_t cmdString[4] = {0x0};
@@ -1192,16 +1193,16 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
 							{
 								RFmodul.diagCMD_dd = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			/*
 			 * AT commands: AT command options
 			 *
-			 * last modified: 2016/11/22
+			 * last modified: 2016/11/24
 			 */
 			case AT_CT : { 
 							uint8_t cmdString[2] = {0x0};
@@ -1211,10 +1212,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 2 && tmp >= 0x02 && tmp <= 0x1770 )
 							{
 								RFmodul.atcopCMD_ct = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -1226,10 +1227,10 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 2 && tmp >= 0x02 && tmp <= 0xCE4 )
 							{
 								RFmodul.atcopCMD_gt = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
@@ -1240,19 +1241,19 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 							{
 								RFmodul.atcopCMD_cc = tmp;
-								UART_print("OK\r");
+								UART_print("OK\r\n");
 								
 							}
-							else { UART_print("Invalid parameter!\r"); }
+							else { UART_print("Invalid parameter!\r\n"); }
 						}
 						break;
 			
-			default : UART_print("No function available.\r"); break;		
+			default : UART_print("No function available.\r\n"); break;		
 		}
 	}
 	else
 	{
-		UART_print("Invalid operation!\r");
+		UART_print("Invalid operation!\r\n");
 	}
 }
 
@@ -1267,7 +1268,7 @@ static void CMD_write(size_t *len)
  * Returns:
  *		FALSE	to stop the timer
  *
- * last modified: 2016/11/22
+ * last modified: 2016/11/24
  */
 uint32_t CMD_timeHandle(uint32_t arg)
 {
@@ -1291,7 +1292,7 @@ uint32_t CMD_timeHandle(uint32_t arg)
  *     TRUE  on success
  *	   FALSE on failure
  *
- * last modified: 2016/11/22
+ * last modified: 2016/11/24
  */
 static bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize, size_t maxCmdSize)
 {

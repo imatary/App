@@ -119,7 +119,7 @@ ATERROR TRX_send(void)
 		TRX_writeReg(deRG_TRX_STATE, deCMD_PLL_ON);
 		TRX_writeReg(deRG_TRX_STATE, deCMD_TX_ARET_ON);
 
-		send[2] = tx_stat.cnt;
+		send[2] = RFmodul.diagCMD_ea;
 		
 #if DEBUG
 	UART_print(">Send: ");
@@ -218,9 +218,7 @@ int TRX_msgFrame(uint8_t *send) // TODO REWORK
 }
 
 /* 
- * AT Remote Command request 
- * 
- * - TODO - sending ACK by receiving Remote Response
+ * AT Remote Command request
  *
  * Returns:
  *     final position in array
@@ -387,7 +385,7 @@ static void TRX_txHandler()
 	
 	if (deTRAC_SUCCESS != trac_status)
 	{
-		tx_stat.fail++;
+		RFmodul.diagCMD_ea++;
 	}
 	else
 	{
