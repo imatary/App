@@ -32,7 +32,7 @@ typedef struct  {
 	uint8_t  netCMD_sd : 3;     // max 0x4                     =   3 bit
 	uint8_t  netCMD_a1 : 4;     // max 0xF                     =   4 bit
 	uint8_t  netCMD_a2 : 4;     // max 0xF                     =   4 bit
-	uint8_t  netCMD_ai : 6;     // a1(0xF) & a2(0xF) = ax 0x10 =   6 bit
+	uint8_t  netCMD_ai : 6;     // a1(0xF) & a2(0xF) = ai 0x13 =   6 bit
 	
 	bool_t   secCMD_ee : 1;     // max 0x1                     =   1 bit
 	uint8_t  secCMD_ky[16];		// max FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF (32 characters) 128 Bit

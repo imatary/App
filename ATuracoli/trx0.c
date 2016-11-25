@@ -67,7 +67,7 @@ uint8_t TRX_baseInit(void)
 	TRX_setLongAddr( (uint64_t) RFmodul.netCMD_sh << 32 | RFmodul.netCMD_sl );	// device long address
 	TRX_setShortAddr( RFmodul.netCMD_my );										// short address
 
-	TRX_writeReg(deRG_TRX_STATE, deCMD_RX_AACK_ON); 
+	TRX_writeReg(deRG_TRX_STATE, deCMD_RX_AACK_ON);
 	
 	
 	#if defined(deTRX_IRQ_TRX_END)
@@ -113,13 +113,13 @@ ATERROR TRX_send(void)
 	if (tx_stat.in_progress == FALSE)
 	{
 #if DEBUG
-		UART_printf(">TX FRAME tx: %4d, fail: %3d, tx_seq: %3d\r\n", tx_stat.cnt, tx_stat.fail, send[2]);
+		UART_printf(">TX FRAME tx: %4d, fail: %3d, tx_seq: %3d\r", tx_stat.cnt, tx_stat.fail, send[2]);
 #endif
 		/* some older SPI transceivers require this coming from RX_AACK*/
 		TRX_writeReg(deRG_TRX_STATE, deCMD_PLL_ON);
 		TRX_writeReg(deRG_TRX_STATE, deCMD_TX_ARET_ON);
 
-		send[2] = RFmodul.diagCMD_ea;
+		send[2] = tx_stat.cnt;
 		
 #if DEBUG
 	UART_print(">Send: ");
@@ -127,7 +127,7 @@ ATERROR TRX_send(void)
 	{
 		UART_printf("%02x ", send[i], i);
 	}
-	UART_print("\r\n");
+	UART_print("\r");
 #endif
 
 		TRX_writeTX(pos + 2, send);
@@ -140,7 +140,7 @@ ATERROR TRX_send(void)
 	{
 		rx_stat.done = FALSE;
 #if DEBUG
-		UART_printf("<RX FRAME rx: %4d, fail: %3d, rx_seq: %3d\r\n", rx_stat.cnt, rx_stat.fail, rx_stat.seq);
+		UART_printf("<RX FRAME rx: %4d, fail: %3d, rx_seq: %3d\r", rx_stat.cnt, rx_stat.fail, rx_stat.seq);
 #endif
 	}
 	
@@ -204,8 +204,8 @@ int TRX_msgFrame(uint8_t *send) // TODO REWORK
 	
 	sprintf((char*)(send+13),"%c",RFmodul.netCMD_my & 0xff);
 	sprintf((char*)(send+14),"%c",RFmodul.netCMD_my >> 8);		// src. short address
-	sprintf((char*)(send+15),"%c",0x0);					
-	sprintf((char*)(send+16),"%c",0x0);							// I do not know in which relation this value stands, but it is in all test 04
+	sprintf((char*)(send+15),"%c",0x00);					
+	sprintf((char*)(send+16),"%c",0x00);						// I do not know in which relation this value stands, but it is in all test 04
 	pos += 16;
 	do
 	{
@@ -257,7 +257,7 @@ int TRX_atRemoteFrame(uint8_t *send)
 	sprintf((char*)(send+13),"%c",RFmodul.netCMD_my & 0xff);
 	sprintf((char*)(send+14),"%c",RFmodul.netCMD_my >> 8);		// src. short address
 	
-	sprintf((char*)(send+15),"%c",0xB5);				
+	sprintf((char*)(send+15),"%c",0x0);							// it looks like an APS counter
 	sprintf((char*)(send+16),"%c",0x04);						// I do not know in which relation this lines stands, but it is in all test 04
 	
 	// begin data
@@ -329,11 +329,15 @@ ATERROR TRX_receive(void)
 	
 	switch (frameType)
 	{
-	case 0x618c : //UART_printf(">Frame Type: %"PRIx16"\r\n", frameType);
+	case 0x618c : //UART_printf(">Frame Type: %"PRIx16"\r", frameType);
 		dataStart = 0xF;
 				// work in progress
 		break;
 		
+	case 0x6188 :
+		dataStart = 0x14;
+		break;
+			
 	default :
 		break;
 	}
@@ -342,17 +346,25 @@ ATERROR TRX_receive(void)
 	{
 		cli(); BufferOut(&RX_deBuf, &outchar); sei();
 		
-		if ( ( i == dataStart || (RFmodul.serintCMD_ap && i <= dataStart) ) && 0xD != outchar )
+		if ( i == dataStart && FALSE == RFmodul.serintCMD_ap  && ('\r' != outchar || '\n' != outchar) )
 		{
 			UART_printf("%c", outchar);
 		}
-		if ( 0xD == outchar ) 
+		else if ( RFmodul.serintCMD_ap && i >= dataStart )
+		{
+			UART_printf("%02X ", outchar);
+		}
+		else if ( 0xD == outchar ) 
 		{ 
-			UART_print("\r\n");
+			UART_print("\r");
+		}
+		else if ( 0xA == outchar )
+		{
+			UART_print("\n");
 		}
 	}
 	
-	if (RFmodul.serintCMD_ap) { UART_print("\r\n"); }
+	if (RFmodul.serintCMD_ap) { UART_print("\r"); }
 	
 	rx_stat.cnt += 1;
 	rx_stat.done = FALSE;
@@ -402,7 +414,7 @@ static void TRX_rxHandler()
 	flen = TRX_readRX(&receive[0], sizeof(receive), NULL);
 	if ( 0x7F < flen ) // 0x7f == 127(dez)
 	{
-		UART_print("buffer overflow\r\n");
+		UART_print("Buffer overflow\r");
 		return;
 	}
 

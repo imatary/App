@@ -89,7 +89,7 @@ static const CMD StdCmdTable[] =
 
 	{ "ATCN", AT_CN,			   EXEC },
 	{ "ATWR", AT_WR,			   EXEC },
-	{ "ATWR", AT_RE,			   EXEC },
+	{ "ATRE", AT_RE,			   EXEC },
 	{ "ATAC", AT_AC,			   EXEC },
 		
 	{ "ATR?", AT_Rq, READ               },

@@ -80,14 +80,18 @@ void main(void)
 			
 			
 			/*
-			 * if a carriage return (0xD) received, send the buffer content 
+			 * if a carriage return (0xD) received and the API Mode is enabled handle API Frame
+			 * else send the buffer content 
 			 */
-			if( '\r' == inchar || '\n' == inchar ) 
+			if( ('\r' == inchar || '\n' == inchar) && RFmodul.serintCMD_ap ) 
+			{
+				ret = API_frameHandle();
+			}
+			else
 			{ 
 				ret = TRX_send(); 
 				if ( ret )	{ ATERROR_print(&ret); ret = 0; }
 				counter = 0;
-				
 			}
 			
 			/*
@@ -99,13 +103,7 @@ void main(void)
 				counter += 1;
 				if ( 3 == counter )
 				{
-					/*
-					 * if a API frame is received reset the read counter
-					 */
-					BufferOut( &UART_deBuf, (uint8_t*) &inchar);
-					
-					if ( 0x7e == inchar ) deBufferReadReset( &UART_deBuf, '+', 10 );
-					else				  deBufferReadReset( &UART_deBuf, '+', 2 );
+					deBufferReadReset( &UART_deBuf, '+', 3 );
 					ret = AT_localMode();
 					if ( ret )	{ ATERROR_print(&ret); ret = 0; }
 					counter = 0;

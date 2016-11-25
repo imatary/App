@@ -12,8 +12,6 @@
 #ifndef DEFAULTCONFIG_H_
 #define DEFAULTCONFIG_H_
 
-#define STD_DELIMITER				(0x7E)
-
 /*
  * AT commands: network
  *

@@ -28,6 +28,8 @@ typedef enum
 	NOT_ABLE_TO_READ		= -7,
 	COMMAND_MODE_FAIL		= -8,
 	TRANSMIT_CRC_FAIL		= -9,
+	API_NOT_AVAILABLE		= -10,
+	API_FRAMESIZE_ERROR		= -11,
 
 	/* ADD NEW CODES HERE! */
 }__attribute__((packed)) ATERROR;

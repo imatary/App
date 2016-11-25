@@ -17,12 +17,12 @@
  *		12 bytes |  3x uint32_t
  *		 8 bytes |  1x uint64_t
  *	-------------------------------
- *	   125 bytes | = 7D, used by AT command parameter
+ *	   124 bytes | = 7C, used by AT command parameter
  *	+   30 bytes | reserved
  *  +    4 bytes | header
  *  +    2 bytes | crc checksum
  *	-------------------------------
- *	   160 bytes | total in use = 7D
+ *	   160 bytes | total in use
  */ 
 
 #include <stdint.h>							// uintX_t
@@ -32,9 +32,10 @@
 #include "../header/rfmodul.h"				// RFmodul struct
 
 // === defines ============================================
-#define START_POS 0x1DE0	// start position in EEPROM
-#define ADDR_SH 0x1FE8		// position of MAC address  (dresden-elektronik ConBee modules)
-#define ADDR_SL 0x1FE4
+#define START_POS		0x1DE0	// start position in EEPROM
+#define PAYLOAD_LENGTH	0x7C	// see above
+#define ADDR_SH			0x1FE8	// position of MAC address  (dresden-elektronik ConBee modules)
+#define ADDR_SL			0x1FE4
 
 // === local prototypes ===================================
 static inline uint16_t crc_16_ccitt(uint16_t crc, uint8_t data);
@@ -70,8 +71,8 @@ typedef struct nvm {
 
 	uint8_t  serintCMD_bd;	// offset 0x42
 	uint8_t  serintCMD_nb;	// offset 0x43
-	uint8_t  serintCMD_ro;	// offset 0x44
-	uint8_t  serintCMD_ap;	// offset 0x45
+	uint8_t  serintCMD_ap;	// offset 0x44
+	uint8_t  serintCMD_ro;	// offset 0x45
 
 	uint8_t  rfiCMD_pl;		// offset 0x46
 	uint8_t  rfiCMD_ca;		// offset 0x47
@@ -143,16 +144,18 @@ void SET_defaultInEEPROM(void)
 {
 	NVM defaultValuesInEEPROM;
 	memset(&defaultValuesInEEPROM, 0xFF,sizeof(NVM));
+	eeprom_write_block(&defaultValuesInEEPROM, (void*) START_POS, sizeof(NVM)); // erase everything
+	eeprom_write_dword((uint32_t*) 0x1E80 ,0xFFFFFFFF);
 	
 	strncpy(defaultValuesInEEPROM.netCMD_ni, NI_NODE_IDENTIFY,9);
 	memset(&defaultValuesInEEPROM.secCMD_ky, 0x00, 16);
 	defaultValuesInEEPROM.magic        = 0xDE80;
 	defaultValuesInEEPROM.version      = 0x02;
-	defaultValuesInEEPROM.len	       = 0x7D;
+	defaultValuesInEEPROM.len	       = PAYLOAD_LENGTH;
 	defaultValuesInEEPROM.netCMD_ch    = CH_CHANNEL;
 	defaultValuesInEEPROM.netCMD_id    = ID_PANID;
-	defaultValuesInEEPROM.netCMD_dl    = DH_DEST_HIGH;
-	defaultValuesInEEPROM.netCMD_dh    = DL_DEST_LOW;
+	defaultValuesInEEPROM.netCMD_dl    = DL_DEST_LOW;
+	defaultValuesInEEPROM.netCMD_dh    = DH_DEST_HIGH;
 	defaultValuesInEEPROM.netCMD_my    = MY_SHORT_ADDR;
 	defaultValuesInEEPROM.netCMD_ce    = 0x00;
 	defaultValuesInEEPROM.netCMD_sc    = SC_SCAN_CHANNELS;
@@ -172,10 +175,10 @@ void SET_defaultInEEPROM(void)
 	defaultValuesInEEPROM.sleepmCMD_sp = SP_CYCLIC_SLEEP_PERIOD;
 	defaultValuesInEEPROM.sleepmCMD_dp = DP_DISASSOCIATED_SP;
 	defaultValuesInEEPROM.sleepmCMD_so = SO_SLEEP_OPTION;
-	defaultValuesInEEPROM.serintCMD_bd = AP_API_ENABLE;
-	defaultValuesInEEPROM.serintCMD_nb = BD_INTERFACE_DATA_RATE;
-	defaultValuesInEEPROM.serintCMD_ro = NB_PARITY;
-	defaultValuesInEEPROM.serintCMD_ap = RO_PACKETIZATION_TIMEOUT;
+	defaultValuesInEEPROM.serintCMD_bd = BD_INTERFACE_DATA_RATE;
+	defaultValuesInEEPROM.serintCMD_nb = NB_PARITY;
+	defaultValuesInEEPROM.serintCMD_ro = RO_PACKETIZATION_TIMEOUT;
+	defaultValuesInEEPROM.serintCMD_ap = AP_API_ENABLE;
 	defaultValuesInEEPROM.ioserCMD_d8  = D8_DI8_CONFIGURATION;
 	defaultValuesInEEPROM.ioserCMD_d7  = D7_DIO7_CONFIGURATION;
 	defaultValuesInEEPROM.ioserCMD_d6  = D6_DIO6_CONFIGURATION;
@@ -209,8 +212,11 @@ void SET_defaultInEEPROM(void)
 	defaultValuesInEEPROM.atcopCMD_ct  = CT_AT_CMD_TIMEOUT;
 	defaultValuesInEEPROM.atcopCMD_gt  = GT_GUART_TIMES;
 	defaultValuesInEEPROM.atcopCMD_cc  = CC_COMMAND_SEQUENCE_CHAR;
-	defaultValuesInEEPROM.crc	       = 0xD77B;
 	
+	uint8_t lary[sizeof(NVM)];
+	memcpy(lary, &defaultValuesInEEPROM, sizeof(NVM)); 
+	defaultValuesInEEPROM.crc	       = calc_crc(lary, PAYLOAD_LENGTH+4);
+
 	eeprom_write_block(&defaultValuesInEEPROM, (void*) START_POS, sizeof(NVM));	
 }
 
@@ -234,12 +240,18 @@ void GET_allFromEEPROM(void)
 			
 	eeprom_read_block(&ValuesFromEEPROM, (void*) START_POS, sizeof(NVM));	// (1)
 	memcpy(workBuff, &ValuesFromEEPROM, sizeof(NVM));						// (2)
-	uint16_t calcCrc = calc_crc(workBuff, workBuff[3]+4 );
+	uint16_t calcCrc = calc_crc(workBuff, PAYLOAD_LENGTH+4 );
 	
 	if ( ValuesFromEEPROM.crc != calcCrc )									// (3)
 	{
 		SET_defaultInEEPROM();
 		SET_allDefault();
+		RFmodul.netCMD_sh = eeprom_read_dword( (uint32_t*) ADDR_SH );
+		RFmodul.netCMD_sl = eeprom_read_dword( (uint32_t*) ADDR_SL );
+		RFmodul.netCMD_ai = 0x0;
+		RFmodul.diagCMD_db = 0x0;
+		RFmodul.diagCMD_ec = 0x0;
+		RFmodul.diagCMD_ea = 0x0;
 	}
 	else
 	{
@@ -310,9 +322,9 @@ void GET_allFromEEPROM(void)
 
 		 RFmodul.diagCMD_vr = ValuesFromEEPROM.diagCMD_vr; 
 		 RFmodul.diagCMD_hv = ValuesFromEEPROM.diagCMD_hv; 
-		 RFmodul.diagCMD_db = 0;
-		 RFmodul.diagCMD_ec = 0;
-		 RFmodul.diagCMD_ea = 0;
+		 RFmodul.diagCMD_db = 0x0;
+		 RFmodul.diagCMD_ec = 0x0;
+		 RFmodul.diagCMD_ea = 0x0;
 		 RFmodul.diagCMD_dd = ValuesFromEEPROM.diagCMD_dd ;
 		 					   
 		 RFmodul.atcopCMD_ct = ValuesFromEEPROM.atcopCMD_ct;
@@ -342,7 +354,7 @@ void SET_userValInEEPROM(void)
 	
 	ValuesForEEPROM.magic        = 0xDE80;
 	ValuesForEEPROM.version      = 0x02;
-	ValuesForEEPROM.len	         = 0x7D;
+	ValuesForEEPROM.len	         = PAYLOAD_LENGTH;
 	
 	strncpy( ValuesForEEPROM.netCMD_ni, RFmodul.netCMD_ni, 21);
 	memcpy(ValuesForEEPROM.secCMD_ky, RFmodul.secCMD_ky, 16);
@@ -410,7 +422,7 @@ void SET_userValInEEPROM(void)
 	
 	uint8_t lary[sizeof(NVM)];
 	memcpy(lary, &ValuesForEEPROM, sizeof(NVM));
-	ValuesForEEPROM.crc = calc_crc(lary, sizeof(NVM));
+	ValuesForEEPROM.crc = calc_crc(lary, PAYLOAD_LENGTH+4);
 	
 	eeprom_write_block(&ValuesForEEPROM, (void*) START_POS, sizeof(NVM));
 }
