@@ -29,7 +29,8 @@ ATERROR BufferIn(deBuffer_t *bufType, uint8_t inByte)
 	uint8_t next = ((bufType->write + 1) & DE_BUFFER_MASK);
 
 	if (bufType->read == next)
-	return BUFFER_IN_FAIL; // full
+		return BUFFER_IN_FAIL; // full
+	
 
 	bufType->data[bufType->write] = inByte;
 
@@ -104,16 +105,79 @@ void BufferNewContent(deBuffer_t *bufType, bool_t val)
 	bufType->newContent = val;
 }
 
+/*
+ * Buffer read pointer reset function,
+ * reset the pointer position of a number of len
+ * if the pointer hit the writing pointer, set the read pointer for
+ *		'+' operation to bufType->write     (buffer can not read until new data was written into the buffer)
+ *      '-' operation to bufType->write + 1 (buffer need to be read until new data can written into the buffer)
+ * and return
+ *
+ * Returns:
+ *		nothing
+ *
+ * last modified: 2016/11/28
+ */
 void deBufferReadReset(deBuffer_t* bufType,char operand ,uint8_t len)
 {
-	if ( '-' == operand )
+	for (uint8_t i = 0; i < len; i++)
 	{
-		bufType->read -= len;
+		if ( '-' == operand ) 
+		{
+			bufType->read = (bufType->read - 1) & DE_BUFFER_MASK;
+		}
+		if ( '-' == operand && bufType->read == bufType->write) 
+		{
+			bufType->read = bufType->write + 1;
+			return;
+		}
+		if ( '+' == operand ) 
+		{
+			bufType->read = (bufType->read + 1) & DE_BUFFER_MASK;
+		}
+		if ( '+' == operand && bufType->read == bufType->write) 
+		{
+			return;
+		}
 	}
 	
-	if ( '+' == operand )
+}
+
+/*
+ * Buffer write pointer reset function,
+ * reset the pointer position of a number of len
+ * if the pointer hit the read pointer, set the write pointer for
+ *		'+' operation to bufType->read - 1 (no further writing is posible until the buffer was read)
+ *      '-' operation to bufType->read + 1 (no further reading is posible until new data was written into the buffer)
+ * and return
+ *
+ * Returns:
+ *		nothing
+ *
+ * last modified: 2016/11/28
+ */
+void deBufferWriteReset(deBuffer_t* bufType,char operand ,uint8_t len)
+{
+	for (uint8_t i = 0; i < len; i++)
 	{
-		bufType->read += len;
+		if ( '-' == operand )
+		{
+			bufType->write = (bufType->write - 1) & DE_BUFFER_MASK;
+		}
+		if ( '-' == operand && bufType->read == bufType->write)
+		{
+			bufType->read = bufType->read + 1;
+			return;
+		}
+		if ( '+' == operand )
+		{
+			bufType->read = (bufType->read + 1) & DE_BUFFER_MASK;
+		}
+		if ( '+' == operand && bufType->read == bufType->write)
+		{
+			bufType->read = bufType->read + 1;
+			return;
+		}
 	}
 	
 }

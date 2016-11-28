@@ -39,9 +39,15 @@ extern deBuffer_t UART_deBuf;
 extern deBuffer_t   RX_deBuf;
 
 void BufferInit			(deBuffer_t *bufType, ...);
-void deBufferReadReset	(deBuffer_t* bufType,char operand ,uint8_t len);
 void BufferNewContent	(deBuffer_t *bufType, bool_t val);
 ATERROR BufferIn		(deBuffer_t *bufType, uint8_t inByte);
 ATERROR BufferOut		(deBuffer_t *bufType, uint8_t *pByte);
+
+/*
+ * careful with this functions
+ * to manipulate the buffer pointer can omit a crash or overwrite new data
+ */
+void deBufferReadReset	(deBuffer_t *bufType, char operand , uint8_t len);
+void deBufferWriteReset	(deBuffer_t *bufType, char operand , uint8_t len);
 
 #endif /* CIRCULARBUFFER_H_ */

@@ -9,17 +9,11 @@
 #ifndef ATLOCAL_H_
 #define ATLOCAL_H_
 
-#include "_global.h"	// bool_t
+#include "_global.h"
 #include "enum_error.h"	// ATERROR
-#include "cmd.h"		// CMD
 
 // === functions ==========================================
-ATERROR		AT_localMode(void);
-
-static CMD*	CMD_findInTable(void);
-static void CMD_readOrExec(uint32_t *th);
-static void CMD_write(unsigned int *len);
-uint32_t    CMD_timeHandle(uint32_t arg);
-static bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize ,size_t maxCmdSize);
+ATERROR	 AT_localMode(void);
+bool_t   charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize ,size_t maxCmdSize);
 
 #endif /* ATLOCAL_H_ */

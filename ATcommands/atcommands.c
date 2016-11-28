@@ -13,6 +13,7 @@
 
 #include "header/_global.h"
 #include "header/atlocal.h"
+#include "header/apiframe.h"
 #include "header/rfmodul.h"							// RFmodul struct
 #include "header/circularBuffer.h"					// buffer
 #include "../ATuracoli/stackrelated.h"				// trx init, uart init
@@ -77,7 +78,7 @@ void main(void)
 			 */
 			cli(); ret = BufferIn( &UART_deBuf, inchar ); sei();
 			if( ret ) { ATERROR_print(&ret); ret = 0; continue; }
-			
+			if (RFmodul.serintCMD_ap ) counter++;
 			
 			/*
 			 * if a carriage return (0xD) received and the API Mode is enabled handle API Frame
@@ -85,9 +86,10 @@ void main(void)
 			 */
 			if( ('\r' == inchar || '\n' == inchar) && RFmodul.serintCMD_ap ) 
 			{
-				ret = API_frameHandle();
+				ret = API_frameHandle_uart( &counter );
+				counter = 0;
 			}
-			else
+			else if ( '\r' == inchar || '\n' == inchar )
 			{ 
 				ret = TRX_send(); 
 				if ( ret )	{ ATERROR_print(&ret); ret = 0; }
@@ -98,7 +100,7 @@ void main(void)
 			 * if a plus (0x2B) received, count it 
 			 * if the user hit three times the plus button switch to local command mode
 			 */
-			if ( RFmodul.atcopCMD_cc == inchar )
+			if ( RFmodul.atcopCMD_cc == inchar && RFmodul.serintCMD_ap == 0 )
 			{
 				counter += 1;
 				if ( 3 == counter )

@@ -11,13 +11,23 @@
 #include "../header/_global.h"					// RFmodul struct
 #include "../header/atlocal.h"					// prototypes
 #include "../header/rfmodul.h"
+#include "../header/cmd.h"						// CMD
 #include "../header/circularBuffer.h"			// buffer
 #include "../../ATuracoli/stackrelated.h"		// UART_print(f)
 #include "../../ATuracoli/stackrelated_timer.h"	// UART_print(f)
 #include "../../ATuracoli/stackdefines.h"		// defined register addresses
 
+// === Prototypes =========================================
+static CMD*		CMD_findInTable(void);
+static void		CMD_readOrExec(uint32_t *th);
+static void		CMD_write(unsigned int *len);
+static uint32_t CMD_timeHandle(uint32_t arg);
+
+
+// === c-File Globals =====================================
 bool_t noTimeout = TRUE;
 
+// === Functions ==========================================
 /*
  * AT_localMode()
  * - reset the timer
@@ -146,29 +156,33 @@ static void CMD_readOrExec(uint32_t *th)
 {
 	CMD *pCommand = CMD_findInTable();
 	/*
+	 * if there no valid command leave function
+	 */
+	if ( NO_AT_CMD == pCommand )
+	{
+		UART_print("Command not found.\r");
+		return;
+	}
+	
+	/*
 	 * remove the '\r' from the buffer
 	 */
 	deBufferReadReset( &UART_deBuf, '+', 1); 
+	
 	/*
-	 * if there no valid command, leave function
 	 * else if execute allowed perform the command
 	 * else if reading allowed print the value
 	 * else there is no valid option for this command
 	 */
-	if (NO_AT_CMD == pCommand) 
-	{ 
-		UART_print("Command not found.\r"); 
-		return; 
-	}
-	else if ( pCommand->rwxAttrib & EXEC )	// exec
+	if ( pCommand->rwxAttrib & EXEC )	// exec
 	{
 		switch(pCommand->ID)
 		{
 			// leave command mode command
 			case AT_CN : {
-				*th = deTIMER_stop(*th);
-				noTimeout = FALSE; 
-				UART_print("OK\r");
+					*th = deTIMER_stop(*th);
+					noTimeout = FALSE;
+					UART_print("OK\r");				
 			}
 			break;
 			
@@ -259,7 +273,7 @@ static void CMD_readOrExec(uint32_t *th)
 			case AT_PT : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_pt); break;
 			case AT_RP : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_rp); break;
 
-			case AT_IA : {	// the compile don't like the PRIX64 command
+			case AT_IA : {	// the compiler don't like the PRIX64 command
 					uint32_t a = RFmodul.iolpCMD_ia >> 32;
 					uint32_t b = RFmodul.iolpCMD_ia & 0xFFFFFFFF;
 					UART_printf("%"PRIX32"%"PRIX32"\r",a,b);
@@ -293,9 +307,9 @@ static void CMD_readOrExec(uint32_t *th)
 			default : break;			 
 		}	
 	}
-	else	
-	{		 
-		UART_print("Invalid operation!\r");
+	else
+	{
+		UART_print("Invalid operation!\r");	
 	}
 }
 
@@ -312,7 +326,7 @@ static void CMD_write(size_t *len)
 	size_t cmdSize = (((*len-1) % 2) + (*len-5))/2;
 	CMD *pCommand = CMD_findInTable();
 	/*
-	 * if there no valid command, free pCommand and leave function
+	 * if there no valid command leave function
 	 */
 	if ( NO_AT_CMD == pCommand )
 	{
