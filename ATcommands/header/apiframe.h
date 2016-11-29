@@ -21,7 +21,7 @@
 #define RX_MSG_64		(0x80)
 #define RX_MSG_16		(0x81)
 
-ATERROR API_frameHandle_uart(void);
+ATERROR API_frameHandle_uart(int *len);
 
 
 #endif /* APIFRAME_H_ */

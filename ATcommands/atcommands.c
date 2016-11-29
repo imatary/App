@@ -20,14 +20,15 @@
 #include "../ATuracoli/stackrelated_timer.h"		// timer init
 
 device_t RFmodul;
-
+bool_t   APIframe = FALSE;
 static void ATERROR_print(ATERROR *value);
 
 
 void main(void) 
 {
-	ATERROR ret     = 0;
-	int		inchar  = 0; // received the data of the UART input (byte by byte)
+	ATERROR		ret = 0;
+	uint32_t	 th = 0;
+	int		 inchar = 0; // received the data of the UART input (byte by byte)
 	int     counter = 0;
 	/*
 	 * initialize structs and buffer
@@ -65,7 +66,7 @@ void main(void)
 		/*
 		 * uart operation
 		 *
-		 * last modified: 2016/10/27
+		 * last modified: 2016/11/29
 		 */
 		inchar = UART_getc();
 		if ( EOF != inchar )
@@ -73,21 +74,33 @@ void main(void)
 			//UART_printf("%c", inchar );				// return character immediately
 
 			/*
+			 *
+			 */
+			if ( RFmodul.serintCMD_ap )
+			{
+				if ( inchar == 0x7E && counter == 0 )
+				{
+					th = deTIMER_start(API_timeHandle, deMSEC( 0x64 ), NULL); // 100 MS
+				}
+				counter++;
+			}
+			
+			/*
 			 * push the character into the buffer
 			 * neither interrupts allowed
 			 */
 			cli(); ret = BufferIn( &UART_deBuf, inchar ); sei();
 			if( ret ) { ATERROR_print(&ret); ret = 0; continue; }
-			if (RFmodul.serintCMD_ap ) counter++;
 			
 			/*
 			 * if a carriage return (0xD) received and the API Mode is enabled handle API Frame
 			 * else send the buffer content 
-			 */
-			if( ('\r' == inchar || '\n' == inchar) && RFmodul.serintCMD_ap ) 
+			 */		
+			if( APIframe ) 
 			{
 				ret = API_frameHandle_uart( &counter );
 				counter = 0;
+				APIframe = FALSE;
 			}
 			else if ( '\r' == inchar || '\n' == inchar )
 			{ 
@@ -105,7 +118,7 @@ void main(void)
 				counter += 1;
 				if ( 3 == counter )
 				{
-					deBufferReadReset( &UART_deBuf, '+', 3 );
+					BufferInit(&UART_deBuf, NULL); // delete all content in the buffer
 					ret = AT_localMode();
 					if ( ret )	{ ATERROR_print(&ret); ret = 0; }
 					counter = 0;
@@ -133,4 +146,21 @@ static void ATERROR_print(ATERROR *value)
 		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode.\r\n");				break;
 		default					: 																			break;
 	}
+}
+
+/*
+ * CMD_timeHandle()
+ * 
+ * Received:
+ *		uint32_t arg	this argument can be used in this function
+ *
+ * Returns:
+ *		FALSE	to stop the timer
+ *
+ * last modified: 2016/11/24
+ */
+uint32_t API_timeHandle(uint32_t arg)
+{
+	APIframe = TRUE;
+	return 0;
 }

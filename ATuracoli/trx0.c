@@ -160,22 +160,8 @@ ATERROR TRX_send(void)
  * last modified: 2016/11/17
  */
 
-int TRX_msgFrame(uint8_t *send) // TODO REWORK
+int TRX_msgFrame(uint8_t *send)
 {
-		/*uint8_t tmp[2] = {0};
-		do{
-			for(int c = 0; c < 2; c++)
-			{
-				BufferOut(&UART_deBuf, tmp[c] );
-				if(tmp[c] == 0x20 ) BufferOut(&UART_deBuf, tmp[c] );
-				if(tmp[c] == 0x0D ) return pos;
-			}
-			
-			sprintf((char*)(send+pos),"%c", (unsigned int) strtoul((const char*)tmp,NULL,16) >> 8 );
-			pos++;
-
-		}while(TRUE);*/
-	
 	int pos;
 	/* Step 1: prepare packed
 	 * - set IEEE data frames
@@ -212,7 +198,7 @@ int TRX_msgFrame(uint8_t *send) // TODO REWORK
 		pos +=1;
 		cli(); BufferOut(&UART_deBuf, send + pos ); sei();
 
-	} while ( 0xD != *(send + pos - 1) );
+	} while ( 0xD != *(send + pos - 1) && pos < PACKAGE_SIZE-1 );
 	
 	return pos;
 }
@@ -244,6 +230,7 @@ int TRX_atRemoteFrame(uint8_t *send)
 	sprintf((char*)(send+ 3),"%c",RFmodul.netCMD_id & 0xff);
 	sprintf((char*)(send+ 4),"%c",RFmodul.netCMD_id >>  8);		// destination PAN_ID
 	
+	/* // static version
 	sprintf((char*)(send+ 5),"%c",RFmodul.netCMD_dl >>  0);
 	sprintf((char*)(send+ 6),"%c",RFmodul.netCMD_dl >>  8);
 	sprintf((char*)(send+ 7),"%c",RFmodul.netCMD_dl >> 16);
@@ -253,6 +240,7 @@ int TRX_atRemoteFrame(uint8_t *send)
 	sprintf((char*)(send+10),"%c",RFmodul.netCMD_dh >>  8);
 	sprintf((char*)(send+11),"%c",RFmodul.netCMD_dh >> 16);
 	sprintf((char*)(send+12),"%c",RFmodul.netCMD_dh >> 24);		// destination ext. addr. high
+	*/
 	
 	sprintf((char*)(send+13),"%c",RFmodul.netCMD_my & 0xff);
 	sprintf((char*)(send+14),"%c",RFmodul.netCMD_my >> 8);		// src. short address
@@ -261,6 +249,7 @@ int TRX_atRemoteFrame(uint8_t *send)
 	sprintf((char*)(send+16),"%c",0x04);						// I do not know in which relation this lines stands, but it is in all test 04
 	
 	// begin data
+	/* // static version 
 	sprintf((char*)(send+17),"%c",0x01);						// Frame ID
 	
 	sprintf((char*)(send+18),"%c",RFmodul.netCMD_dh >> 24);
@@ -277,13 +266,35 @@ int TRX_atRemoteFrame(uint8_t *send)
 	
 	sprintf((char*)(send+28),"%c",0x02);						// cmd option
 	pos = 28;
-	// content	
+	
+	// content
 	do
 	{
 		pos +=1;
 		cli(); BufferOut(&UART_deBuf, send + pos ); sei();
 
-	} while ( 0xD != *(send + pos) );
+	} while ( 0xD != *(send + pos) && pos < PACKAGE_SIZE-1 );
+	*/
+	
+	pos = 16;
+	ATERROR ret = 0;
+	do
+	{
+		cli(); ret = BufferOut( &UART_deBuf, send +pos ); sei();
+		if ( ret != BUFFER_OUT_FAIL ) break;
+		pos++;
+		
+	} while ( pos < PACKAGE_SIZE-1 );
+	
+	*(send+ 5) = *(send+25);
+	*(send+ 6) = *(send+24);
+	*(send+ 7) = *(send+23);
+	*(send+ 8) = *(send+22);		// destination ext. addr. low
+
+	*(send+ 9) = *(send+21);
+	*(send+10) = *(send+20);
+	*(send+11) = *(send+19);
+	*(send+12) = *(send+18);		// destination ext. addr. high
 	
 	return pos;
 }

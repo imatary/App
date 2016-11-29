@@ -72,7 +72,7 @@ ATERROR AT_localMode(void)
 				if ( isalpha(inchar) && islower(inchar) ) inchar = toupper(inchar);
 
 				cli(); ret = BufferIn( &UART_deBuf, inchar ); sei();
-				if ( ret )	{ return COMMAND_MODE_FAIL; }
+				if ( ret )	{ return BUFFER_IN_FAIL; }
 				
 				counter +=1;
 			}
@@ -138,7 +138,7 @@ static CMD* CMD_findInTable(void)
 			return workPointer;
 		}
 	}
-
+UART_printf("cmd find: %s",pCmdString );
 	return NO_AT_CMD;
 }
 
@@ -160,7 +160,7 @@ static void CMD_readOrExec(uint32_t *th)
 	 */
 	if ( NO_AT_CMD == pCommand )
 	{
-		UART_print("Command not found.\r");
+		UART_print("Command not found in table.\r");
 		return;
 	}
 	
@@ -442,36 +442,6 @@ static void CMD_write(size_t *len)
 							if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 							{
 								RFmodul.netCMD_my = tmp;
-								UART_print("OK\r");
-								
-							}
-							else { UART_print("Invalid parameter!\r"); }
-						}
-						break;
-			
-			case AT_SH : {
-							uint8_t cmdString[4] = {0x0};
-							if ( charToUint8( &cmdString[0], len, &cmdSize, 4 ) == FALSE ) return;
-							uint32_t tmp = (uint32_t) cmdString[0] << 24 | (uint32_t) cmdString[1] << 16 | (uint32_t) cmdString[2] <<   8 | (uint32_t) cmdString[3];
-							
-							if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
-							{
-								RFmodul.netCMD_dh = tmp;
-								UART_print("OK\r");
-								
-							}
-							else { UART_print("Invalid parameter!\r"); }
-						}
-						break;
-			
-			case AT_SL : { 
-							uint8_t cmdString[4] = {0x0};
-							if ( charToUint8( &cmdString[0], len, &cmdSize, 4 ) == FALSE ) return;
-							uint32_t tmp = (uint32_t) cmdString[0] << 24 | (uint32_t) cmdString[1] << 16 | (uint32_t) cmdString[2] <<   8 | (uint32_t) cmdString[3];
-							
-							if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
-							{
-								RFmodul.netCMD_dh = tmp;
 								UART_print("OK\r");
 								
 							}
@@ -1276,8 +1246,6 @@ static void CMD_write(size_t *len)
 
 /*
  * CMD_timeHandle()
- * - received the buffer content and converted content to uint8 hex values
- * - the char 'A' will be uint8_t hex 0xA and so on
  * 
  * Received:
  *		uint32_t arg	this argument can be used in this function
@@ -1311,7 +1279,7 @@ uint32_t CMD_timeHandle(uint32_t arg)
  *
  * last modified: 2016/11/24
  */
-static bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize, size_t maxCmdSize)
+bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize, size_t maxCmdSize)
 {
 	uint8_t tmp[2] = {0};	
 	/*
