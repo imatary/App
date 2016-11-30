@@ -22,6 +22,7 @@
 device_t RFmodul;
 bool_t   APIframe = FALSE;
 static void ATERROR_print(ATERROR *value);
+static uint32_t API_timeHandle(uint32_t arg);
 
 
 void main(void) 
@@ -30,6 +31,7 @@ void main(void)
 	uint32_t	 th = 0;
 	int		 inchar = 0; // received the data of the UART input (byte by byte)
 	int     counter = 0;
+	int	 apicounter = 0;
 	/*
 	 * initialize structs and buffer
 	 */
@@ -71,7 +73,7 @@ void main(void)
 		inchar = UART_getc();
 		if ( EOF != inchar )
 		{
-			//UART_printf("%c", inchar );				// return character immediately
+			if (RFmodul.deCMD_ru) UART_printf("%c", inchar );				// return character immediately
 
 			/*
 			 *
@@ -80,9 +82,10 @@ void main(void)
 			{
 				if ( inchar == 0x7E && counter == 0 )
 				{
-					th = deTIMER_start(API_timeHandle, deMSEC( 0x64 ), NULL); // 100 MS
+					th = deTIMER_start(API_timeHandle, deMSEC( 0x64 ), 0); // 100 MS
+					apicounter++;
 				}
-				counter++;
+				apicounter = ( apicounter > 1 )? apicounter+1 : apicounter;
 			}
 			
 			/*
@@ -99,8 +102,9 @@ void main(void)
 			if( APIframe ) 
 			{
 				ret = API_frameHandle_uart( &counter );
-				counter = 0;
+				apicounter = 0;
 				APIframe = FALSE;
+				th = 0;
 			}
 			else if ( '\r' == inchar || '\n' == inchar )
 			{ 
@@ -113,7 +117,7 @@ void main(void)
 			 * if a plus (0x2B) received, count it 
 			 * if the user hit three times the plus button switch to local command mode
 			 */
-			if ( RFmodul.atcopCMD_cc == inchar && RFmodul.serintCMD_ap == 0 )
+			if ( RFmodul.atcopCMD_cc == inchar  ) // && RFmodul.serintCMD_ap == 0
 			{
 				counter += 1;
 				if ( 3 == counter )
@@ -159,7 +163,7 @@ static void ATERROR_print(ATERROR *value)
  *
  * last modified: 2016/11/24
  */
-uint32_t API_timeHandle(uint32_t arg)
+static uint32_t API_timeHandle(uint32_t arg)
 {
 	APIframe = TRUE;
 	return 0;

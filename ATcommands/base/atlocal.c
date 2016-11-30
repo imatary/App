@@ -138,7 +138,7 @@ static CMD* CMD_findInTable(void)
 			return workPointer;
 		}
 	}
-UART_printf("cmd find: %s",pCmdString );
+
 	return NO_AT_CMD;
 }
 
@@ -303,6 +303,8 @@ static void CMD_readOrExec(uint32_t *th)
 			case AT_pC : UART_print("1\r"); break;
 			
 			case AT_SB : UART_print("ERROR\r"); break;
+			
+			case DE_RU : UART_printf("%u\r",RFmodul.deCMD_ru); break;
 			
 			default : break;			 
 		}	
@@ -1234,6 +1236,18 @@ static void CMD_write(size_t *len)
 							else { UART_print("Invalid parameter!\r"); }
 						}
 						break;
+			
+			case DE_RU : {
+				uint8_t tmp = 0;
+				if (charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return;
+				if ( cmdSize <= 1 && tmp >= FALSE && tmp <= TRUE )
+				{
+					RFmodul.deCMD_ru = tmp;
+					UART_print("OK\r");
+				}
+				else { UART_print("Invalid parameter!\r"); }
+			}
+			break;
 			
 			default : UART_print("No function available.\r"); break;		
 		}

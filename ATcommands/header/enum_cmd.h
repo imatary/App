@@ -107,6 +107,9 @@ typedef enum
 	AT_pC,					// %C
 	// no assignment
 	AT_SB,					// STOP BITS
+	
+	// special device commands
+	DE_RU					// RETURN TO UART
 																		
 }__attribute__((packed)) cmdIDs;										
 																		

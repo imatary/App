@@ -131,5 +131,12 @@
 #define GT_GUART_TIMES				(0x3E8)			// 0x2-0xCE4 (XBee default '3E8')
 #define CC_COMMAND_SEQUENCE_CHAR	(0x2B)			// 0x0-0xFF (XBee default '2B')
 
+/*
+ * AT commands: device related
+ *
+ * last modified: 2016/11/30
+ */
+#define RU_RETURN_TO_UART			(FALSE)			// 0x0-0x1 (not a XBee command)
+
 
 #endif /* DEFAULTCONFIG_H_ */

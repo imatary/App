@@ -22,6 +22,7 @@ void UART_init(void)
 	hif_init(HIF_DEFAULT_BAUDRATE);
 	
 	UART_getc	= hif_getc;
+	UART_putc	= hif_putc;
 
 }
 

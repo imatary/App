@@ -27,6 +27,7 @@ void UART_init(void);
 #define UART_print(fmt)			hif_echo(FLASH_STRING(fmt))
 #define UART_printf(fmt, ...)	hif_printf(FLASH_STRING(fmt), __VA_ARGS__)
 int (*UART_getc) (void);
+int (*UART_putc) (int);
 
 /*
  * transceiver (trx) pointer to functions

@@ -29,7 +29,7 @@ struct api_f
 	/*
 	 * create the frame & calc checksum
 	 * 0xFF - (API type + frame ID [+ target address] [+ options] + main content [+ parameter]) = checksum
-	 *        |<---------------------------------- frame frame->bufLength ----------------------------->|
+	 *        |<---------------------------------- frame frame->bufLength ------------------->|
 	 */
 	uint8_t  crc;
 	int      bufLen;
@@ -37,7 +37,9 @@ struct api_f
 
 // === Prototypes =========================================
 static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array);
-static ATERROR API_0x09_atLocal_queue(struct api_f *frame, uint8_t *array);
+static void    API_0x88_atLocal_response(struct api_f *frame, uint8_t *array, void *val, uint16_t length);
+static ATERROR API_readAndExec(struct api_f *frame);
+static ATERROR API_write(struct api_f *frame);
 static bool_t  API_compareCRC(uint8_t *frameCRC, uint8_t *userCRC);
 
 // === Functions ==========================================
@@ -56,43 +58,40 @@ ATERROR API_frameHandle_uart(int *len)
 	uint8_t  outchar[5]	= {0x0};
 	struct api_f frame  = {0,0,0,0,0,0xFF,*len};
 	
-	// Start delimiter	1 byte
-	UART_print("Start delimiter\r");	
+	// Start delimiter	1 byte	
 	cli(); BufferOut( &UART_deBuf, &frame.delimiter ); sei();
 	if ( frame.delimiter != STD_DELIMITER ) return API_NOT_AVAILABLE;
-	UART_printf("%"PRIX8"\r\r", STD_DELIMITER );
+	if (RFmodul.deCMD_ru) UART_printf("Start delimiter\r%02"PRIX8"\r\r", STD_DELIMITER );
 	
 	// frame->bufLength	2 byte
-	UART_print("Length\r");
 	cli(); BufferOut( &UART_deBuf, &outchar[0] ); sei();
 	cli(); BufferOut( &UART_deBuf, &outchar[1] ); sei();
-	frame.length = (uint16_t) outchar[0] << 2 | outchar[1] & 0xFF ;
-	UART_printf("%"PRIX8" %"PRIX8" (%u)\r\r", (uint8_t) frame.length >> 2, frame.length & 0xFF, frame.length );
+	frame.length = (uint16_t) outchar[0] << 2 | outchar[1] ;
+	if (RFmodul.deCMD_ru) UART_printf("Length\r%02"PRIX8" %02"PRIX8" (%u)\r\r", outchar[0], outchar[1], frame.length );
 	
 	// frame type	1 byte
-	UART_print("Frame type\r"); 
 	cli(); BufferOut( &UART_deBuf, &frame.type ); sei();
 	switch ( frame.type )
 	{
 		case AT_COMMAND    : 
-			UART_print("08 (AT Command)\r\r");
+			if (RFmodul.deCMD_ru) UART_print("Frame type\r08 (AT Command)\r\r");
 			frame.crc -= 0x08;
 			frame.ret = API_0x08_atLocal(&frame, outchar);
 		break;
 		
 		case AT_COMMAND_Q  : 
-			UART_print("09 (AT Command Queue)\r\r");
+			if (RFmodul.deCMD_ru) UART_print("Frame type\r09 (AT Command Queue)\r\r");
 			frame.crc -= 0x09;
-			frame.ret = API_0x09_atLocal_queue(&frame, outchar);
+			frame.ret = API_0x08_atLocal(&frame, outchar);
 		break;
 		
 		case REMOTE_AT_CMD : 
-			UART_print("17 (AT Remote Command)\r\r");
+			if (RFmodul.deCMD_ru) UART_print("Frame type\r17 (AT Remote Command)\r\r");
 			frame.crc -= 0x17;
 			frame.ret = TRX_send(); 
 		break;
 		
-		default : break;
+		default : UART_print("Not a valid command type!\r\r"); return INVALID_COMMAND;
 	}	
 	return frame.ret;
 }
@@ -113,9 +112,8 @@ ATERROR API_frameHandle_uart(int *len)
 static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array)
 {
 	// frame id		1 byte
-	UART_print("Frame ID\r");
 	cli(); BufferOut( &UART_deBuf, &frame->id ); sei();
-	UART_printf("%"PRIX8"\r\r", frame->id );
+	if (RFmodul.deCMD_ru) UART_printf("Frame ID\r%02"PRIX8"\r\r", frame->id );
 	frame->crc -= frame->id;
 	
 	// AT command 2 bytes
@@ -124,8 +122,7 @@ static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array)
 	cli(); BufferOut( &UART_deBuf, array+2 ); sei();
 	cli(); BufferOut( &UART_deBuf, array+3 ); sei();
 	
-	UART_print("AT Command");
-	UART_printf("%"PRIX8" %"PRIX8" (%c%c)\r\r", *(array+2), *(array+3), *(array+2), *(array+3));
+	if (RFmodul.deCMD_ru) UART_printf("AT Command\r%02"PRIX8" %02"PRIX8" (%c%c)\r\r", *(array+2), *(array+3), *(array+2), *(array+3));
 	frame->crc -= (*(array+2) + *(array+3));
 	
 	// search for CMD in table
@@ -196,9 +193,7 @@ static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array)
 		
 		switch( workPointer->ID )
 		{
-			case AT_CH : {
-				UART_printf("%"PRIX8"\r", RFmodul.netCMD_ch); 
-				} break;
+			case AT_CH : UART_printf("%"PRIX8"\r", RFmodul.netCMD_ch); break;
 			case AT_ID : UART_printf("%"PRIX16"\r",RFmodul.netCMD_id); break;
 			case AT_DH : UART_printf("%"PRIX32"\r",RFmodul.netCMD_dh); break;
 			case AT_DL : UART_printf("%"PRIX32"\r",RFmodul.netCMD_dl); break;
@@ -231,7 +226,8 @@ static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array)
 			case AT_SO : UART_printf("%"PRIX8"\r", RFmodul.sleepmCMD_so); break;
 			case AT_SS : UART_print("ERROR\r"); break;
 
-			case AT_AP : UART_printf("%"PRIX8"\r",RFmodul.serintCMD_ap); break;
+			case AT_AP : API_0x88_atLocal_response( frame, array, (uint8_t*) RFmodul.serintCMD_ap, (uint16_t) sizeof(uint8_t) );	break;
+			
 			case AT_BD : UART_printf("%"PRIX8"\r",RFmodul.serintCMD_bd); break;
 			case AT_NB : UART_printf("%"PRIX8"\r",RFmodul.serintCMD_nb); break;
 			case AT_RO : UART_printf("%"PRIX8"\r",RFmodul.serintCMD_ro); break;
@@ -285,6 +281,20 @@ static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array)
 			case AT_pC : UART_print("1\r"); break;
 			
 			case AT_SB : UART_print("ERROR\r"); break;
+			
+			case DE_RU : {
+				UART_putc(0x7E);
+				UART_putc(0x00);
+				UART_putc(0x06);
+				UART_putc(0x88);
+				UART_putc(0x01);
+				UART_putc(0x41);
+				UART_putc(0x50);
+				UART_putc(0x00);
+				UART_putc(RFmodul.serintCMD_ap);
+				UART_putc(0xE4);
+			}
+				break;
 			
 			default : break;
 		}
@@ -1193,6 +1203,17 @@ static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array)
 	    					else { return INVALID_PARAMETER; }
 	    				}
 	    				break;
+			
+			case DE_RU : {
+				uint8_t tmp = 0;
+				if (charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
+				if ( cmdSize <= 1 && tmp >= FALSE && tmp <= TRUE )
+				{
+					RFmodul.deCMD_ru = tmp;
+					if( frame->type == 0x8 ) SET_userValInEEPROM();
+				}
+				else { UART_print("Invalid parameter!\r"); }
+			}
 	    	
 	    	default : return INVALID_COMMAND;		
 	    }
@@ -1215,18 +1236,45 @@ static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array)
  *		INVALID_COMMAND
  *		INVALID_PARAMETER 
  *
- * last modified: 2016/11/28
+ * last modified: 2016/11/30
  */
-static ATERROR API_0x09_atLocal_queue(struct api_f *frame)
+static void API_0x88_atLocal_response(struct api_f *frame, uint8_t *array, void *val, uint16_t length)
 {
-	/*
-	UART_print("Frame ID\r");
-	UART_printf("%"PRIX8"\r\r", 0 );					// frame id		1 byte
+	uint8_t crc = 0xFF;
+	int x;
 	
-	UART_print("AT Command")
-	UART_printf("%"PRIX8" %"PRIX8"\r\r", 0, 0 );		// AT CMD		2 byte
-	*/
-	return ERROR;
+	if      ( length == 1 ) x = 0;	//          val <=  8 bit
+	else if ( length == 2 ) x = 2;	//  8 bit < val <= 16 bit
+	else if ( length == 4 ) x = 24;	// 16 bit < val <= 32 bit
+	else if ( length == 8 ) x = 56;	// 32 bit < val <= 64 bit
+	
+	length += 4;
+	UART_putc( frame->delimiter );
+	UART_putc( (uint8_t) length >> 2 );
+	UART_putc( (uint8_t) length & 0xFF );
+	UART_putc( 0x88 );
+	crc -= 0x88;
+	UART_putc( *(array+2) );
+	crc -= *(array+2);
+	UART_putc( *(array+3) );
+	crc -= *(array+3);
+	UART_putc( frame->ret * (-1) );
+	crc -= (frame->ret * (-1));
+	
+	if ( 'N' == *(array+2) && 'I' == *(array+3) )
+	{
+		do 
+		{
+			UART_putc( (uint8_t) *val );
+		} while (*val++);
+	}
+	else
+	{
+		for (; x >= 0 ; x -= 8 )
+		{
+			UART_putc( (uint8_t) *val >> x );
+		}
+	}
 }
 
 /*
@@ -1253,5 +1301,15 @@ static bool_t API_compareCRC(uint8_t *frameCRC, uint8_t *userCRC)
 	{
 		return FALSE;
 	}
+	
+}
+
+static ATERROR API_readAndExec(struct api_f *frame)
+{
+	
+}
+
+static ATERROR API_write(struct api_f *frame)
+{
 	
 }

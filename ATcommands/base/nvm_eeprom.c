@@ -119,8 +119,10 @@ typedef struct nvm {
 	uint32_t diagCMD_dd;	// offset 0x78
 	uint16_t diagCMD_vr;	// offset 0x7C
 	uint16_t diagCMD_hv;	// offset 0x7E
+	
+	uint8_t  deCMD_ru;		// offset 0x7F
 
-	uint8_t reserved[30];	// offset 0x80
+	uint8_t reserved[29];	// offset 0x80
 	uint16_t crc;			// offset 0x9E
 
 } NVM;
@@ -212,6 +214,7 @@ void SET_defaultInEEPROM(void)
 	defaultValuesInEEPROM.atcopCMD_ct  = CT_AT_CMD_TIMEOUT;
 	defaultValuesInEEPROM.atcopCMD_gt  = GT_GUART_TIMES;
 	defaultValuesInEEPROM.atcopCMD_cc  = CC_COMMAND_SEQUENCE_CHAR;
+	defaultValuesInEEPROM.deCMD_ru	   = RU_RETURN_TO_UART;
 	
 	uint8_t lary[sizeof(NVM)];
 	memcpy(lary, &defaultValuesInEEPROM, sizeof(NVM)); 
@@ -330,6 +333,8 @@ void GET_allFromEEPROM(void)
 		 RFmodul.atcopCMD_ct = ValuesFromEEPROM.atcopCMD_ct;
 		 RFmodul.atcopCMD_gt = ValuesFromEEPROM.atcopCMD_gt;
 		 RFmodul.atcopCMD_cc = ValuesFromEEPROM.atcopCMD_cc;
+		 
+		 RFmodul.deCMD_ru = ValuesFromEEPROM.deCMD_ru;
 		
 	}
 	
@@ -418,6 +423,7 @@ void SET_userValInEEPROM(void)
 	ValuesForEEPROM.atcopCMD_ct  = RFmodul.atcopCMD_ct;
 	ValuesForEEPROM.atcopCMD_gt  = RFmodul.atcopCMD_gt;
 	ValuesForEEPROM.atcopCMD_cc  = RFmodul.atcopCMD_cc;
+	ValuesForEEPROM.deCMD_ru	 = RFmodul.deCMD_ru;
 	
 	
 	uint8_t lary[sizeof(NVM)];

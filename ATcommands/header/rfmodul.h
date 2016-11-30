@@ -90,8 +90,10 @@ typedef struct  {
 	uint16_t atcopCMD_ct : 13; // max 0x1770                   =  13 bit
 	uint16_t atcopCMD_gt : 12; // max 0xCE4                    =  12 bit
 	uint8_t  atcopCMD_cc;      // max 0xFF                     =   8 bit
+	
+	bool_t	 deCMD_ru;		   // max 0x1				       =   1 bit
 	// ------------------------------------------------------------------
-	//                            Total:                        1076 bit // if compiler pack the struct
+	//                            Total:                        1077 bit // if compiler pack the struct
 }__attribute__((packed)) device_t;
 
 extern device_t RFmodul;
@@ -107,6 +109,7 @@ void SET_iolpDefault(void);
 void SET_diagDefault(void);
 void SET_cmdoDefault(void);
 void SET_allDefault(void);
+void SET_deDefault(void);
 
 // === EEPROM functions =======================================
 void GET_allFromEEPROM(void);
