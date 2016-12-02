@@ -27,11 +27,11 @@ static uint32_t API_timeHandle(uint32_t arg);
 
 void main(void) 
 {
-	ATERROR		ret = 0;
-	uint32_t	 th = 0;
-	int		 inchar = 0; // received the data of the UART input (byte by byte)
-	int     counter = 0;
-	int	 apicounter = 0;
+	ATERROR		  ret = 0;
+	uint32_t	   th = 0;
+	int		   inchar = 0; // received the data of the UART input (byte by byte)
+	short     counter = 0;
+	size_t apicounter = 0;
 	/*
 	 * initialize structs and buffer
 	 */
@@ -76,16 +76,16 @@ void main(void)
 			if (RFmodul.deCMD_ru) UART_printf("%c", inchar );				// return character immediately
 
 			/*
-			 *
+			 * if API mode active
 			 */
 			if ( RFmodul.serintCMD_ap )
 			{
-				if ( inchar == 0x7E && counter == 0 )
+				if ( inchar == 0x7E && apicounter == 0 )
 				{
 					th = deTIMER_start(API_timeHandle, deMSEC( 0x64 ), 0); // 100 MS
 					apicounter++;
 				}
-				apicounter = ( apicounter > 1 )? apicounter+1 : apicounter;
+				apicounter = ( apicounter > 0 )? apicounter+1 : 0;
 			}
 			
 			/*
@@ -101,12 +101,13 @@ void main(void)
 			 */		
 			if( APIframe ) 
 			{
-				ret = API_frameHandle_uart( &counter );
+				ret = API_frameHandle_uart( &apicounter );
+				if ( ret )	{ ATERROR_print(&ret); ret = 0; }
 				apicounter = 0;
 				APIframe = FALSE;
 				th = 0;
 			}
-			else if ( '\r' == inchar || '\n' == inchar )
+			else if ( ('\r' == inchar || '\n' == inchar) && RFmodul.serintCMD_ap == 0 )
 			{ 
 				ret = TRX_send(); 
 				if ( ret )	{ ATERROR_print(&ret); ret = 0; }
@@ -123,8 +124,7 @@ void main(void)
 				if ( 3 == counter )
 				{
 					BufferInit(&UART_deBuf, NULL); // delete all content in the buffer
-					ret = AT_localMode();
-					if ( ret )	{ ATERROR_print(&ret); ret = 0; }
+					AT_localMode();
 					counter = 0;
 					
 				}
@@ -148,6 +148,8 @@ static void ATERROR_print(ATERROR *value)
 		case TRANSMIT_IN_FAIL	: UART_print("Receiver error! Can't receive or translate the data.\r\n");	break;
 		case TRANSMIT_CRC_FAIL  : UART_print("Receiver error! CRC code does not match.\r\n");				break;
 		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode.\r\n");				break;
+		case INVALID_COMMAND	: UART_print("\r"); break;
+		case API_NOT_AVAILABLE  : 
 		default					: 																			break;
 	}
 }

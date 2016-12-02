@@ -22,19 +22,19 @@ typedef struct  {
 	uint16_t netCMD_my;         // max 0xFFFF                  =  16 bit
 	uint32_t netCMD_sh;         // max 0xFFFFFFFF              =  32 bit
 	uint32_t netCMD_sl;         // max 0xFFFFFFFF              =  32 bit
-	bool_t	 netCMD_ce;	        // max 0x1                     =   1 bit
+	
 	uint16_t netCMD_sc;         // max 0xFFFF                  =  16 bit
 	uint8_t	 netCMD_mm : 3;     // max 0x4                     =   3 bit
 	uint8_t  netCMD_rr : 2;     // max 0x3                     =   2 bit
 	uint8_t  netCMD_rn : 2;     // max 0x3                     =   2 bit
 	uint8_t  netCMD_nt;         // max 0xFC                    =   8 bit
-	bool_t   netCMD_no : 1;     // max 0x1                     =   1 bit
+	
 	uint8_t  netCMD_sd : 3;     // max 0x4                     =   3 bit
 	uint8_t  netCMD_a1 : 4;     // max 0xF                     =   4 bit
 	uint8_t  netCMD_a2 : 4;     // max 0xF                     =   4 bit
 	uint8_t  netCMD_ai : 6;     // a1(0xF) & a2(0xF) = ai 0x13 =   6 bit
 	
-	bool_t   secCMD_ee : 1;     // max 0x1                     =   1 bit
+	
 	uint8_t  secCMD_ky[16];		// max FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF (32 characters) 128 Bit
 	
 	uint8_t  rfiCMD_pl : 3;     // max 0x4                     =   3 bit
@@ -91,7 +91,11 @@ typedef struct  {
 	uint16_t atcopCMD_gt : 12; // max 0xCE4                    =  12 bit
 	uint8_t  atcopCMD_cc;      // max 0xFF                     =   8 bit
 	
-	bool_t	 deCMD_ru;		   // max 0x1				       =   1 bit
+	bool_t	 netCMD_ce : 1;	    // max 0x1                     =   1 bit
+	bool_t   netCMD_no : 1;     // max 0x1                     =   1 bit
+	bool_t   secCMD_ee : 1;     // max 0x1                     =   1 bit
+	bool_t	 deCMD_ru  : 1;		// max 0x1				       =   1 bit
+	
 	// ------------------------------------------------------------------
 	//                            Total:                        1077 bit // if compiler pack the struct
 }__attribute__((packed)) device_t;

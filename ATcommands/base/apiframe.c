@@ -10,7 +10,6 @@
 #include <string.h>
 #include <avr/interrupt.h>
 
-#include "../header/cmd.h"
 #include "../header/rfmodul.h"
 #include "../header/atlocal.h"
 #include "../header/apiframe.h"
@@ -18,29 +17,9 @@
 #include "../../ATuracoli/stackrelated.h"		// UART_print(f)
 #include "../../ATuracoli/stackdefines.h"
 
-// === c-File structs =====================================
-struct api_f 
-{
-	ATERROR  ret;
-	uint8_t	 delimiter;
-	uint16_t length;
-	uint8_t  type;
-	uint8_t  id;
-	/*
-	 * create the frame & calc checksum
-	 * 0xFF - (API type + frame ID [+ target address] [+ options] + main content [+ parameter]) = checksum
-	 *        |<---------------------------------- frame frame->bufLength ------------------->|
-	 */
-	uint8_t  crc;
-	int      bufLen;
-};
-
 // === Prototypes =========================================
-static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array);
-static void    API_0x88_atLocal_response(struct api_f *frame, uint8_t *array, void *val, uint16_t length);
-static ATERROR API_readAndExec(struct api_f *frame);
-static ATERROR API_write(struct api_f *frame);
-static bool_t  API_compareCRC(uint8_t *frameCRC, uint8_t *userCRC);
+static ATERROR API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t *len);
+static void  API_0x88_atLocal_response(struct api_f *frame);
 
 // === Functions ==========================================
 
@@ -53,10 +32,10 @@ static bool_t  API_compareCRC(uint8_t *frameCRC, uint8_t *userCRC);
  *
  * last modified: 2016/11/28
  */
-ATERROR API_frameHandle_uart(int *len)
+ATERROR API_frameHandle_uart(size_t *len)
 {
 	uint8_t  outchar[5]	= {0x0};
-	struct api_f frame  = {0,0,0,0,0,0xFF,*len};
+	struct api_f frame  = {0,0,0,0,0,{0},0,{0},0xFF};
 	
 	// Start delimiter	1 byte	
 	cli(); BufferOut( &UART_deBuf, &frame.delimiter ); sei();
@@ -76,13 +55,27 @@ ATERROR API_frameHandle_uart(int *len)
 		case AT_COMMAND    : 
 			if (RFmodul.deCMD_ru) UART_print("Frame type\r08 (AT Command)\r\r");
 			frame.crc -= 0x08;
-			frame.ret = API_0x08_atLocal(&frame, outchar);
+			if ( frame->length == 4)
+			{
+				frame.ret = CMD_readOrExec(&frame, outchar, NULL);
+			}
+			else
+			{
+				frame.ret = CMD_write(&frame, outchar, *len);
+			}
 		break;
 		
 		case AT_COMMAND_Q  : 
 			if (RFmodul.deCMD_ru) UART_print("Frame type\r09 (AT Command Queue)\r\r");
 			frame.crc -= 0x09;
-			frame.ret = API_0x08_atLocal(&frame, outchar);
+			if ( frame->length == 4)
+			{
+				frame.ret = CMD_readOrExec(&frame, outchar, NULL);
+			}
+			else
+			{
+				frame.ret = CMD_write(&frame, outchar, *len);
+			}
 		break;
 		
 		case REMOTE_AT_CMD : 
@@ -92,24 +85,19 @@ ATERROR API_frameHandle_uart(int *len)
 		break;
 		
 		default : UART_print("Not a valid command type!\r\r"); return INVALID_COMMAND;
-	}	
-	return frame.ret;
+	}
+		
+	API_0x88_atLocal_response( frame );
 }
 
 /*
- *
- *
- * Received:
- *		the pointer to the frame struct
+ * Specific device commands (API)
  *
  * Returns:
  *		OP_SUCCESS
- *		INVALID_COMMAND
- *		INVALID_PARAMETER
- *
- * last modified: 2016/11/28
+ *		
  */
-static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array)
+static ATERROR API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t *len)
 {
 	// frame id		1 byte
 	cli(); BufferOut( &UART_deBuf, &frame->id ); sei();
@@ -117,13 +105,23 @@ static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array)
 	frame->crc -= frame->id;
 	
 	// AT command 2 bytes
-	*(array+0) = 'A';
-	*(array+1) = 'T';
+	/*
+	 * Why this intricate way and not simply compare 2 characters at a specific start position?
+	 *   The answer is quiet simple, now there are less commands but if the cmd table grows you'll find
+	 *   double matches, that's why it's better to compare 4 letters.
+	 *
+	 * But what is with the special device commands (DE..)?
+	 *   For this case the frame type 0x18 is added to the library.
+	 */
+	*(array+0) = 'D';
+	*(array+1) = 'E';
 	cli(); BufferOut( &UART_deBuf, array+2 ); sei();
 	cli(); BufferOut( &UART_deBuf, array+3 ); sei();
 	
-	if (RFmodul.deCMD_ru) UART_printf("AT Command\r%02"PRIX8" %02"PRIX8" (%c%c)\r\r", *(array+2), *(array+3), *(array+2), *(array+3));
+	if (RFmodul.deCMD_ru) UART_printf("DE Command\r%02"PRIX8" %02"PRIX8" (%c%c)\r\r", *(array+2), *(array+3), *(array+2), *(array+3));
 	frame->crc -= (*(array+2) + *(array+3));
+	frame->cmd[0] = array+2;
+	frame->cmd[1] = array+3;
 	
 	// search for CMD in table
 	CMD *workPointer = (CMD*) pStdCmdTable;
@@ -134,11 +132,11 @@ static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array)
 	
 	/*
 	 * handle CMD
+	 *
 	 * frame length
-	 * exec is allowed
+	 * EXEC is allowed
 	 */
-	if ( frame->length == 4 &&\
-		 workPointer->rwxAttrib & EXEC )
+	if ( frame->length == 4 && workPointer->rwxAttrib & EXEC )
 	{
 		uint8_t userCRC;
 		if ( API_compareCRC(&frame->crc, &userCRC) == FALSE )
@@ -149,40 +147,14 @@ static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array)
 		
 		switch( workPointer->rwxAttrib )
 		{
-			// leave command mode command
-			case AT_CN : return INVALID_COMMAND;
-			
-			// write config to firmware
-			case AT_WR : {
-				SET_userValInEEPROM();
-
-			}
-			break;
-			
-			// apply changes - currently only a dummy
-			case AT_AC : {
-				/*
-				 * TODO - run config for trx/uart
-				 */
-			}
-			break;
-			
-			// reset all parameter
-			case AT_RE : {
-				SET_allDefault();
-			}
-			break;
-			
 			default: break;
 		}
 	}
 	/*
 	 * frame length
-	 * string length of input
-	 * reading the command is allowed
+	 * READ is allowed
 	 */
-	else if ( frame->length == 4 &&\
-			  workPointer->rwxAttrib & READ )
+	else if ( frame->length == 4 && workPointer->rwxAttrib & READ )
 	{
 		uint8_t userCRC;
 		if ( API_compareCRC( &frame->crc, &userCRC ) == FALSE )
@@ -191,1040 +163,69 @@ static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array)
 			return ERROR;
 		}
 		
-		switch( workPointer->ID )
+		switch (workPointer->ID)
 		{
-			case AT_CH : UART_printf("%"PRIX8"\r", RFmodul.netCMD_ch); break;
-			case AT_ID : UART_printf("%"PRIX16"\r",RFmodul.netCMD_id); break;
-			case AT_DH : UART_printf("%"PRIX32"\r",RFmodul.netCMD_dh); break;
-			case AT_DL : UART_printf("%"PRIX32"\r",RFmodul.netCMD_dl); break;
-			case AT_MY : UART_printf("%"PRIX16"\r",RFmodul.netCMD_my); break;
-			case AT_SH : UART_printf("%"PRIX32"\r",RFmodul.netCMD_sh); break;
-			case AT_SL : UART_printf("%"PRIX32"\r",RFmodul.netCMD_sl); break;
-			case AT_CE : UART_printf("%d\r",       RFmodul.netCMD_ce); break;
-			case AT_SC : UART_printf("%"PRIX16"\r",RFmodul.netCMD_sc); break;
-			case AT_NI : UART_printf("%s\r",       RFmodul.netCMD_ni); break;
-			case AT_MM : UART_printf("%"PRIX8"\r", RFmodul.netCMD_mm); break;
-			case AT_RR : UART_printf("%"PRIX8"\r", RFmodul.netCMD_rr); break;
-			case AT_RN : UART_printf("%"PRIX8"\r", RFmodul.netCMD_rn); break;
-			case AT_NT : UART_printf("%"PRIX8"\r", RFmodul.netCMD_nt); break;
-			case AT_NO : UART_printf("%d\r",       RFmodul.netCMD_no); break;
-			case AT_SD : UART_printf("%"PRIX8"\r", RFmodul.netCMD_sd); break;
-			case AT_A1 : UART_printf("%"PRIX8"\r", RFmodul.netCMD_a1); break;
-			case AT_A2 : UART_printf("%"PRIX8"\r", RFmodul.netCMD_a2); break;
-			case AT_AI : UART_printf("%"PRIX8"\r", RFmodul.netCMD_ai); break;
-
-			case AT_EE : UART_printf("%d\r",       RFmodul.secCMD_ee); break;
-			case AT_KY : UART_print("\r"); break;
-
-			case AT_PL : UART_printf("%"PRIX8"\r", RFmodul.rfiCMD_pl); break;
-			case AT_CA : UART_printf("%"PRIX8"\r", RFmodul.rfiCMD_ca); break;
-
-			case AT_SM : UART_printf("%"PRIX8"\r", RFmodul.sleepmCMD_sm); break;
-			case AT_ST : UART_printf("%"PRIX16"\r",RFmodul.sleepmCMD_st); break;
-			case AT_SP : UART_printf("%"PRIX16"\r",RFmodul.sleepmCMD_sp); break;
-			case AT_DP : UART_printf("%"PRIX16"\r",RFmodul.sleepmCMD_dp); break;
-			case AT_SO : UART_printf("%"PRIX8"\r", RFmodul.sleepmCMD_so); break;
-			case AT_SS : UART_print("ERROR\r"); break;
-
-			case AT_AP : API_0x88_atLocal_response( frame, array, (uint8_t*) RFmodul.serintCMD_ap, (uint16_t) sizeof(uint8_t) );	break;
-			
-			case AT_BD : UART_printf("%"PRIX8"\r",RFmodul.serintCMD_bd); break;
-			case AT_NB : UART_printf("%"PRIX8"\r",RFmodul.serintCMD_nb); break;
-			case AT_RO : UART_printf("%"PRIX8"\r",RFmodul.serintCMD_ro); break;
-
-			case AT_D8 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d8); break;
-			case AT_D7 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d7); break;
-			case AT_D6 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d6); break;
-			case AT_D5 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d5); break;
-			case AT_D4 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d4); break;
-			case AT_D3 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d3); break;
-			case AT_D2 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d2); break;
-			case AT_D1 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d1); break;
-			case AT_D0 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d0); break;
-			case AT_PR : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_pr); break;
-			case AT_IU : UART_printf("%d\r",       RFmodul.ioserCMD_iu); break;
-			case AT_IT : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_it); break;
-			case AT_IC : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_ic); break;
-			case AT_IR : UART_printf("%"PRIX16"\r",RFmodul.ioserCMD_ir); break;
-			case AT_P0 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_p0); break;
-			case AT_P1 : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_p1); break;
-			case AT_PT : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_pt); break;
-			case AT_RP : UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_rp); break;
-
-			case AT_IA : {	// the compiler don't like the PRIX64 command
-				uint32_t a = RFmodul.iolpCMD_ia >> 32;
-				uint32_t b = RFmodul.iolpCMD_ia & 0xFFFFFFFF;
-				UART_printf("%"PRIX32"%"PRIX32"\r",a,b);
-			}
-			break;
-			case AT_T0 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T0); break;
-			case AT_T1 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T1); break;
-			case AT_T2 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T2); break;
-			case AT_T3 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T3); break;
-			case AT_T4 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T4); break;
-			case AT_T5 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T5); break;
-			case AT_T6 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T6); break;
-			case AT_T7 : UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T7); break;
-
-			case AT_VR : UART_printf("%"PRIX16"\r",RFmodul.diagCMD_vr); break;
-			case AT_HV : UART_printf("%"PRIX16"\r",RFmodul.diagCMD_hv); break;
-			case AT_DB : UART_printf("%"PRIX8"\r", RFmodul.diagCMD_db); break;
-			case AT_EC : UART_printf("%"PRIX16"\r",RFmodul.diagCMD_ec); break;
-			case AT_EA : UART_printf("%"PRIX16"\r",RFmodul.diagCMD_ea); break;
-			case AT_DD : UART_printf("%"PRIX32"\r",RFmodul.diagCMD_dd); break;
-
-			case AT_CT : UART_printf("%"PRIX16"\r",RFmodul.atcopCMD_ct); break;
-			case AT_GT : UART_printf("%"PRIX16"\r",RFmodul.atcopCMD_gt); break;
-			case AT_CC : UART_printf("%"PRIX8"\r", RFmodul.atcopCMD_cc); break;
-			
-			case AT_Rq : UART_print("ERROR\r"); break;
-			case AT_pC : UART_print("1\r"); break;
-			
-			case AT_SB : UART_print("ERROR\r"); break;
-			
-			case DE_RU : {
-				UART_putc(0x7E);
-				UART_putc(0x00);
-				UART_putc(0x06);
-				UART_putc(0x88);
-				UART_putc(0x01);
-				UART_putc(0x41);
-				UART_putc(0x50);
-				UART_putc(0x00);
-				UART_putc(RFmodul.serintCMD_ap);
-				UART_putc(0xE4);
-			}
+/* RU */	case DE_RU :
+				if ( RFmodul.serintCMD_ap == 0 )
+				{
+					UART_printf("%"PRIX8"\r", RFmodul.deCMD_ru);
+				}
+				else
+				{
+					uint8_t val = RFmodul.deCMD_ru;
+					API_0x88_atLocal_response( frame );
+				}
 				break;
-			
-			default : break;
+				
+			default: break;
 		}
-	} 
+	}
 	/* 
-	 * if writing is allowed store the value of the string into RFmodel struct and register 
+	 * WRITE is allowed, store the value of the string into RFmodel struct and register 
 	 * frame length
 	 * string length of input
 	 * writing to RFmodul struct [and to EEPROM] is allowed
 	 */
-	else if ( frame->length > 4 &&\
-			  workPointer->rwxAttrib & WRITE )
+	else if ( frame->length > 4 && workPointer->rwxAttrib & WRITE )
 	{
-		size_t cmdSize = (((frame->bufLen-15) % 2) + (frame->bufLen-15))/2;
-	    /* 
-	     * special handle if
-	     * - network identifier string command
-	     * - buffer content <= 20 characters
-	     */
-	    if ( AT_NI == workPointer->ID && frame->bufLen-15 <= 20 )
-	    {
-	    	for (int i = 0; i < frame->bufLen-15; i++)
-	    	{
-	    		cli(); BufferOut(&UART_deBuf, &RFmodul.netCMD_ni[i]); sei();
-	    	}
-	    	
-	    	RFmodul.netCMD_ni[frame->bufLen-14] = 0x0;
-	    	if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    }
-	    if (AT_NI == workPointer->ID && frame->bufLen-15 > 20 )
-	    {
-	    	return INVALID_PARAMETER;
-	    }
-	    
-	    /*
-	     * copy value for comparison in tmp buffer
-	     * if - the command size smaller or equal then the unit of the tmp buffer (related to the uint8 buffer)
-	     *    - the buffer value greater or equal than the min value
-	     *    - the buffer value smaller or equal than the max value
-	     * save the value into the memory
-	     * else it is a invalid parameter
-	     */	
-	    switch(workPointer->ID)
-	    {
-	    	/*
-	    	 * AT commands: network
-	    	 *
-	    	 * last modified: 2016/11/24
-	    	 */
-	    	case AT_CH : { 
-	    					uint8_t tmp = 0;								
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0B && tmp <= 0x1A )
-	    					{
-	    						TRX_writeBit(deSR_CHANNEL, tmp);
-	    						RFmodul.netCMD_ch = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}						
-	    				break;
-	    	
-	    	case AT_ID : {
-	    					uint8_t cmdString[2] = {0x0};
-	    					if ( charToUint8( &cmdString[0], &frame->bufLen, &cmdSize, 2 ) == FALSE ) return ERROR;
-	    					uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
-	    					
-	    					if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
-	    					{
-	    						RFmodul.netCMD_id = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_DH : {
-	    					uint8_t cmdString[4] = {0x0};
-	    					if ( charToUint8( &cmdString[0], &frame->bufLen, &cmdSize, 4 ) == FALSE ) return ERROR;
-	    					uint32_t tmp = (uint32_t) cmdString[0] << 24 | (uint32_t) cmdString[1] << 16 | (uint32_t) cmdString[2] <<   8 | (uint32_t) cmdString[3];
-	    					
-	    					if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
-	    					{
-	    						RFmodul.netCMD_dh = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_DL : {
-	    					uint8_t cmdString[4] = {0x0};
-	    					if ( charToUint8( &cmdString[0], &frame->bufLen, &cmdSize, 4 ) == FALSE ) return ERROR;
-	    					uint32_t tmp = (uint32_t) cmdString[0] << 24 | (uint32_t) cmdString[1] << 16 | (uint32_t) cmdString[2] <<   8 | (uint32_t) cmdString[3];
-	    					
-	    					if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
-	    					{
-	    						RFmodul.netCMD_dl = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_MY : {
-	    					uint8_t cmdString[2] = {0x0};
-	    					if ( charToUint8( &cmdString[0], &frame->bufLen, &cmdSize, 2 ) == FALSE ) return ERROR;
-	    					uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
-	    					
-	    					if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
-	    					{
-	    						RFmodul.netCMD_my = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_CE : { 	
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    									
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
-	    					{
-	    						RFmodul.netCMD_ce = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_SC : { 
-	    					uint8_t cmdString[2] = {0x0};
-	    					if ( charToUint8( &cmdString[0], &frame->bufLen, &cmdSize, 2 ) == FALSE ) return ERROR;
-	    					uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
-	    					 
-	    					if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
-	    					{
-	    						RFmodul.netCMD_sc = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_MM : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x00 && tmp <= 0x3 )
-	    					{
-	    						RFmodul.netCMD_mm = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_RR : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x6 )
-	    					{
-	    						RFmodul.netCMD_rr = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_RN : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x00 && tmp <= 0x3 )
-	    					{
-	    						RFmodul.netCMD_rn = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_NT : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x01 && tmp <= 0xFC )
-	    					{
-	    						RFmodul.netCMD_nt = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_NO : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
-	    					{
-	    						RFmodul.netCMD_no = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_SD : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xF )
-	    					{
-	    						RFmodul.netCMD_sd = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_A1 : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xF )
-	    					{
-	    						RFmodul.netCMD_a1 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_A2 : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xF )
-	    					{
-	    						RFmodul.netCMD_a2 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	/*
-	    	 * AT commands: security
-	    	 *
-	    	 * last modified: 2016/11/24
-	    	 */			
-	    	case AT_KY : UART_print("Not implemented.\r"); break;
-	    
-	    	case AT_EE : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
-	    					{
-	    						RFmodul.secCMD_ee = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	/*
-	    	 * AT commands: RF interface
-	    	 *
-	    	 * last modified: 2016/11/24
-	    	 */
-	    	case AT_PL : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x4 )
-	    					{
-	    						RFmodul.rfiCMD_pl = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_CA : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x24 && tmp <= 0x50 )
-	    					{
-	    						RFmodul.rfiCMD_ca = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	/*
-	    	 * AT commands: sleep modes
-	    	 *
-	    	 * last modified: 2016/11/24
-	    	 */
-	    	case AT_SM : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x6 )
-	    					{
-	    						RFmodul.sleepmCMD_sm = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_ST : { 
-	    					uint8_t cmdString[2] = {0x0};
-	    					if ( charToUint8( &cmdString[0], &frame->bufLen, &cmdSize, 2 ) == FALSE ) return ERROR;
-	    					uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
-	    					
-	    					if ( cmdSize <= 2 && tmp >= 0x1 && tmp <= 0xFFFF )
-	    					{
-	    						RFmodul.sleepmCMD_st = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_SP : {
-	    					uint8_t cmdString[2] = {0x0};
-	    					if ( charToUint8( &cmdString[0], &frame->bufLen, &cmdSize, 2 ) == FALSE ) return ERROR;
-	    					uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
-	    					
-	    					if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0x68B0 )
-	    					{
-	    						RFmodul.sleepmCMD_sp = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_DP : { 
-	    					uint8_t cmdString[2] = {0x0};
-	    					if ( charToUint8( &cmdString[0], &frame->bufLen, &cmdSize, 2 ) == FALSE ) return ERROR;
-	    					uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
-	    					
-	    					if ( cmdSize <= 2 && tmp >= 0x1 && tmp <= 0x68B0 )
-	    					{
-	    						RFmodul.sleepmCMD_dp = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_SO : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x6 )
-	    					{
-	    						RFmodul.sleepmCMD_so = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	/*
-	    	 * AT commands: serial interfacing
-	    	 *
-	    	 * last modified: 2016/11/24
-	    	 */
-	    	case AT_AP : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x2 )
-	    					{
-	    						RFmodul.serintCMD_ap = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_BD : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x7 )
-	    					{
-	    						RFmodul.serintCMD_bd = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_NB : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x4 )
-	    					{
-	    						RFmodul.serintCMD_nb = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_RO : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.serintCMD_ro = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	/*
-	    	 * AT commands: IO settings
-	    	 *
-	    	 * last modified: 2016/11/24
-	    	 */
-	    	case AT_D8 : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
-	    					{
-	    						RFmodul.ioserCMD_d8 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_D7 : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
-	    					{
-	    						RFmodul.ioserCMD_d7 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_D6 : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
-	    					{
-	    						RFmodul.ioserCMD_d6 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_D5 : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
-	    					{
-	    						RFmodul.ioserCMD_d5 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_D4 : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
-	    					{
-	    						RFmodul.ioserCMD_d4 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_D3 : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
-	    					{
-	    						RFmodul.ioserCMD_d3 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_D2 : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
-	    					{
-	    						RFmodul.ioserCMD_d2 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_D1 : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
-	    					{
-	    						RFmodul.ioserCMD_d1 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_D0 : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
-	    					{
-	    						RFmodul.ioserCMD_d0 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_PR : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.ioserCMD_pr = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_IU : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
-	    					{
-	    						RFmodul.ioserCMD_iu = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_IT : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x1 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.ioserCMD_it = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_IC : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.ioserCMD_ic = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_IR : {
-	    					uint8_t cmdString[2] = {0x0};
-	    					if ( charToUint8( &cmdString[0], &frame->bufLen, &cmdSize, 2 ) == FALSE ) return ERROR;
-	    					uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
-	    					
-	    					if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
-	    					{
-	    						RFmodul.ioserCMD_ir = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_P0 : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x2 )
-	    					{
-	    						RFmodul.ioserCMD_p0 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_P1 : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x2 )
-	    					{
-	    						RFmodul.ioserCMD_p1 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_PT : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0xB && tmp <= 0xFF )
-	    					{
-	    						RFmodul.ioserCMD_pt = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_RP : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.ioserCMD_rp = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	/*
-	    	 * AT commands: IO line passing
-	    	 *
-	    	 * last modified: 2016/11/24
-	    	 */
-	    	case AT_IA : {
-	    					uint8_t cmdString[8] = {0x0};
-	    					if ( charToUint8( &cmdString[0], &frame->bufLen, &cmdSize, 8 ) == FALSE ) return ERROR;
-	    					uint64_t tmp = (uint64_t) cmdString[0] << 56 | (uint64_t) cmdString[1] << 48 | (uint64_t) cmdString[2] <<  40 | (uint64_t) cmdString[3] << 32 |\
-	    								   (uint64_t) cmdString[4] << 24 | (uint64_t) cmdString[5] << 16 | (uint64_t) cmdString[6] <<   8 | (uint64_t) cmdString[7];
-	    					
-	    					if ( cmdSize <= 8 && tmp >= 0x0 && tmp <= 0xFFFFFFFFFFFFFFFF )
-	    					{
-	    						RFmodul.iolpCMD_ia = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_T0 : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.iolpCMD_T0 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_T1 : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.iolpCMD_T1 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_T2 : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.iolpCMD_T2 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    
-	    	case AT_T3 : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.iolpCMD_T3 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_T4 : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.iolpCMD_T4 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_T5 : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.iolpCMD_T5 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_T6 : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.iolpCMD_T6 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_T7 : {
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    												
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.iolpCMD_T7 = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	/*
-	    	 * AT commands: diagnostics
-	    	 *
-	    	 * last modified: 2016/11/24
-	    	 */
-	    	case AT_DD : { 
-	    					uint8_t cmdString[4] = {0x0};
-	    					if ( charToUint8( &cmdString[0], &frame->bufLen, &cmdSize, 4 ) == FALSE ) return ERROR;
-	    					uint32_t tmp = (uint32_t) cmdString[0] << 24 | (uint32_t) cmdString[1] << 16 | (uint32_t) cmdString[2] <<   8 | (uint32_t) cmdString[3];
-	    					
-	    					if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
-	    					{
-	    						RFmodul.diagCMD_dd = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	/*
-	    	 * AT commands: AT command options
-	    	 *
-	    	 * last modified: 2016/11/24
-	    	 */
-	    	case AT_CT : { 
-	    					uint8_t cmdString[2] = {0x0};
-	    					if ( charToUint8( &cmdString[0], &frame->bufLen, &cmdSize, 2 ) == FALSE ) return ERROR;
-	    					uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
-	    					
-	    					if ( cmdSize <= 2 && tmp >= 0x02 && tmp <= 0x1770 )
-	    					{
-	    						RFmodul.atcopCMD_ct = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_GT : { 
-	    					uint8_t cmdString[2] = {0x0};
-	    					if ( charToUint8( &cmdString[0], &frame->bufLen, &cmdSize, 2 ) == FALSE ) return ERROR;
-	    					uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
-	    					
-	    					if ( cmdSize <= 2 && tmp >= 0x02 && tmp <= 0xCE4 )
-	    					{
-	    						RFmodul.atcopCMD_gt = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-	    	
-	    	case AT_CC : { 
-	    					uint8_t tmp = 0;
-	    					if ( charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-	    					
-	    					if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
-	    					{
-	    						RFmodul.atcopCMD_cc = tmp;
-	    						if( frame->type == 0x8 ) SET_userValInEEPROM();
-	    						
-	    					}
-	    					else { return INVALID_PARAMETER; }
-	    				}
-	    				break;
-			
-			case DE_RU : {
-				uint8_t tmp = 0;
-				if (charToUint8( &tmp, &frame->bufLen, &cmdSize, 1 ) == FALSE ) return ERROR;
-				if ( cmdSize <= 1 && tmp >= FALSE && tmp <= TRUE )
+		size_t cmdSize = (((*len-15) % 2) + (*len-15))/2;
+		
+		switch( workPointer->ID )
+		{
+/* RU */   case DE_RU : {
+				/*
+				 * get the parameter
+				 */
+				cli(); BufferOut( &UART_deBuf, &frame->msg[0] ); sei()
+				frame->crc -= frame->msg[0];
+					
+				if ( API_compareCRC(frame) == FALSE )
 				{
-					RFmodul.deCMD_ru = tmp;
+					if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
+					return ERROR;
+				}
+								
+				/*
+				 * compare the parameter
+				 */
+				if ( cmdSize <= 1 && frame->msg[0] >= FALSE && frame->msg[0] <= TRUE )
+				{
+					RFmodul.deCMD_ru = frame->msg[0];
 					if( frame->type == 0x8 ) SET_userValInEEPROM();
 				}
-				else { UART_print("Invalid parameter!\r"); }
+				else 
+				{ 
+					return INVALID_PARAMETER;
+				}
 			}
-	    	
-	    	default : return INVALID_COMMAND;		
-	    }
+			default : return INVALID_COMMAND;
+		}
 	}
 	else
 	{
 		return INVALID_COMMAND;
 	}
 	
-	
-
 }
 
 /*
@@ -1232,57 +233,45 @@ static ATERROR API_0x08_atLocal(struct api_f *frame, uint8_t *array)
  *
  *
  * Returns:
- *		OP_SUCCESS
- *		INVALID_COMMAND
- *		INVALID_PARAMETER 
+ *		nothing
  *
  * last modified: 2016/11/30
  */
-static void API_0x88_atLocal_response(struct api_f *frame, uint8_t *array, void *val, uint16_t length)
+static void API_0x88_atLocal_response(struct api_f *frame)
 {
-	uint8_t crc = 0xFF;
-	int x;
+	frame->crc = 0xFF;
+	frame->length += 5;
 	
-	if      ( length == 1 ) x = 0;	//          val <=  8 bit
-	else if ( length == 2 ) x = 2;	//  8 bit < val <= 16 bit
-	else if ( length == 4 ) x = 24;	// 16 bit < val <= 32 bit
-	else if ( length == 8 ) x = 56;	// 32 bit < val <= 64 bit
+	UART_putc( frame->delimiter );					// start delimiter
+	UART_putc( (uint8_t) (frame->length >> 8) );	// frame length
+	UART_putc( (uint8_t) (frame->length & 0xFF) );
+	UART_putc( 0x88 );								// frame type
+	frame->crc -=   0x88;
+	UART_putc(      frame->id );
+	frame->crc -=   frame->id  ;
+	UART_putc(      frame->cmd[0] );				// AT cmd
+	frame->crc -=   frame->cmd[0]  ;
+	UART_putc(      frame->cmd[1] );
+	frame->crc -=   frame->cmd[1]  ;
+	UART_putc(      frame->ret * (-1) );			// cmd option (successful/ not successful etc.)
+	frame->crc -= ( frame->ret * (-1) );
 	
-	length += 4;
-	UART_putc( frame->delimiter );
-	UART_putc( (uint8_t) length >> 2 );
-	UART_putc( (uint8_t) length & 0xFF );
-	UART_putc( 0x88 );
-	crc -= 0x88;
-	UART_putc( *(array+2) );
-	crc -= *(array+2);
-	UART_putc( *(array+3) );
-	crc -= *(array+3);
-	UART_putc( frame->ret * (-1) );
-	crc -= (frame->ret * (-1));
-	
-	if ( 'N' == *(array+2) && 'I' == *(array+3) )
+	for (uint16_t x; x < frame->length ; x++ )
 	{
-		do 
-		{
-			UART_putc( (uint8_t) *val );
-		} while (*val++);
+		UART_putc(    frame->msg[x] );
+		frame->crc -= frame->msg[x];
 	}
-	else
-	{
-		for (; x >= 0 ; x -= 8 )
-		{
-			UART_putc( (uint8_t) *val >> x );
-		}
-	}
+
+	UART_putc(frame->crc);									// checksum
 }
+
 
 /*
  * The API compare function red the user crc value from the buffer
  * and compared it with the calculated crc sum
  *
  * Received:
- *		the calculated crc sum
+ *		the API frame
  *
  * Returned:
  *		TRUE	if calculated crc equal to user crc
@@ -1290,26 +279,59 @@ static void API_0x88_atLocal_response(struct api_f *frame, uint8_t *array, void 
  *
  * last modified: 2016/11/29
  */
-static bool_t API_compareCRC(uint8_t *frameCRC, uint8_t *userCRC)
+bool_t API_compareCRC(struct api_f *frame)
 {
+	uint8_t userCRC;
 	BufferOut( &UART_deBuf, userCRC);
-	if ( *frameCRC == *userCRC )
+	
+	return ( frame->crc == *userCRC )? TRUE : FALSE;	
+}
+
+
+/*
+ * API_findInTable() 
+ * - searched in the command table for the command id
+ *
+ * Returns:
+ *	   CMD struct		on success
+ *     INVALID_COMMAND	on fail
+ *
+ * last modified: 2016/11/18
+ */
+CMD* API_findInTable(struct api_f *frame, uint8_t *array)
+{
+	// frame id		1 byte
+	cli(); BufferOut( &UART_deBuf, &frame->id ); sei();
+	if ( RFmodul.deCMD_ru ) UART_printf("Frame ID\r%02"PRIX8"\r\r", frame->id );
+	frame->crc -= frame->id;
+	
+	// AT command 2 bytes
+	/*
+	 * Why this intricate way and not simply compare 2 characters at a specific start position?
+	 *   The answer is quiet simple, now there are less commands but if the cmd table grows you'll find
+	 *   double matches, that's why it's better to compare 4 letters.
+	 *
+	 * But what is with the special device commands (DE..)?
+	 *   For this case the frame type 0x18 is added to the library.
+	 */
+	*(array+0) = 'A';
+	*(array+1) = 'T';
+	cli(); BufferOut( &UART_deBuf, array+2 ); sei();
+	cli(); BufferOut( &UART_deBuf, array+3 ); sei();
+	
+	if (RFmodul.deCMD_ru) UART_printf("AT Command\r%02"PRIX8" %02"PRIX8" (%c%c)\r\r", *(array+2), *(array+3), *(array+2), *(array+3));
+	frame->crc -= (*(array+2) + *(array+3));
+	frame->cmd[0] = array+2;
+	frame->cmd[1] = array+3;
+	
+	// search for CMD in table
+	CMD *workPointer = (CMD*) pStdCmdTable;
+	for (int i = 0; i < command_count ; i++, workPointer++)
 	{
-		return TRUE;
-	} 
-	else
-	{
-		return FALSE;
+		if( strncmp( (const char*) array, workPointer->name, 4 ) == 0 ) 
+		{
+			return workPointer;
+		}
 	}
-	
-}
-
-static ATERROR API_readAndExec(struct api_f *frame)
-{
-	
-}
-
-static ATERROR API_write(struct api_f *frame)
-{
-	
+	return NO_AT_CMD;
 }
