@@ -126,16 +126,16 @@ void deBufferReadReset(deBuffer_t* bufType,char operand ,uint8_t len)
 		{
 			bufType->read = (bufType->read - 1) & DE_BUFFER_MASK;
 		}
-		if ( '-' == operand && bufType->read == bufType->write) 
+		if ( '-' == operand && bufType->read == bufType->write)
 		{
-			bufType->read = bufType->write + 1;
+			bufType->read == bufType->write+1;
 			return;
 		}
 		if ( '+' == operand ) 
 		{
 			bufType->read = (bufType->read + 1) & DE_BUFFER_MASK;
 		}
-		if ( '+' == operand && bufType->read == bufType->write) 
+		if ( '+' == operand && bufType->read == bufType->write)
 		{
 			return;
 		}

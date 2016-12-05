@@ -82,7 +82,7 @@ void main(void)
 			{
 				if ( inchar == 0x7E && apicounter == 0 )
 				{
-					th = deTIMER_start(API_timeHandle, deMSEC( 0x64 ), 0); // 100 MS
+					th = deTIMER_start(API_timeHandle, deMSEC( 0xC8 ), 0); // 200 MS
 					apicounter++;
 				}
 				apicounter = ( apicounter > 0 )? apicounter+1 : 0;
@@ -96,18 +96,9 @@ void main(void)
 			if( ret ) { ATERROR_print(&ret); ret = 0; continue; }
 			
 			/*
-			 * if a carriage return (0xD) received and the API Mode is enabled handle API Frame
-			 * else send the buffer content 
-			 */		
-			if( APIframe ) 
-			{
-				ret = API_frameHandle_uart( &apicounter );
-				if ( ret )	{ ATERROR_print(&ret); ret = 0; }
-				apicounter = 0;
-				APIframe = FALSE;
-				th = 0;
-			}
-			else if ( ('\r' == inchar || '\n' == inchar) && RFmodul.serintCMD_ap == 0 )
+			 * if a carriage return (0xD) received and the API Mode is disabled send the buffer content 
+			 */					
+			if ( ('\r' == inchar || '\n' == inchar) && RFmodul.serintCMD_ap == 0 )
 			{ 
 				ret = TRX_send(); 
 				if ( ret )	{ ATERROR_print(&ret); ret = 0; }
@@ -132,6 +123,18 @@ void main(void)
 			} /* end of 0x2B condition */
 			
 		} /* end of uart condition */
+		
+		/*
+		 * if API Mode is enabled  and APIframe true handle API Frame
+		 */
+		if( APIframe == TRUE && RFmodul.serintCMD_ap !=0 )
+		{
+			ret = API_frameHandle_uart( &apicounter );
+			if ( ret )	{ ATERROR_print(&ret); ret = 0; }
+			apicounter = 0;
+			APIframe = FALSE;
+			th = 0;
+		}
 		
 	} /* end of while loop */ 
 
@@ -167,6 +170,9 @@ static void ATERROR_print(ATERROR *value)
  */
 static uint32_t API_timeHandle(uint32_t arg)
 {
+#if DEBUG
+	UART_print("== API timer active\r\n");
+#endif
 	APIframe = TRUE;
 	return 0;
 }

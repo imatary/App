@@ -79,7 +79,7 @@ void AT_localMode(void)
 				counter +=1;
 			}
 			
-			if( '\r' == inchar ) 
+			if( '\r' == inchar || '\n' == inchar ) 
 			{ 
 				/*
 				 * - counter <  5 -> not a valid command
@@ -133,6 +133,9 @@ void AT_localMode(void)
  */
 static CMD* CMD_findInTable(void)
 {
+#if DEBUG
+	UART_print("== search AT cmd (AT mode)\r\n");
+#endif
 	CMD *workPointer = (CMD*) pStdCmdTable;
 	uint8_t pCmdString[5] = {0};
 	
@@ -141,6 +144,9 @@ static CMD* CMD_findInTable(void)
 		cli(); BufferOut( &UART_deBuf, &pCmdString[i] ); sei();
 	}
 	pCmdString[4] = '\0';
+#if DEBUG
+	UART_printf(">> CMD name: %s\r\n", pCmdString);
+#endif
 	// TODO -> search parser
 	for (int i = 0; i < command_count ; i++, workPointer++)
 	{
@@ -149,6 +155,9 @@ static CMD* CMD_findInTable(void)
 			return workPointer;
 		}
 	}
+#if DEBUG
+	UART_printf(">> No CMD available, read: %s\r\n", pCmdString);
+#endif
 	return NO_AT_CMD;
 }
 
@@ -171,6 +180,10 @@ static CMD* CMD_findInTable(void)
  */
 ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th) 
 {
+#if DEBUG
+	UART_print("== rx Active\r\n");
+	UART_printf("== AP Mode?: %s\r\n", (RFmodul.serintCMD_ap == 0)? "off" : "on" );
+#endif
 	CMD *pCommand  = NULL;
 	
 	if ( RFmodul.serintCMD_ap != 0 && frame != NULL ) // API frame
@@ -181,7 +194,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 	{
 		pCommand = CMD_findInTable();
 		/*
-		 * remove the '\r' from the buffer
+		 * remove the '\r'/'\n' from the buffer
 		 */
 		deBufferReadReset( &UART_deBuf, '+', 1); 
 	}
@@ -189,7 +202,13 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 	/*
 	 * if there no valid command leave function
 	 */
-	if ( NO_AT_CMD == pCommand->ID || NULL == pCommand ) return INVALID_COMMAND;
+	if ( NO_AT_CMD == pCommand->ID || NULL == pCommand ) 
+	{
+#if DEBUG
+	UART_print("== Invalide CMD exit!\r\n");
+#endif
+		return INVALID_COMMAND;
+	}
 		
 	/*
 	 * handle CMD
@@ -206,7 +225,10 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 	}
 	
 	if ( pCommand->rwxAttrib & EXEC )
-	{	
+	{
+#if DEBUG
+	UART_printf(">> exec cmd #%u\r\n",pCommand->ID);
+#endif
 		if ( frame != NULL ) frame->rwx = EXEC;	
 		switch( pCommand->ID )
 		{
@@ -276,7 +298,11 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 	 */		
 	else if ( pCommand->rwxAttrib & READ )
 	{
+		bool_t gtZereo = FALSE;
 		if ( frame != NULL ) frame->rwx = READ;	
+#if DEBUG
+	UART_printf(">> read cmd #%u\r\n",pCommand->ID);
+#endif
 		switch( pCommand->ID )
 		{
 /* CH */	case AT_CH : 
@@ -298,9 +324,17 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					frame->length = 2;
-					frame->msg[0] = (uint8_t) (RFmodul.netCMD_id >> 8);
-					frame->msg[1] = (uint8_t) (RFmodul.netCMD_id & 0xFF);
+					for (char up = 0, down = 8; down >= 0; down -= 8 )
+					{
+						if ( gtZereo == FALSE && (RFmodul.netCMD_id >> down) == 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.netCMD_id >> down);
+							frame->length = up;
+							up++;
+						}
+					}
 				}  
 				break;
 			
@@ -311,11 +345,17 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 24; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 24; down >= 0; down -= 8 )
 					{
-						frame->msg[up] = (uint8_t) (RFmodul.netCMD_dh >> down);
-					}
-					frame->length = 4;
+						if ( gtZereo == FALSE && (RFmodul.netCMD_dh >> down) == 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.netCMD_dh >> down);
+							frame->length = up;
+							up++;
+						}
+					}	
 				}  
 				break;
 			
@@ -328,9 +368,15 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				{
 					for (char up = 0, down = 24; down >= 0; down -= 8, up++)
 					{
-						frame->msg[up] = (uint8_t) (RFmodul.netCMD_dl >> down);
+						if ( gtZereo == FALSE && (RFmodul.netCMD_dl >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.netCMD_dl >> down);
+							frame->length = up;
+							up++;
+						}	
 					}
-					frame->length = 4;
 				}  
 				break;
 			
@@ -341,9 +387,17 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					frame->length = 2;
-					frame->msg[0] = (uint8_t) (RFmodul.netCMD_my >> 8);
-					frame->msg[1] = (uint8_t) (RFmodul.netCMD_my & 0xFF);
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					{
+						if ( gtZereo == FALSE && (RFmodul.netCMD_my >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.netCMD_my >> down);
+							frame->length = up;
+							up++;
+						}
+					}
 				}  
 				break;
 			
@@ -356,9 +410,15 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				{
 					for (char up = 0, down = 24; down >= 0; down -= 8, up++)
 					{
-						frame->msg[up] = (uint8_t) (RFmodul.netCMD_sh >> down);
+						if ( gtZereo == FALSE && (RFmodul.netCMD_sh >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.netCMD_sh >> down);
+							frame->length = up;
+							up++;
+						}
 					}
-					frame->length = 4;
 				}  
 				break;
 			
@@ -371,9 +431,15 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				{
 					for (char up = 0, down = 24; down >= 0; down -= 8, up++)
 					{
-						frame->msg[up] = (uint8_t) (RFmodul.netCMD_dl >> down);
+						if ( gtZereo == FALSE && (RFmodul.netCMD_sl >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.netCMD_sl >> down);
+							frame->length = up;
+							up++;
+						}
 					}
-					frame->length = 4;
 				}  
 				break;
 			
@@ -396,9 +462,17 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					frame->length = 2;
-					frame->msg[0] = (uint8_t) (RFmodul.netCMD_sc >> 8);
-					frame->msg[1] = (uint8_t) (RFmodul.netCMD_sc & 0xFF);
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					{
+						if ( gtZereo == FALSE && (RFmodul.netCMD_sc >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.netCMD_sc >> down);
+							frame->length = up;
+							up++;
+						}
+					}
 				}  
 				break;
 			
@@ -584,9 +658,17 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					frame->length = 2;
-					frame->msg[0] = (uint8_t) (RFmodul.sleepmCMD_st >> 8);
-					frame->msg[1] = (uint8_t) (RFmodul.sleepmCMD_st & 0xFF);
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					{
+						if ( gtZereo == FALSE && (RFmodul.sleepmCMD_st >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.sleepmCMD_st >> down);
+							frame->length = up;
+							up++;
+						}
+					}
 				}  
 				break;
 			
@@ -597,9 +679,17 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					frame->length = 2;
-					frame->msg[0] = (uint8_t) (RFmodul.sleepmCMD_sp >> 8);
-					frame->msg[1] = (uint8_t) (RFmodul.sleepmCMD_sp & 0xFF);
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					{
+						if ( gtZereo == FALSE && (RFmodul.sleepmCMD_sp >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.sleepmCMD_sp >> down);
+							frame->length = up;
+							up++;
+						}
+					}
 				} 
 				break;
 			
@@ -610,9 +700,17 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					frame->length = 2;
-					frame->msg[0] = (uint8_t) (RFmodul.sleepmCMD_dp >> 8);
-					frame->msg[1] = (uint8_t) (RFmodul.sleepmCMD_dp & 0xFF);
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					{
+						if ( gtZereo == FALSE && (RFmodul.sleepmCMD_dp >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.sleepmCMD_dp >> down);
+							frame->length = up;
+							up++;
+						}
+					}
 				}  
 				break;
 			
@@ -851,9 +949,17 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					frame->length = 2;
-					frame->msg[0] = (uint8_t) (RFmodul.ioserCMD_ir >> 8);
-					frame->msg[1] = (uint8_t) (RFmodul.ioserCMD_ir & 0xFF);
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					{
+						if ( gtZereo == FALSE && (RFmodul.ioserCMD_ir >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.ioserCMD_ir >> down);
+							frame->length = up;
+							up++;
+						}
+					}
 				} 
 				break;
 			
@@ -917,9 +1023,15 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				{
 					for (char up = 0, down = 56; down >= 0; down -= 8, up++)
 					{
-						frame->msg[up] = (uint8_t) (RFmodul.iolpCMD_ia >> down);
+						if ( gtZereo == FALSE && (RFmodul.iolpCMD_ia >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.iolpCMD_ia >> down);
+							frame->length = up;
+							up++;
+						}
 					}
-					frame->length = 8;
 				}
 				break;
 			
@@ -1026,9 +1138,17 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					frame->length = 2;
-					frame->msg[0] = (uint8_t) (RFmodul.diagCMD_vr >> 8);
-					frame->msg[1] = (uint8_t) (RFmodul.diagCMD_vr & 0xFF);
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					{
+						if ( gtZereo == FALSE && (RFmodul.diagCMD_vr >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.diagCMD_vr >> down);
+							frame->length = up;
+							up++;
+						}
+					}
 				} 
 				break;
 			
@@ -1039,9 +1159,18 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					frame->length = 2;
-					frame->msg[0] = (uint8_t) (RFmodul.diagCMD_hv >> 8);
-					frame->msg[1] = (uint8_t) (RFmodul.diagCMD_hv & 0xFF);
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					{
+						if ( gtZereo == FALSE && (RFmodul.diagCMD_hv >> down) != 0x0 ) {/* do nothing */}
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.diagCMD_hv >> down);
+							UART_printf("<< %x - %x", frame->msg[up], RFmodul.diagCMD_hv >> down);
+							frame->length = up;
+							up++;
+						}
+					}
 				} 
 				break;
 			
@@ -1064,9 +1193,17 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					frame->length = 4;
-					frame->msg[0] = (uint8_t) (RFmodul.diagCMD_ec >> 8);
-					frame->msg[1] = (uint8_t) (RFmodul.diagCMD_ec & 0xFF);
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					{
+						if ( gtZereo == FALSE && (RFmodul.diagCMD_ec >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.diagCMD_ec >> down);
+							frame->length = up;
+							up++;
+						}
+					}
 				} 
 				break;
 			
@@ -1077,9 +1214,17 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					frame->length = 2;
-					frame->msg[0] = (uint8_t) (RFmodul.diagCMD_ea >> 8);
-					frame->msg[1] = (uint8_t) (RFmodul.diagCMD_ea & 0xFF);
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					{
+						if ( gtZereo == FALSE && (RFmodul.diagCMD_ea >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.diagCMD_ea >> down);
+							frame->length = up;
+							up++;
+						}
+					}
 				} 
 				break;
 			
@@ -1092,9 +1237,15 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				{
 					for (char up = 0, down = 24; down >= 0; down -= 8, up++)
 					{
-						frame->msg[up] = (uint8_t) (RFmodul.diagCMD_dd >> down);
+						if ( gtZereo == FALSE && (RFmodul.diagCMD_dd >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.diagCMD_dd >> down);
+							frame->length = up;
+							up++;
+						}
 					}
-					frame->length = 4;
 				}  
 				break;
 
@@ -1105,9 +1256,17 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					frame->length = 2;
-					frame->msg[0] = (uint8_t) (RFmodul.atcopCMD_ct >> 8);
-					frame->msg[1] = (uint8_t) (RFmodul.atcopCMD_ct & 0xFF);
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					{
+						if ( gtZereo == FALSE && (RFmodul.atcopCMD_ct >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.atcopCMD_ct >> down);
+							frame->length = up;
+							up++;
+						}
+					}
 				} 
 				break;
 			
@@ -1118,9 +1277,17 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					frame->length = 2;
-					frame->msg[0] = (uint8_t) (RFmodul.atcopCMD_gt >> 8);
-					frame->msg[1] = (uint8_t) (RFmodul.atcopCMD_gt & 0xFF);
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					{
+						if ( gtZereo == FALSE && (RFmodul.atcopCMD_gt >> down) != 0x0 ) continue;
+						else
+						{
+							gtZereo = TRUE;
+							frame->msg[up] = (uint8_t) (RFmodul.atcopCMD_gt >> down);
+							frame->length = up;
+							up++;
+						}
+					}
 				} 
 				break;
 			
@@ -1180,7 +1347,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				// No API handle at this place -> check API_0x18_localDevice function
 				break;
 			
-			default : break;
+			default : return INVALID_COMMAND;
 		}
 	} 
 	else
@@ -1214,7 +1381,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 	
 	if ( RFmodul.serintCMD_ap != 0 && frame != NULL ) // API frame
 	{
-		cmdSize = (((*len-15) % 2) + (*len-15))/2;
+		cmdSize = frame->length-4;
 		pCommand = API_findInTable(frame, array);
 		frame->rwx = WRITE;	
 	} 
@@ -1233,6 +1400,9 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 	 */
 	if ( INVALID_COMMAND == pCommand->ID || NULL == pCommand ) return INVALID_COMMAND;
 
+#if DEBUG
+	UART_printf(">> write cmd #%u\r\n",pCommand->ID);
+#endif
 	
 	/* 
 	 * special handle if
@@ -3397,7 +3567,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 			
 /* RU */	case DE_RU : {
 				// no API handling
-				if ( RFmodul.serintCMD_ap > 0 ) return ERROR;
+				if ( RFmodul.serintCMD_ap > 0 && frame != NULL ) return ERROR;
 				
 				uint8_t tmp = 0;
 				if (charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;

@@ -34,13 +34,16 @@ static void  API_0x88_atLocal_response(struct api_f *frame);
  */
 ATERROR API_frameHandle_uart(size_t *len)
 {
+#if DEBUG
+	UART_print("== API frame handle\r\n");
+#endif
 	uint8_t  outchar[5]	= {0x0};
 	struct api_f frame  = {0,0,0,0,0,{0},0,{0},0xFF};
 	
 	// Start delimiter	1 byte	
 	cli(); BufferOut( &UART_deBuf, &frame.delimiter ); sei();
 	if ( frame.delimiter != STD_DELIMITER ) return API_NOT_AVAILABLE;
-	if (RFmodul.deCMD_ru) UART_printf("Start delimiter\r%02"PRIX8"\r\r", STD_DELIMITER );
+	if (RFmodul.deCMD_ru) UART_printf("\rStart delimiter\r%02"PRIX8"\r\r", STD_DELIMITER );
 	
 	// frame->bufLength	2 byte
 	cli(); BufferOut( &UART_deBuf, &outchar[0] ); sei();
@@ -55,26 +58,26 @@ ATERROR API_frameHandle_uart(size_t *len)
 		case AT_COMMAND    : 
 			if (RFmodul.deCMD_ru) UART_print("Frame type\r08 (AT Command)\r\r");
 			frame.crc -= 0x08;
-			if ( frame->length == 4)
+			if ( frame.length == 4)
 			{
 				frame.ret = CMD_readOrExec(&frame, outchar, NULL);
 			}
 			else
 			{
-				frame.ret = CMD_write(&frame, outchar, *len);
+				frame.ret = CMD_write(&frame, outchar, len);
 			}
 		break;
 		
 		case AT_COMMAND_Q  : 
 			if (RFmodul.deCMD_ru) UART_print("Frame type\r09 (AT Command Queue)\r\r");
 			frame.crc -= 0x09;
-			if ( frame->length == 4)
+			if ( frame.length == 4)
 			{
 				frame.ret = CMD_readOrExec(&frame, outchar, NULL);
 			}
 			else
 			{
-				frame.ret = CMD_write(&frame, outchar, *len);
+				frame.ret = CMD_write(&frame, outchar, len);
 			}
 		break;
 		
@@ -84,10 +87,16 @@ ATERROR API_frameHandle_uart(size_t *len)
 			frame.ret = TRX_send(); 
 		break;
 		
+		case DEVICE_AT_CMD :
+			if (RFmodul.deCMD_ru) UART_print("Frame type\r18 (AT Device Command)\r\r");
+			frame.crc -= 0x18;
+			frame.ret = API_0x18_localDevice(&frame, outchar, len);
+		break;
+				
 		default : UART_print("Not a valid command type!\r\r"); return INVALID_COMMAND;
 	}
 		
-	API_0x88_atLocal_response( frame );
+	API_0x88_atLocal_response( &frame );
 }
 
 /*
@@ -120,8 +129,8 @@ static ATERROR API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t 
 	
 	if (RFmodul.deCMD_ru) UART_printf("DE Command\r%02"PRIX8" %02"PRIX8" (%c%c)\r\r", *(array+2), *(array+3), *(array+2), *(array+3));
 	frame->crc -= (*(array+2) + *(array+3));
-	frame->cmd[0] = array+2;
-	frame->cmd[1] = array+3;
+	frame->cmd[0] = *(array+2);
+	frame->cmd[1] = *(array+3);
 	
 	// search for CMD in table
 	CMD *workPointer = (CMD*) pStdCmdTable;
@@ -138,10 +147,10 @@ static ATERROR API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t 
 	 */
 	if ( frame->length == 4 && workPointer->rwxAttrib & EXEC )
 	{
-		uint8_t userCRC;
-		if ( API_compareCRC(&frame->crc, &userCRC) == FALSE )
+		frame->rwx = EXEC;
+		if ( API_compareCRC( frame ) == FALSE )
 		{
-			UART_printf("Calculated CRC: %"PRIX8" vs read CRC:  %"PRIX8"\r\r",  frame->crc, userCRC );
+			UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 			return ERROR;
 		}
 		
@@ -156,28 +165,24 @@ static ATERROR API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t 
 	 */
 	else if ( frame->length == 4 && workPointer->rwxAttrib & READ )
 	{
+		frame->rwx = READ;
 		uint8_t userCRC;
-		if ( API_compareCRC( &frame->crc, &userCRC ) == FALSE )
+		if ( API_compareCRC( frame ) == FALSE )
 		{
-			UART_printf("Calculated CRC: %"PRIX8" vs read CRC:  %"PRIX8"\r\r", frame->crc, userCRC );
+			UART_printf("Expected CRC: %"PRIX8"\r\r", frame->crc );
+			frame->length = 0;
 			return ERROR;
 		}
 		
-		switch (workPointer->ID)
+		switch ( workPointer->ID )
 		{
 /* RU */	case DE_RU :
-				if ( RFmodul.serintCMD_ap == 0 )
-				{
-					UART_printf("%"PRIX8"\r", RFmodul.deCMD_ru);
-				}
-				else
-				{
-					uint8_t val = RFmodul.deCMD_ru;
-					API_0x88_atLocal_response( frame );
-				}
+					frame->length = 1;
+					frame->msg[0] = RFmodul.deCMD_ru;
 				break;
 				
-			default: break;
+			default: 
+				return INVALID_COMMAND;
 		}
 	}
 	/* 
@@ -188,7 +193,8 @@ static ATERROR API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t 
 	 */
 	else if ( frame->length > 4 && workPointer->rwxAttrib & WRITE )
 	{
-		size_t cmdSize = (((*len-15) % 2) + (*len-15))/2;
+		size_t cmdSize = frame->length - 4;
+		frame->rwx = WRITE;
 		
 		switch( workPointer->ID )
 		{
@@ -196,35 +202,36 @@ static ATERROR API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t 
 				/*
 				 * get the parameter
 				 */
-				cli(); BufferOut( &UART_deBuf, &frame->msg[0] ); sei()
+				cli(); BufferOut( &UART_deBuf, &frame->msg[0] ); sei();
 				frame->crc -= frame->msg[0];
-					
+				
+				/*
+				 * compare the parameter
+				 */
 				if ( API_compareCRC(frame) == FALSE )
 				{
 					if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 					return ERROR;
 				}
-								
-				/*
-				 * compare the parameter
-				 */
-				if ( cmdSize <= 1 && frame->msg[0] >= FALSE && frame->msg[0] <= TRUE )
+
+				if ( cmdSize <= 1 && frame->msg[0] == 0x0 || frame->msg[0] == 0x1 )
 				{
 					RFmodul.deCMD_ru = frame->msg[0];
-					if( frame->type == 0x8 ) SET_userValInEEPROM();
 				}
 				else 
 				{ 
 					return INVALID_PARAMETER;
 				}
 			}
-			default : return INVALID_COMMAND;
+			default : 
+				return INVALID_COMMAND;
 		}
 	}
 	else
 	{
 		return INVALID_COMMAND;
 	}
+	return OP_SUCCESS;
 	
 }
 
@@ -240,29 +247,58 @@ static ATERROR API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t 
 static void API_0x88_atLocal_response(struct api_f *frame)
 {
 	frame->crc = 0xFF;
+	if ( frame->ret < 0 ) frame->length = 0;
 	frame->length += 5;
 	
-	UART_putc( frame->delimiter );					// start delimiter
-	UART_putc( (uint8_t) (frame->length >> 8) );	// frame length
-	UART_putc( (uint8_t) (frame->length & 0xFF) );
-	UART_putc( 0x88 );								// frame type
-	frame->crc -=   0x88;
-	UART_putc(      frame->id );
-	frame->crc -=   frame->id  ;
-	UART_putc(      frame->cmd[0] );				// AT cmd
-	frame->crc -=   frame->cmd[0]  ;
-	UART_putc(      frame->cmd[1] );
-	frame->crc -=   frame->cmd[1]  ;
-	UART_putc(      frame->ret * (-1) );			// cmd option (successful/ not successful etc.)
-	frame->crc -= ( frame->ret * (-1) );
-	
-	for (uint16_t x; x < frame->length ; x++ )
+	if ( RFmodul.deCMD_ru )
 	{
-		UART_putc(    frame->msg[x] );
-		frame->crc -= frame->msg[x];
+		UART_print("\r********** AT RESPONSE **********\r");
+		UART_printf("Start delimiter\r%02"PRIX8"\r\r", frame->delimiter );
+		UART_printf("Length\r%02"PRIX8" %02"PRIX8" (%u)\r\r", frame->length >> 8, frame->length & 0xFF, frame->length );
+		UART_print("Frame type\r88 (AT Command Response)\r\r");
+		UART_printf("Frame ID\r%02"PRIX8"\r\r", frame->id );
+		UART_printf("AT Command\r%02"PRIX8" %02"PRIX8" (%c%c)\r\r", frame->cmd[0], frame->cmd[1], frame->cmd[0], frame->cmd[1]);
+		UART_printf("Command status\r%02"PRIX8" (%s)\r\r", frame->ret * (-1), (frame->ret * (-1) == 0)? "OK" :\
+																			  (frame->ret * (-1) == 1)? "ERROR" :\
+																			  (frame->ret * (-1) == 2)? "Invalid Command" :\
+																			  (frame->ret * (-1) == 3)? "Invalid Parameter" : "" );
+		if (frame->length > 5) UART_print("Response\r");
+		
+		frame->crc -=  ( 0x88 + frame->id + frame->cmd[0] + frame->cmd[1] + (frame->ret * (-1)) );
+		
+		for (uint16_t x; x < frame->length-5 ; x++ )
+		{
+			frame->crc -= frame->msg[x];
+			if ( RFmodul.deCMD_ru ) UART_printf("%02"PRIX8" ", frame->msg[x] );
+		}
+		if (frame->length > 5) UART_print("\r\r");
+		UART_printf("Checksum\r%02"PRIX8"\r\r",frame->crc);
 	}
-
-	UART_putc(frame->crc);									// checksum
+	else
+	{
+		UART_putc( frame->delimiter );					// start delimiter
+		UART_putc( (uint8_t) (frame->length >> 8) );	// frame length
+		UART_putc( (uint8_t) (frame->length & 0xFF) );
+		UART_putc( 0x88 );								// frame type
+		frame->crc -=   0x88;
+		UART_putc(      frame->id );
+		frame->crc -=   frame->id  ;
+		UART_putc(      frame->cmd[0] );				// AT cmd
+		frame->crc -=   frame->cmd[0]  ;
+		UART_putc(      frame->cmd[1] );
+		frame->crc -=   frame->cmd[1]  ;
+		UART_putc(      frame->ret * (-1) );			// cmd option (successful/ not successful etc.)
+		frame->crc -= ( frame->ret * (-1) );
+		
+		for (uint16_t x; x < frame->length-5 ; x++ )
+		{
+			UART_putc(    frame->msg[x] );
+			frame->crc -= frame->msg[x];
+		}
+		
+		UART_putc(frame->crc);									// checksum
+	}
+	
 }
 
 
@@ -282,9 +318,9 @@ static void API_0x88_atLocal_response(struct api_f *frame)
 bool_t API_compareCRC(struct api_f *frame)
 {
 	uint8_t userCRC;
-	BufferOut( &UART_deBuf, userCRC);
+	cli(); BufferOut( &UART_deBuf, &userCRC); sei();
 	
-	return ( frame->crc == *userCRC )? TRUE : FALSE;	
+	return ( frame->crc == userCRC )? TRUE : FALSE;	
 }
 
 
@@ -321,8 +357,8 @@ CMD* API_findInTable(struct api_f *frame, uint8_t *array)
 	
 	if (RFmodul.deCMD_ru) UART_printf("AT Command\r%02"PRIX8" %02"PRIX8" (%c%c)\r\r", *(array+2), *(array+3), *(array+2), *(array+3));
 	frame->crc -= (*(array+2) + *(array+3));
-	frame->cmd[0] = array+2;
-	frame->cmd[1] = array+3;
+	frame->cmd[0] = *(array+2);
+	frame->cmd[1] = *(array+3);
 	
 	// search for CMD in table
 	CMD *workPointer = (CMD*) pStdCmdTable;

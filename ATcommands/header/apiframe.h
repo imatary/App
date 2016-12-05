@@ -41,9 +41,9 @@ struct api_f
 	uint8_t  crc;			// 1 Byte
 };
 
-ATERROR   API_frameHandle_uart(size_t *len);
-CMD*   API_findInTable(struct api_f *frame, uint8_t *array);
-bool_t API_compareCRC(struct api_f *frame);
+ATERROR API_frameHandle_uart(size_t *len);
+CMD*    API_findInTable(struct api_f *frame, uint8_t *array);
+bool_t  API_compareCRC(struct api_f *frame);
 
 
 #endif /* APIFRAME_H_ */
