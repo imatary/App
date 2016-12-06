@@ -234,7 +234,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 		{
 			// leave command mode command
 /* CN */    case AT_CN : 
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( th != NULL) *th = deTIMER_stop(*th);					
 					noTimeout = FALSE;
@@ -242,6 +242,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				} 
 				else
 				{
+					frame->length = 0;
 					return INVALID_COMMAND;
 				}
 				break;
@@ -249,12 +250,13 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 			// write config to firmware
 /* WR */    case AT_WR : 
 				SET_userValInEEPROM();
-				if ( RFmodul.serintCMD_ap == 0 ) 
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) 
 				{
 					UART_print("OK\r");
 				}
 				else
 				{
+					frame->length = 0;
 					return OP_SUCCESS;
 				}
 				break;
@@ -264,12 +266,29 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				/*
 				 * TODO - run config for trx/uart
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				TRX_writeBit(deSR_CHANNEL, RFmodul.netCMD_ch);
+				uint32_t baud = deHIF_DEFAULT_BAUDRATE;
+				switch( RFmodul.serintCMD_bd )
+				{
+					case 0x0 : baud =   1200; break;
+					case 0x1 : baud =   2400; break;
+					case 0x2 : baud =   4800; break;
+					case 0x3 : baud =   9600; break;
+					case 0x4 : baud =  19200; break;
+					case 0x5 : baud =  38400; break
+					case 0x6 : baud =  57600; break;
+					case 0x7 : baud = 115200; break;
+					default : baud = deHIF_DEFAULT_BAUDRATE; break;
+				}
+				hif_init(baud);
+				
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_print("OK\r");
 				}
 				else
 				{
+					frame->length = 0;
 					return OP_SUCCESS;
 				}
 			}
@@ -278,7 +297,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 			// reset all parameter
 /* RE */    case AT_RE : 
 				SET_allDefault();
-				if ( RFmodul.serintCMD_ap == 0 ) 
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) 
 				{
 					UART_print("OK\r");
 				}
@@ -306,7 +325,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 		switch( pCommand->ID )
 		{
 /* CH */	case AT_CH : 
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.netCMD_ch); 
 				}
@@ -318,133 +337,97 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* ID */	case AT_ID :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX16"\r",RFmodul.netCMD_id);
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 8; down >= 0; down -= 8 )
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.netCMD_id >> down) == 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.netCMD_id >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.netCMD_id >> down);
+						frame->length = up+1;
 					}
 				}  
 				break;
 			
 /* DH */	case AT_DH :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX32"\r",RFmodul.netCMD_dh);
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 24; down >= 0; down -= 8 )
+					for (char up = 0, down = 24; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.netCMD_dh >> down) == 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.netCMD_dh >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.netCMD_dh >> down);
+						frame->length = up+1;
 					}	
 				}  
 				break;
 			
 /* DL */	case AT_DL :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX32"\r", RFmodul.netCMD_dl);
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 24; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 24; down >= 0; down -= 8, up+=1 )
 					{
-						if ( gtZereo == FALSE && (RFmodul.netCMD_dl >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.netCMD_dl >> down);
-							frame->length = up;
-							up++;
-						}	
+						frame->msg[up] = (uint8_t) (RFmodul.netCMD_dl >> down);
+						frame->length = up+1;
 					}
 				}  
 				break;
 			
 /* MY */	case AT_MY :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX16"\r",RFmodul.netCMD_my);
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.netCMD_my >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.netCMD_my >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.netCMD_my >> down);
+						frame->length = up+1;
 					}
 				}  
 				break;
 			
 /* SH */	case AT_SH :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX32"\r",RFmodul.netCMD_sh);
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 24; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 24; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.netCMD_sh >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.netCMD_sh >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.netCMD_sh >> down);
+						frame->length = up+1;
 					}
 				}  
 				break;
 			
 /* SL */	case AT_SL :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX32"\r",RFmodul.netCMD_sl);
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 24; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 24; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.netCMD_sl >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.netCMD_sl >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.netCMD_sl >> down);
+						frame->length = up+1;
 					}
 				}  
 				break;
 			
 /* CE */	case AT_CE :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%d\r",       RFmodul.netCMD_ce);
 				}
@@ -456,28 +439,22 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* SC */	case AT_SC :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX16"\r",RFmodul.netCMD_sc);
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.netCMD_sc >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.netCMD_sc >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.netCMD_sc >> down);
+						frame->length = up+1;
 					}
 				}  
 				break;
 			
 /* NI */	case AT_NI :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%s\r", RFmodul.netCMD_ni); 
 				}
@@ -489,7 +466,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* MM */	case AT_MM :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.netCMD_mm);
 				}
@@ -501,7 +478,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* RR */	case AT_RR :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.netCMD_rr); 
 				}
@@ -513,7 +490,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* RN */	case AT_RN :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.netCMD_rn);
 				}
@@ -525,7 +502,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* NT */	case AT_NT :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.netCMD_nt);
 				}
@@ -537,7 +514,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* NO */	case AT_NO :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%d\r", RFmodul.netCMD_no);
 				}
@@ -549,7 +526,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* SD */	case AT_SD :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.netCMD_sd);
 				}
@@ -561,7 +538,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* A1 */	case AT_A1 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.netCMD_a1);
 				}
@@ -573,7 +550,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* A2 */	case AT_A2 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.netCMD_a2);
 				}
@@ -585,7 +562,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* AI */	case AT_AI :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.netCMD_ai);
 				}
@@ -597,7 +574,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 
 /* EE */	case AT_EE :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%d\r",       RFmodul.secCMD_ee); 
 				}
@@ -609,14 +586,14 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* KY */	case AT_KY :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_print("\r");
 				}
 				break;
 
 /* PL */	case AT_PL :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.rfiCMD_pl);
 				}
@@ -628,7 +605,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* CA */	case AT_CA :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.rfiCMD_ca);
 				}
@@ -640,7 +617,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 
 /* SM */	case AT_SM :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.sleepmCMD_sm);
 				}
@@ -652,70 +629,52 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* CH */	case AT_ST :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX16"\r",RFmodul.sleepmCMD_st);
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.sleepmCMD_st >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.sleepmCMD_st >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.sleepmCMD_st >> down);
+						frame->length = up+1;
 					}
 				}  
 				break;
 			
 /* SP */	case AT_SP :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX16"\r",RFmodul.sleepmCMD_sp); 
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.sleepmCMD_sp >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.sleepmCMD_sp >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.sleepmCMD_sp >> down);
+						frame->length = up+1;
 					}
 				} 
 				break;
 			
 /* DP */	case AT_DP :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX16"\r", RFmodul.sleepmCMD_dp);
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.sleepmCMD_dp >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.sleepmCMD_dp >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.sleepmCMD_dp >> down);
+						frame->length = up+1;
 					}
 				}  
 				break;
 			
 /* SO */	case AT_SO :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.sleepmCMD_so);
 				}
@@ -727,7 +686,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* SS */	case AT_SS : 
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					 UART_print("ERROR\r");
 				} 
@@ -739,7 +698,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 				
 /* AP */	case AT_AP : 
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.serintCMD_ap);
 				} 
@@ -751,7 +710,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* BD */    case AT_BD :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r",RFmodul.serintCMD_bd);
 				}
@@ -763,7 +722,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* NB */    case AT_NB :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.serintCMD_nb);
 				}
@@ -775,7 +734,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 				
 /* RO */	case AT_RO :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					 UART_printf("%"PRIX8"\r",RFmodul.serintCMD_ro);
 				}
@@ -787,7 +746,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 
 /* D8 */	case AT_D8 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d8); 
 				}
@@ -799,7 +758,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* D7 */	case AT_D7 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d7); 
 				}
@@ -811,7 +770,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* D6 */	case AT_D6 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d6); 
 				}
@@ -823,7 +782,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* D5 */	case AT_D5 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d5); 
 				}
@@ -835,7 +794,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* D4 */	case AT_D4 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d4); 
 				}
@@ -847,7 +806,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* D3 */	case AT_D3 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d3); 
 				}
@@ -859,7 +818,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* D2 */	case AT_D2 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d2);
 				}
@@ -871,7 +830,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* D1 */	case AT_D1 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d1); 
 				}
@@ -883,7 +842,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* D0 */	case AT_D0 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_d0); 
 				}
@@ -895,7 +854,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* PR */	case AT_PR :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_pr);
 				}
@@ -907,7 +866,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* IU */	case AT_IU :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%d\r", RFmodul.ioserCMD_iu);
 				}
@@ -919,7 +878,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* IT */	case AT_IT :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_it);
 				}
@@ -931,7 +890,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* IC */	case AT_IC :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_ic);
 				}
@@ -943,28 +902,22 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* IR */	case AT_IR :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX16"\r", RFmodul.ioserCMD_ir); 
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.ioserCMD_ir >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.ioserCMD_ir >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.ioserCMD_ir >> down);
+						frame->length = up+1;
 					}
 				} 
 				break;
 			
 /* P0 */	case AT_P0 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_p0);
 				}
@@ -976,7 +929,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* P1 */	case AT_P1 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_p1); 
 				}
@@ -988,7 +941,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* PT */	case AT_PT :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_pt); 
 				}
@@ -1000,7 +953,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* RP */	case AT_RP :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.ioserCMD_rp); 
 				}
@@ -1012,7 +965,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 
 /* IA */	case AT_IA :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					// the compiler don't like the PRIX64 command
 					uint32_t a = RFmodul.iolpCMD_ia >> 32;
@@ -1021,22 +974,16 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 56; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 56; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.iolpCMD_ia >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.iolpCMD_ia >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.iolpCMD_ia >> down);
+						frame->length = up+1;
 					}
 				}
 				break;
 			
 /* T0 */	case AT_T0 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T0); 
 				}
@@ -1048,7 +995,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* T1 */	case AT_T1 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T1); 
 				}
@@ -1060,7 +1007,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* T2 */	case AT_T2 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T2); 
 				}
@@ -1072,7 +1019,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* T3 */	case AT_T3 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T3); 
 				}
@@ -1084,7 +1031,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* T4 */	case AT_T4 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T4); 
 				}
@@ -1096,7 +1043,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* T5 */	case AT_T5 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T5); 
 				}
@@ -1108,7 +1055,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* T6 */	case AT_T6 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T6);
 				}
@@ -1120,7 +1067,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* T7 */	case AT_T7 :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r",RFmodul.iolpCMD_T7); 
 				}
@@ -1132,50 +1079,37 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 
 /* VR */	case AT_VR :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX16"\r",RFmodul.diagCMD_vr);
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.diagCMD_vr >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.diagCMD_vr >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.diagCMD_vr >> down);
+						frame->length = up+1;
 					}
 				} 
 				break;
 			
 /* HV */	case AT_HV :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX16"\r",RFmodul.diagCMD_hv);
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.diagCMD_hv >> down) != 0x0 ) {/* do nothing */}
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.diagCMD_hv >> down);
-							UART_printf("<< %x - %x", frame->msg[up], RFmodul.diagCMD_hv >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.diagCMD_hv >> down);
+						frame->length = up+1;
 					}
 				} 
 				break;
 			
 /* DB */	case AT_DB :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.diagCMD_db); 
 				}
@@ -1187,112 +1121,82 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* EC */	case AT_EC :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX16"\r",RFmodul.diagCMD_ec);
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.diagCMD_ec >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.diagCMD_ec >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.diagCMD_ec >> down);
+						frame->length = up+1;
 					}
 				} 
 				break;
 			
 /* EA */	case AT_EA :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX16"\r",RFmodul.diagCMD_ea); 
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.diagCMD_ea >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.diagCMD_ea >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.diagCMD_ea >> down);
+						frame->length = up+1;
 					}
 				} 
 				break;
 			
 /* DD */	case AT_DD :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX32"\r",RFmodul.diagCMD_dd);
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 24; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 24; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.diagCMD_dd >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.diagCMD_dd >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.diagCMD_dd >> down);
+						frame->length = up+1;
 					}
 				}  
 				break;
 
 /* CT */	case AT_CT :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX16"\r",RFmodul.atcopCMD_ct); 
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.atcopCMD_ct >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.atcopCMD_ct >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.atcopCMD_ct >> down);
+						frame->length = up+1;
 					}
 				} 
 				break;
 			
 /* GT */	case AT_GT :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX16"\r",RFmodul.atcopCMD_gt); 
 				}
 				else if ( frame != NULL )
 				{
-					for (char up = 0, down = 8; down >= 0; down -= 8, up++)
+					for (char up = 0, down = 8; down >= 0; down -= 8, up++ )
 					{
-						if ( gtZereo == FALSE && (RFmodul.atcopCMD_gt >> down) != 0x0 ) continue;
-						else
-						{
-							gtZereo = TRUE;
-							frame->msg[up] = (uint8_t) (RFmodul.atcopCMD_gt >> down);
-							frame->length = up;
-							up++;
-						}
+						frame->msg[up] = (uint8_t) (RFmodul.atcopCMD_gt >> down);
+						frame->length = up+1;
 					}
 				} 
 				break;
 			
 /* CC */	case AT_CC :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.atcopCMD_cc); 
 				}
@@ -1304,7 +1208,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* Rq */	case AT_Rq :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_print("ERROR\r");
 				}
@@ -1316,7 +1220,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* pC*/	case AT_pC :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_print("1\r"); 
 				}
@@ -1328,7 +1232,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* SB */	case AT_SB :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_print("ERROR\r"); 
 				}
@@ -1340,7 +1244,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				break;
 			
 /* RU */	case DE_RU :
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.deCMD_ru);
 				}
@@ -1389,10 +1293,6 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 	{
 		cmdSize = (((*len-1) % 2) + (*len-5))/2;
 		pCommand = CMD_findInTable();
-		/*
-		 * remove the '\r' from the buffer
-		 */
-		deBufferReadReset( &UART_deBuf, '+', 1); 
 	}
 	
 	/*
@@ -1418,7 +1318,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 			if ( frame != NULL ) frame->crc -= RFmodul.netCMD_ni[i];
 		}	
 		RFmodul.netCMD_ni[(*len)+1] = 0x0;
-		if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+		if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 		
 		if ( frame != NULL )
 		{
@@ -1428,12 +1328,13 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 				return ERROR;
 			}
+			if( frame->type == 0x8 ) SET_userValInEEPROM();
 		}
 		return OP_SUCCESS;
 	}
 	if (AT_NI == pCommand->ID && *len > 20 )
 	{
-		if ( RFmodul.serintCMD_ap == 0 ) UART_print("Please insert max 20 characters!\r");
+		if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("Please insert max 20 characters!\r");
 		return INVALID_PARAMETER;
 	}
 
@@ -1461,7 +1362,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -1483,7 +1384,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					TRX_writeBit(deSR_CHANNEL, tmp);
 					RFmodul.netCMD_ch = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 				}
 				else 
 				{ 
@@ -1498,7 +1399,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return ERROR;
 				}
@@ -1523,7 +1424,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 				{
 					RFmodul.netCMD_id = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");	
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");	
 				}
 				else 
 				{ 
@@ -1537,7 +1438,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &cmdString[0], len, &cmdSize, 4 ) == FALSE ) return ERROR;
 				}
@@ -1554,6 +1455,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
 					}
+					if( frame->type == 0x8 ) SET_userValInEEPROM();
 				}
 				
 				uint32_t tmp = (uint32_t) cmdString[0] << 24 | (uint32_t) cmdString[1] << 16 | (uint32_t) cmdString[2] <<   8 | (uint32_t) cmdString[3];
@@ -1561,7 +1463,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
 				{
 					RFmodul.netCMD_dh = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 				}
 				else 
 				{ 
@@ -1575,7 +1477,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &cmdString[0], len, &cmdSize, 4 ) == FALSE ) return ERROR;
 				}
@@ -1599,7 +1501,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
 				{
 					RFmodul.netCMD_dl = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 				}
 				else 
 				{ 
@@ -1614,7 +1516,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return ERROR;
 				}
@@ -1639,7 +1541,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 				{
 					RFmodul.netCMD_my = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");	
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");	
 				}
 				else 
 				{ 
@@ -1654,7 +1556,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -1675,7 +1577,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
 				{
 					RFmodul.netCMD_ce = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else 
@@ -1691,7 +1593,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return ERROR;
 				}
@@ -1716,7 +1618,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 				{
 					RFmodul.netCMD_sc = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");	
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");	
 				}
 				else 
 				{ 
@@ -1731,7 +1633,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -1752,7 +1654,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x00 && tmp <= 0x3 )
 				{
 					RFmodul.netCMD_mm = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else 
@@ -1768,7 +1670,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -1789,7 +1691,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x6 )
 				{
 					RFmodul.netCMD_rr = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else
@@ -1805,7 +1707,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -1826,7 +1728,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x00 && tmp <= 0x3 )
 				{
 					RFmodul.netCMD_rn = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 				}
 				else 
 				{ 
@@ -1841,7 +1743,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -1862,7 +1764,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x01 && tmp <= 0xFC )
 				{
 					RFmodul.netCMD_nt = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");	
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");	
 				}
 				else 
 				{ 
@@ -1877,7 +1779,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -1898,7 +1800,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
 				{
 					RFmodul.netCMD_no = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else 
@@ -1914,7 +1816,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -1935,7 +1837,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xF )
 				{
 					RFmodul.netCMD_sd = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else 
@@ -1951,7 +1853,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -1972,7 +1874,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xF )
 				{
 					RFmodul.netCMD_a1 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else 
@@ -1988,7 +1890,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2009,7 +1911,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xF )
 				{
 					RFmodul.netCMD_a2 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2021,7 +1923,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 			 * last modified: 2016/12/02
 			 */			
 /* KY */	case AT_KY : 
-				if ( RFmodul.serintCMD_ap == 0 ) UART_print("Not implemented.\r"); 
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("Not implemented.\r"); 
 				return ERROR;
 
 /* EE */	case AT_EE : { 
@@ -2030,7 +1932,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2051,7 +1953,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
 				{
 					RFmodul.secCMD_ee = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2068,7 +1970,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2089,7 +1991,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x4 )
 				{
 					RFmodul.rfiCMD_pl = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2102,7 +2004,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2123,7 +2025,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x24 && tmp <= 0x50 )
 				{
 					RFmodul.rfiCMD_ca = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2140,7 +2042,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2161,7 +2063,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x6 )
 				{
 					RFmodul.sleepmCMD_sm = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else
@@ -2177,7 +2079,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return ERROR;
 				}
@@ -2202,7 +2104,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 				{
 					RFmodul.sleepmCMD_st = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");	
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");	
 				}
 				else 
 				{ 
@@ -2217,7 +2119,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return ERROR;
 				}
@@ -2242,7 +2144,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0x68B0 )
 				{
 					RFmodul.sleepmCMD_sp = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");	
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");	
 				}
 				else 
 				{ 
@@ -2257,7 +2159,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return ERROR;
 				}
@@ -2282,7 +2184,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0x68B0 )
 				{
 					RFmodul.sleepmCMD_dp = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");	
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");	
 				}
 				else 
 				{ 
@@ -2297,7 +2199,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2318,7 +2220,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x6 )
 				{
 					RFmodul.sleepmCMD_so = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else 
@@ -2338,7 +2240,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2352,14 +2254,16 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 						return ERROR;
 					}
 				}
-				
+				#if DEBUG
+					UART_printf("<< write: %"PRIX8"\r\n", tmp);
+				#endif
 				/*
 				 * compare the parameter
 				 */
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x2 )
 				{
 					RFmodul.serintCMD_ap = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2372,7 +2276,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2393,7 +2297,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x7 )
 				{
 					RFmodul.serintCMD_bd = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2406,7 +2310,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2427,7 +2331,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x4 )
 				{
 					RFmodul.serintCMD_nb = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2440,7 +2344,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2461,7 +2365,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 				{
 					RFmodul.serintCMD_ro = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2478,7 +2382,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2499,7 +2403,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 				{
 					RFmodul.ioserCMD_d8 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2512,7 +2416,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2533,7 +2437,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 				{
 					RFmodul.ioserCMD_d7 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2546,7 +2450,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2567,7 +2471,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 				{
 					RFmodul.ioserCMD_d6 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2580,7 +2484,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2601,7 +2505,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 				{
 					RFmodul.ioserCMD_d5 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2614,7 +2518,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2635,7 +2539,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 				{
 					RFmodul.ioserCMD_d4 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2648,7 +2552,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2669,7 +2573,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 				{
 					RFmodul.ioserCMD_d3 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2682,7 +2586,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2703,7 +2607,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 				{
 					RFmodul.ioserCMD_d2 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2716,7 +2620,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2737,7 +2641,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 				{
 					RFmodul.ioserCMD_d1 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2750,7 +2654,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2771,7 +2675,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
 				{
 					RFmodul.ioserCMD_d0 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2784,7 +2688,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2805,7 +2709,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 				{
 					RFmodul.ioserCMD_pr = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2818,7 +2722,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2839,7 +2743,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x1 )
 				{
 					RFmodul.ioserCMD_iu = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2852,7 +2756,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2873,7 +2777,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x1 && tmp <= 0xFF )
 				{
 					RFmodul.ioserCMD_it = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2886,7 +2790,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2907,7 +2811,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 				{
 					RFmodul.ioserCMD_ic = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2920,7 +2824,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return ERROR;
 				}
@@ -2945,7 +2849,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
 				{
 					RFmodul.ioserCMD_ir = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");	
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");	
 				}
 				else 
 				{ 
@@ -2960,7 +2864,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -2981,7 +2885,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x2 )
 				{
 					RFmodul.ioserCMD_p0 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -2994,7 +2898,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -3015,7 +2919,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x2 )
 				{
 					RFmodul.ioserCMD_p1 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -3028,7 +2932,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -3049,7 +2953,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0xB && tmp <= 0xFF )
 				{
 					RFmodul.ioserCMD_pt = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -3062,7 +2966,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -3083,7 +2987,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 				{
 					RFmodul.ioserCMD_rp = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -3099,7 +3003,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &cmdString[0], len, &cmdSize, 8 ) == FALSE ) return ERROR;
 				}
@@ -3124,7 +3028,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 8 && tmp >= 0x0 && tmp <= 0xFFFFFFFFFFFFFFFF )
 				{
 					RFmodul.iolpCMD_ia = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 				}
 				else 
 				{ 
@@ -3139,7 +3043,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -3160,7 +3064,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 				{
 					RFmodul.iolpCMD_T0 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -3173,7 +3077,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -3194,7 +3098,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 				{
 					RFmodul.iolpCMD_T1 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -3207,7 +3111,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -3228,7 +3132,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 				{
 					RFmodul.iolpCMD_T2 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -3241,7 +3145,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -3262,7 +3166,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 				{
 					RFmodul.iolpCMD_T3 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -3275,7 +3179,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -3296,7 +3200,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 				{
 					RFmodul.iolpCMD_T4 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -3309,7 +3213,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -3330,7 +3234,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 				{
 					RFmodul.iolpCMD_T5 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -3343,7 +3247,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -3364,7 +3268,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 				{
 					RFmodul.iolpCMD_T6 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -3377,7 +3281,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -3398,7 +3302,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 				{
 					RFmodul.iolpCMD_T7 = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 					
 				}
 				else { return INVALID_PARAMETER;}
@@ -3414,7 +3318,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &cmdString[0], len, &cmdSize, 4 ) == FALSE ) return ERROR;
 				}
@@ -3438,7 +3342,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 4 && tmp >= 0x0 && tmp <= 0xFFFFFFFF )
 				{
 					RFmodul.diagCMD_dd = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 				}
 				else 
 				{ 
@@ -3457,7 +3361,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return ERROR;
 				}
@@ -3482,7 +3386,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 2 && tmp >= 0x02 && tmp <= 0x1770 )
 				{
 					RFmodul.atcopCMD_ct = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");	
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");	
 				}
 				else 
 				{ 
@@ -3497,7 +3401,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &cmdString[0], len, &cmdSize, 2 ) == FALSE ) return ERROR;
 				}
@@ -3522,7 +3426,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 2 && tmp >= 0x02 && tmp <= 0xCE4 )
 				{
 					RFmodul.atcopCMD_gt = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");	
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");	
 				}
 				else 
 				{ 
@@ -3537,7 +3441,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				/*
 				 * get the parameter
 				 */
-				if ( RFmodul.serintCMD_ap == 0 )
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{
 					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
@@ -3550,6 +3454,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
 					}
+					if( frame->type == 0x8 ) SET_userValInEEPROM();
 				}
 				
 				/*
@@ -3558,8 +3463,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0xFF )
 				{
 					RFmodul.atcopCMD_cc = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
-					
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");	
 				}
 				else { return INVALID_PARAMETER;}
 			}
@@ -3574,7 +3478,7 @@ ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				if ( cmdSize <= 1 && tmp >= FALSE && tmp <= TRUE )
 				{
 					RFmodul.deCMD_ru = tmp;
-					if ( RFmodul.serintCMD_ap == 0 ) UART_print("OK\r");
+					if ( RFmodul.serintCMD_ap == 0  || frame == NULL ) UART_print("OK\r");
 				}
 				else 
 				{ 
@@ -3631,6 +3535,9 @@ uint32_t CMD_timeHandle(uint32_t arg)
  */
 bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize, size_t maxCmdSize)
 {
+#if DEBUG
+	UART_print("== char to int fkt\r\n");
+#endif
 	uint8_t tmp[2] = {0};	
 	/*
 	 * this case should not occur: 
@@ -3653,11 +3560,18 @@ bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize, size_
 		tmp[c] = '0';
 		c = 1;
 	}
+#if DEBUG
+	UART_printf("==> Sring length: %u\r\n", *strlength);
+	UART_printf("==> put in t[0] a '0'? : %s\r\n", (c==1)? "true" : "false");
+#endif
 	
 	do{
 		for(; c < 2; c++)
 		{
 			cli(); BufferOut( &UART_deBuf, &tmp[c] ); sei();
+#if DEBUG
+	UART_printf("== char %"PRIX8"\r\n", tmp[c]);
+#endif
 			if( tmp[c] == 0x20 ) BufferOut( &UART_deBuf, &tmp[c] );	// ' ' == 0x20	ignore spaces
 			if( tmp[c] == '\r' || tmp[c] == '\n') return TRUE;		// line break	return true
 		}
@@ -3669,6 +3583,9 @@ bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize, size_
 		sprintf((char*)(cmdString+pos),"%c", (uint8_t) strtoul( (const char*) tmp, NULL, 16) );
 		c = 0;
 		pos++;
+#if DEBUG
+	UART_printf("<< convert tmp[] to hex: %"PRIX8"\r\n", (uint8_t) strtoul( (const char*) tmp, NULL, 16) );
+#endif
 
 	}while(TRUE);
 }

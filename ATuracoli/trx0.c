@@ -214,6 +214,9 @@ int TRX_msgFrame(uint8_t *send)
 
 int TRX_atRemoteFrame(uint8_t *send)
 {
+#if DEBUG
+	UART_print("== in API Remote CMD\r\n");
+#endif
 	int pos;
 	/* Step 1: prepare packed
 	 * - set IEEE data frames
@@ -245,7 +248,7 @@ int TRX_atRemoteFrame(uint8_t *send)
 	sprintf((char*)(send+13),"%c",RFmodul.netCMD_my & 0xff);
 	sprintf((char*)(send+14),"%c",RFmodul.netCMD_my >> 8);		// src. short address
 	
-	sprintf((char*)(send+15),"%c",0x0);							// it looks like an APS counter
+	sprintf((char*)(send+15),"%c",0x4D);							// it looks like an APS counter
 	sprintf((char*)(send+16),"%c",0x04);						// I do not know in which relation this lines stands, but it is in all test 04
 	
 	// begin data
@@ -276,15 +279,25 @@ int TRX_atRemoteFrame(uint8_t *send)
 	} while ( 0xD != *(send + pos) && pos < PACKAGE_SIZE-1 );
 	*/
 	
-	pos = 16;
+	pos = 17;
 	ATERROR ret = 0;
+	uint8_t crc = 0xFF;
+	crc -= 0x17;
 	do
 	{
-		cli(); ret = BufferOut( &UART_deBuf, send +pos ); sei();
-		if ( ret != BUFFER_OUT_FAIL ) break;
+		cli(); ret = BufferOut( &UART_deBuf, send+pos ); sei();
+		if ( ret == BUFFER_OUT_FAIL ) break;
+		
+		crc -= *(send+pos);
 		pos++;
 		
 	} while ( pos < PACKAGE_SIZE-1 );
+	
+	crc += *(send+pos);	// the user crc need to be deleted
+	if ( crc =! *(send+pos))
+	{
+		UART_printf("%x vs %x", crc, *(send+pos) );
+	}
 	
 	*(send+ 5) = *(send+25);
 	*(send+ 6) = *(send+24);
@@ -296,7 +309,7 @@ int TRX_atRemoteFrame(uint8_t *send)
 	*(send+11) = *(send+19);
 	*(send+12) = *(send+18);		// destination ext. addr. high
 	
-	return pos;
+	return pos-1;
 }
 
 /*

@@ -44,7 +44,7 @@ ATERROR API_frameHandle_uart(size_t *len)
 	cli(); BufferOut( &UART_deBuf, &frame.delimiter ); sei();
 	if ( frame.delimiter != STD_DELIMITER ) return API_NOT_AVAILABLE;
 	if (RFmodul.deCMD_ru) UART_printf("\rStart delimiter\r%02"PRIX8"\r\r", STD_DELIMITER );
-	
+
 	// frame->bufLength	2 byte
 	cli(); BufferOut( &UART_deBuf, &outchar[0] ); sei();
 	cli(); BufferOut( &UART_deBuf, &outchar[1] ); sei();
@@ -65,6 +65,7 @@ ATERROR API_frameHandle_uart(size_t *len)
 			else
 			{
 				frame.ret = CMD_write(&frame, outchar, len);
+				SET_userValInEEPROM();
 			}
 		break;
 		

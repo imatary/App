@@ -12,7 +12,7 @@
 // === std. includes ======================================
 
 // === miscellaneous ======================================
-#define DEBUG 0					// debug mode ( 0 = off / 1 = on )
+#define DEBUG 0			// debug mode ( 0 = off / 1 = on )
 #define FLASH_ATTR
 
 // === default values =====================================

@@ -64,7 +64,7 @@ void main(void)
 			if ( ret )	{ ATERROR_print(&ret);  ret = 0; }
 		}
 
-		
+int a;		
 		/*
 		 * uart operation
 		 *
@@ -73,27 +73,33 @@ void main(void)
 		inchar = UART_getc();
 		if ( EOF != inchar )
 		{
-			if (RFmodul.deCMD_ru) UART_printf("%c", inchar );				// return character immediately
-
-			/*
-			 * if API mode active
-			 */
-			if ( RFmodul.serintCMD_ap )
-			{
-				if ( inchar == 0x7E && apicounter == 0 )
-				{
-					th = deTIMER_start(API_timeHandle, deMSEC( 0xC8 ), 0); // 200 MS
-					apicounter++;
-				}
-				apicounter = ( apicounter > 0 )? apicounter+1 : 0;
-			}
-			
 			/*
 			 * push the character into the buffer
 			 * neither interrupts allowed
 			 */
 			cli(); ret = BufferIn( &UART_deBuf, inchar ); sei();
-			if( ret ) { ATERROR_print(&ret); ret = 0; continue; }
+			if( ret ) 
+			{ 
+				ATERROR_print(&ret); 
+				BufferInit(&UART_deBuf, NULL);
+				ret = 0;
+				continue; 
+			}
+				
+			if (RFmodul.deCMD_ru) UART_printf("%c", inchar );				// return character immediately
+
+			/*
+			 * if API mode active
+			 */
+			if ( RFmodul.serintCMD_ap != 0 )
+			{
+				if ( inchar == 0x7E && apicounter == 0 )
+				{
+					th = deTIMER_start(API_timeHandle, deMSEC( 0x64 ), 0 ); // 100 MS
+					apicounter++;
+				}
+				apicounter = ( apicounter > 0 )? apicounter+1 : 0;
+			}
 			
 			/*
 			 * if a carriage return (0xD) received and the API Mode is disabled send the buffer content 
@@ -151,8 +157,8 @@ static void ATERROR_print(ATERROR *value)
 		case TRANSMIT_IN_FAIL	: UART_print("Receiver error! Can't receive or translate the data.\r\n");	break;
 		case TRANSMIT_CRC_FAIL  : UART_print("Receiver error! CRC code does not match.\r\n");				break;
 		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode.\r\n");				break;
-		case INVALID_COMMAND	: UART_print("\r"); break;
-		case API_NOT_AVAILABLE  : 
+		case INVALID_COMMAND	: UART_print("\r");															break;
+		case API_NOT_AVAILABLE  : UART_print("Not a valid API frame!\r\n");									break;
 		default					: 																			break;
 	}
 }
