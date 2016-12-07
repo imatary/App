@@ -85,6 +85,7 @@ uint8_t TRX_baseInit(void)
 
 /*
  * TRX_send
+ * send a message over antenna to another device
  *
  * Returns:
  *     TRANSMIT_OUT_FAIL    buffer is empty, module cannot send a byte.
@@ -153,6 +154,7 @@ ATERROR TRX_send(void)
 
 /* 
  * Simple text frame 
+ * prepared frame for simple text message
  *
  * Returns:
  *     final position in array
@@ -205,6 +207,7 @@ int TRX_msgFrame(uint8_t *send)
 
 /* 
  * AT Remote Command request
+ * prepared frame for a remote AT command to controll another device
  *
  * Returns:
  *     final position in array

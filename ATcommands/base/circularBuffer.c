@@ -18,6 +18,10 @@ deBuffer_t   RX_deBuf;
 /*
  * Set one byte in to circular buffer
  *
+ * Received:
+ *		deBuffer_t	pointer to the buffer
+ *		uint8_t		the incoming value, which should be stored into the buffer
+ *
  * Returns:
  *     BUFFER_FAIL      buffer is full. No more space for more bytes.
  *     OP_SUCCESS		the byte was saved
@@ -42,6 +46,10 @@ ATERROR BufferIn(deBuffer_t *bufType, uint8_t inByte)
 
 /*
  * Get 1 byte of the buffer, if the byte is ready
+ *
+ * Received:
+ *		deBuffer_t	pointer to the buffer
+ *		uint8_t		pointer to the element which should receive the byte
  *
  * Returns:
  *     BUFFER_FAIL      buffer is empty. he cannot send a byte.
@@ -92,8 +100,15 @@ void BufferInit(deBuffer_t *bufType, ...)
 	va_end(arg);
 }
 
+// === Helper functions ===================================
+ 
 /*
- * Helper functions
+ * BufferNewContent
+ * will set the newContent variable to true if the module received some data over the air
+ *
+ * Received:
+ *		deBuffer_t	pointer to the buffer
+ *		bool_t		FALSE or TRUE
  *
  * Returns:
  *     nothing
@@ -113,12 +128,17 @@ void BufferNewContent(deBuffer_t *bufType, bool_t val)
  *      '-' operation to bufType->write + 1 (buffer need to be read until new data can written into the buffer)
  * and return
  *
+ * Received:
+ *		deBuffer_t	pointer to the buffer
+ *		char		'+' or '-' for the direction
+ *		uint8_t		the number of elements which should skipped
+ *
  * Returns:
  *		nothing
  *
  * last modified: 2016/11/28
  */
-void deBufferReadReset(deBuffer_t* bufType,char operand ,uint8_t len)
+void deBufferReadReset(deBuffer_t* bufType, char operand , uint8_t len)
 {
 	for (uint8_t i = 0; i < len; i++)
 	{
@@ -150,6 +170,11 @@ void deBufferReadReset(deBuffer_t* bufType,char operand ,uint8_t len)
  *		'+' operation to bufType->read - 1 (no further writing is posible until the buffer was read)
  *      '-' operation to bufType->read + 1 (no further reading is posible until new data was written into the buffer)
  * and return
+ *
+ * Received:
+ *		deBuffer_t	pointer to the buffer
+ *		char		'+' or '-' for the direction
+ *		uint8_t		the number of elements which should skipped
  *
  * Returns:
  *		nothing

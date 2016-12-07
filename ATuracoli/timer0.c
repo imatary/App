@@ -9,6 +9,12 @@
 #include "timer.h"
 #include "stackrelated_timer.h"
 
+/*
+ * deTIMER_init
+ * prepared the module for timer related functions
+ *
+ * last modified: 2016/11/21
+ */
 void deTIMER_init(void)
 {
 	timer_init();
@@ -19,6 +25,13 @@ void deTIMER_init(void)
 	
 }
 
+/*
+ * deMSEC
+ * Returned:
+ *		device related value in milliseconds 
+ *
+ * last modified: 2016/11/21
+ */
 uint32_t deMSEC(uint32_t arg)
 {
 	return MSEC(arg);

@@ -9,10 +9,11 @@
 #ifndef APIFRAME_H_
 #define APIFRAME_H_
 
-#include <inttypes.h>
-#include "enum_error.h"
-#include "cmd.h"
+#include <inttypes.h>		// uint8_t
+#include "enum_error.h"		// ATERROR
+#include "cmd.h"			// CMD
 
+// === std. defines & frame types =========================
 #define STD_DELIMITER	(0x7E)
 #define TX_MSG_64		(0x00)
 #define TX_MSG_16		(0x01)
@@ -23,6 +24,7 @@
 #define RX_MSG_64		(0x80)
 #define RX_MSG_16		(0x81)
 
+// === object =============================================
 struct api_f 
 {
 	ATERROR  ret;			// 1 Byte
@@ -41,7 +43,8 @@ struct api_f
 	uint8_t  crc;			// 1 Byte
 };
 
-ATERROR API_frameHandle_uart(size_t *len);
+// === prototypes =========================================
+void    API_frameHandle_uart(size_t *len);
 CMD*    API_findInTable(struct api_f *frame, uint8_t *array);
 bool_t  API_compareCRC(struct api_f *frame);
 

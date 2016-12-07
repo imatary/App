@@ -263,10 +263,6 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 			
 			// apply changes - currently only a dummy
 /* AC */    case AT_AC : {
-				/*
-				 * TODO - run config for trx/uart
-				 */
-				TRX_writeBit(deSR_CHANNEL, RFmodul.netCMD_ch);
 				uint32_t baud = deHIF_DEFAULT_BAUDRATE;
 				switch( RFmodul.serintCMD_bd )
 				{
@@ -275,12 +271,14 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 					case 0x2 : baud =   4800; break;
 					case 0x3 : baud =   9600; break;
 					case 0x4 : baud =  19200; break;
-					case 0x5 : baud =  38400; break
+					case 0x5 : baud =  38400; break;
 					case 0x6 : baud =  57600; break;
 					case 0x7 : baud = 115200; break;
 					default : baud = deHIF_DEFAULT_BAUDRATE; break;
 				}
 				hif_init(baud);
+				TRX_setPanId( RFmodul.netCMD_id );
+				TRX_writeBit(deSR_CHANNEL, RFmodul.netCMD_ch);
 				
 				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
 				{

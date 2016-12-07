@@ -24,25 +24,30 @@ static void  API_0x88_atLocal_response(struct api_f *frame);
 // === Functions ==========================================
 
 /*
+ * API_frameHandle_uart 
+ * is called when the API mode is active and the standard delimiter was recognized
  *
- *
+ * Received:
+ *		size_t the length of input
  *
  * Returns:
- *     final position in array
+ *		nothing
  *
- * last modified: 2016/11/28
+ * last modified: 2016/12/07
  */
-ATERROR API_frameHandle_uart(size_t *len)
+void API_frameHandle_uart(size_t *len)
 {
-#if DEBUG
-	UART_print("== API frame handle\r\n");
-#endif
 	uint8_t  outchar[5]	= {0x0};
 	struct api_f frame  = {0,0,0,0,0,{0},0,{0},0xFF};
 	
 	// Start delimiter	1 byte	
 	cli(); BufferOut( &UART_deBuf, &frame.delimiter ); sei();
-	if ( frame.delimiter != STD_DELIMITER ) return API_NOT_AVAILABLE;
+	if ( frame.delimiter != STD_DELIMITER ) 
+	{
+		frame->ret = ERROR;
+		API_0x88_atLocal_response( &frame );
+		return;
+	}
 	if (RFmodul.deCMD_ru) UART_printf("\rStart delimiter\r%02"PRIX8"\r\r", STD_DELIMITER );
 
 	// frame->bufLength	2 byte
@@ -94,7 +99,7 @@ ATERROR API_frameHandle_uart(size_t *len)
 			frame.ret = API_0x18_localDevice(&frame, outchar, len);
 		break;
 				
-		default : UART_print("Not a valid command type!\r\r"); return INVALID_COMMAND;
+		default : frame->ret = INVALID_COMMAND;
 	}
 		
 	API_0x88_atLocal_response( &frame );
@@ -102,10 +107,20 @@ ATERROR API_frameHandle_uart(size_t *len)
 
 /*
  * Specific device commands (API)
+ * interpret the received frame and execute the specific task
+ *
+ * Received:
+ *		api_f	pointer to the frame struct
+ *		uint8_t	pointer to an array which is already initialized and available for processing (just to save a little mem)
+ *		size_t	the length of the whole input, which is stored in buffer
  *
  * Returns:
- *		OP_SUCCESS
+ *		OP_SUCCESS			no error has occurred
+ *		ERROR				calculated crc does not match with received crc
+ *		INVALID_COMMAND		command is not in the table
+ *		INVALID_PARAMETER	parameter is not in a valid range
  *		
+ * last modified: 2016/12/07
  */
 static ATERROR API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t *len)
 {
@@ -237,8 +252,13 @@ static ATERROR API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t 
 }
 
 /*
+ * API AT local response
+ * generated the output API frame with the return value of the specific function in API_frameHandle_uart function
+ * if the specific device value of return to uart (DERU) true, it will be printed a detailed message
+ * else the the frame will be written to the uart
  *
- *
+ * Received:
+ *		api_f	the API information frame struct
  *
  * Returns:
  *		nothing
@@ -297,7 +317,7 @@ static void API_0x88_atLocal_response(struct api_f *frame)
 			frame->crc -= frame->msg[x];
 		}
 		
-		UART_putc(frame->crc);									// checksum
+		UART_putc(frame->crc);							// checksum
 	}
 	
 }
@@ -308,7 +328,7 @@ static void API_0x88_atLocal_response(struct api_f *frame)
  * and compared it with the calculated crc sum
  *
  * Received:
- *		the API frame
+ *		api_f	the API frame to store important informations for the response
  *
  * Returned:
  *		TRUE	if calculated crc equal to user crc
@@ -329,6 +349,9 @@ bool_t API_compareCRC(struct api_f *frame)
  * API_findInTable() 
  * - searched in the command table for the command id
  *
+ * Received:
+ *		api_f		the API frame to store important informations for the response
+ *		uint8_t		pointer to an array which is already initialized and available for processing (just to save a little mem)
  * Returns:
  *	   CMD struct		on success
  *     INVALID_COMMAND	on fail

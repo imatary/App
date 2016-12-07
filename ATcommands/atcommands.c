@@ -33,13 +33,13 @@ void main(void)
 	short     counter = 0;
 	size_t apicounter = 0;
 	/*
-	 * initialize structs and buffer
+	 * (1.) initialize structs and buffer
 	 */
 	GET_allFromEEPROM();
 	BufferInit(&UART_deBuf, &RX_deBuf, NULL);
 	
 	/*
-	 * init peripheral devices
+	 * (2.) init peripheral devices
 	 */
 	UART_init();
 	deTIMER_init();									
@@ -48,7 +48,7 @@ void main(void)
 	sei();	// allow interrupts
 
 	/*
-	 * starting main loop
+	 * (3.) starting main loop
 	 */
 	while (TRUE)
 	{
@@ -135,8 +135,7 @@ int a;
 		 */
 		if( APIframe == TRUE && RFmodul.serintCMD_ap !=0 )
 		{
-			ret = API_frameHandle_uart( &apicounter );
-			if ( ret )	{ ATERROR_print(&ret); ret = 0; }
+			API_frameHandle_uart( &apicounter );
 			apicounter = 0;
 			APIframe = FALSE;
 			th = 0;
@@ -146,6 +145,18 @@ int a;
 
 }
 
+/*
+ * ATERROR_print()
+ * print a error message to the uart
+ * 
+ * Received:
+ *		ATERROR	value with the return information, which error occurred
+ *
+ * Returns:
+ *		nothing
+ *
+ * last modified: 2016/11/24
+ */
 static void ATERROR_print(ATERROR *value)
 {
 	switch(*value)
@@ -157,8 +168,6 @@ static void ATERROR_print(ATERROR *value)
 		case TRANSMIT_IN_FAIL	: UART_print("Receiver error! Can't receive or translate the data.\r\n");	break;
 		case TRANSMIT_CRC_FAIL  : UART_print("Receiver error! CRC code does not match.\r\n");				break;
 		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode.\r\n");				break;
-		case INVALID_COMMAND	: UART_print("\r");															break;
-		case API_NOT_AVAILABLE  : UART_print("Not a valid API frame!\r\n");									break;
 		default					: 																			break;
 	}
 }

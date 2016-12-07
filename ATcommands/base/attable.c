@@ -3,6 +3,9 @@
  *
  * Created: 15.11.2016 14:29:40
  *  Author: TOE
+ *
+ * Implemented the AT command table with informations about valid operations
+ *
  */
 #include "../header/cmd.h" 
 
@@ -102,4 +105,9 @@ static const CMD StdCmdTable[] =
 };
 
 const CMD *pStdCmdTable = StdCmdTable;
+
+/*
+ * command table size
+ * - the number of commands which are stored in the command table 
+ */
 const size_t command_count = sizeof(StdCmdTable)/sizeof(CMD);
