@@ -10,7 +10,7 @@
 #define APIFRAME_H_
 
 #include <inttypes.h>		// uint8_t
-#include "enum_error.h"		// ATERROR
+#include "enum_status.h"		// at_status_t
 #include "cmd.h"			// CMD
 
 // === std. defines & frame types =========================
@@ -27,14 +27,13 @@
 // === object =============================================
 struct api_f 
 {
-	ATERROR  ret;			// 1 Byte
-	uint8_t  rwx;			// 1 Byte
-	uint8_t	 delimiter;		// 1 Byte
-	uint16_t length;		// 2 Byte
-	uint8_t  type;			// 1 Byte
-	uint8_t  cmd[3];		// 3 Byte
-	uint8_t  id;			// 1 Byte
-	uint8_t  msg[256];		// 256 Byte
+	at_status_t ret;			// 1 Byte
+	uint8_t		rwx;			// 1 Byte
+	uint16_t	length;		// 2 Byte
+	uint8_t		type;			// 1 Byte
+	uint8_t		cmd[3];		// 3 Byte
+	uint8_t		id;			// 1 Byte
+	uint8_t		msg[256];		// 256 Byte
 	/*
 	 * create the frame & calc checksum
 	 * 0xFF - (API type + frame ID [+ target address] [+ options] + main content [+ parameter]) = checksum

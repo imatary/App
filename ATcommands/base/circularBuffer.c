@@ -28,7 +28,7 @@ deBuffer_t   RX_deBuf;
  *
  * last modified: 2016/10/26
  */
-ATERROR BufferIn(deBuffer_t *bufType, uint8_t inByte)
+at_status_t BufferIn(deBuffer_t *bufType, uint8_t inByte)
 {
 	uint8_t next = ((bufType->write + 1) & DE_BUFFER_MASK);
 
@@ -57,7 +57,7 @@ ATERROR BufferIn(deBuffer_t *bufType, uint8_t inByte)
  *
  * last modified: 2016/10/26
  */
-ATERROR BufferOut(deBuffer_t *bufType, uint8_t *pByte)
+at_status_t BufferOut(deBuffer_t *bufType, uint8_t *pByte)
 {
 	if (bufType->read == bufType->write)
 	return BUFFER_OUT_FAIL;

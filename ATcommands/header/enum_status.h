@@ -1,5 +1,5 @@
 /*
- * enum_error.h
+ * enum_status.h
  *
  * Created: 11.10.2016 10:02:34
  *  Author: TOE
@@ -37,6 +37,6 @@ typedef enum
 	OP_SUCCESS			=  0,
 
 	
-}__attribute__((packed)) ATERROR;
+}__attribute__((packed)) at_status_t;
 
 #endif /* ENUM_ERROR_H_ */

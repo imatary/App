@@ -18,7 +18,7 @@
 #include "../../ATuracoli/stackdefines.h"
 
 // === Prototypes =========================================
-static ATERROR API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t *len);
+static at_status_t API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t *len);
 static void  API_0x88_atLocal_response(struct api_f *frame);
 
 // === Functions ==========================================
@@ -41,10 +41,10 @@ void API_frameHandle_uart(size_t *len)
 	struct api_f frame  = {0,0,0,0,0,{0},0,{0},0xFF};
 	
 	// Start delimiter	1 byte	
-	cli(); BufferOut( &UART_deBuf, &frame.delimiter ); sei();
-	if ( frame.delimiter != STD_DELIMITER ) 
+	cli(); BufferOut( &UART_deBuf, &outchar[0] ); sei();
+	if ( outchar[0] != STD_DELIMITER ) 
 	{
-		frame->ret = ERROR;
+		frame.ret = ERROR;
 		API_0x88_atLocal_response( &frame );
 		return;
 	}
@@ -99,7 +99,7 @@ void API_frameHandle_uart(size_t *len)
 			frame.ret = API_0x18_localDevice(&frame, outchar, len);
 		break;
 				
-		default : frame->ret = INVALID_COMMAND;
+		default : frame.ret = INVALID_COMMAND;
 	}
 		
 	API_0x88_atLocal_response( &frame );
@@ -122,7 +122,7 @@ void API_frameHandle_uart(size_t *len)
  *		
  * last modified: 2016/12/07
  */
-static ATERROR API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t *len)
+static at_status_t API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t *len)
 {
 	// frame id		1 byte
 	cli(); BufferOut( &UART_deBuf, &frame->id ); sei();
@@ -195,6 +195,11 @@ static ATERROR API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t 
 /* RU */	case DE_RU :
 					frame->length = 1;
 					frame->msg[0] = RFmodul.deCMD_ru;
+				break;
+				
+/* FV */	case DE_FV :
+					frame->length = 1;
+					memcpy( frame->msg, AT_VERSION, strlen(AT_VERSION)+1 );
 				break;
 				
 			default: 
@@ -274,7 +279,7 @@ static void API_0x88_atLocal_response(struct api_f *frame)
 	if ( RFmodul.deCMD_ru )
 	{
 		UART_print("\r********** AT RESPONSE **********\r");
-		UART_printf("Start delimiter\r%02"PRIX8"\r\r", frame->delimiter );
+		UART_printf("Start delimiter\r%02"PRIX8"\r\r", STD_DELIMITER );
 		UART_printf("Length\r%02"PRIX8" %02"PRIX8" (%u)\r\r", frame->length >> 8, frame->length & 0xFF, frame->length );
 		UART_print("Frame type\r88 (AT Command Response)\r\r");
 		UART_printf("Frame ID\r%02"PRIX8"\r\r", frame->id );
@@ -297,19 +302,17 @@ static void API_0x88_atLocal_response(struct api_f *frame)
 	}
 	else
 	{
-		UART_putc( frame->delimiter );					// start delimiter
+		UART_putc( STD_DELIMITER );						// start delimiter
 		UART_putc( (uint8_t) (frame->length >> 8) );	// frame length
 		UART_putc( (uint8_t) (frame->length & 0xFF) );
 		UART_putc( 0x88 );								// frame type
-		frame->crc -=   0x88;
-		UART_putc(      frame->id );
-		frame->crc -=   frame->id  ;
-		UART_putc(      frame->cmd[0] );				// AT cmd
-		frame->crc -=   frame->cmd[0]  ;
-		UART_putc(      frame->cmd[1] );
-		frame->crc -=   frame->cmd[1]  ;
-		UART_putc(      frame->ret * (-1) );			// cmd option (successful/ not successful etc.)
-		frame->crc -= ( frame->ret * (-1) );
+		UART_putc( frame->id );
+		UART_putc( frame->cmd[0] );						// AT cmd
+		UART_putc( frame->cmd[1] );
+		UART_putc( frame->ret * (-1) );					// cmd option (successful/ not successful etc.)
+		
+		//			   Typ  +  Frame ID +  AT Command                   +   Return Value      //
+		frame->crc -= (0x88 + frame->id + frame->cmd[0] + frame->cmd[1] + (frame->ret * (-1)) );
 		
 		for (uint16_t x; x < frame->length-5 ; x++ )
 		{
@@ -394,4 +397,34 @@ CMD* API_findInTable(struct api_f *frame, uint8_t *array)
 		}
 	}
 	return NO_AT_CMD;
+}
+
+/*
+ *
+ *
+ *
+ */
+void API_0x97_atRemote_response(uint8_t flen)
+{
+	uint8_t outchar = 0, crc = 0xFF;
+	
+	UART_putc( STD_DELIMITER );					// start delimiter
+	UART_putc( 0x00 );	// frame length
+	UART_putc( flen );
+	UART_putc( 0x97 );								// frame type
+	crc -=   0x97;
+	
+	for (uint8_t i = 0; i < flen-0x2; i++)
+	{
+		cli(); BufferOut(&RX_deBuf, &outchar); sei();
+		
+		if ( RFmodul.serintCMD_ap && i >= 0x14 )
+		{
+			UART_putc( outchar );
+			crc -= outchar;
+		}
+	} /* End of for loop */
+	
+	UART_putc( crc );
+	
 }

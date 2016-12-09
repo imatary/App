@@ -95,7 +95,7 @@ uint8_t TRX_baseInit(void)
  * last modified: 2016/11/01
  */
 
-ATERROR TRX_send(void)
+at_status_t TRX_send(void)
 {
 	uint8_t send[PACKAGE_SIZE] = {0};
 	static uint16_t type = 0;
@@ -116,6 +116,7 @@ ATERROR TRX_send(void)
 #if DEBUG
 		UART_printf(">TX FRAME tx: %4d, fail: %3d, tx_seq: %3d\r", tx_stat.cnt, tx_stat.fail, send[2]);
 #endif
+		TRX_writeBit(deMAX_FRAME_RETRIES, 3);
 		/* some older SPI transceivers require this coming from RX_AACK*/
 		TRX_writeReg(deRG_TRX_STATE, deCMD_PLL_ON);
 		TRX_writeReg(deRG_TRX_STATE, deCMD_TX_ARET_ON);
@@ -283,7 +284,7 @@ int TRX_atRemoteFrame(uint8_t *send)
 	*/
 	
 	pos = 17;
-	ATERROR ret = 0;
+	at_status_t ret = 0;
 	uint8_t crc = 0xFF;
 	crc -= 0x17;
 	do
@@ -327,7 +328,7 @@ int TRX_atRemoteFrame(uint8_t *send)
  */
 
 
-ATERROR TRX_receive(void)
+at_status_t TRX_receive(void)
 {
 	uint8_t flen		= 0;	// total length of the frame which is stored in the buffer
 	uint8_t outchar		= 0;	// received the data of the buffer (byte by byte)
@@ -361,10 +362,11 @@ ATERROR TRX_receive(void)
 				// work in progress
 		break;
 		
-	case 0x6188 :
+	case 0x6188 : // API Response
 		dataStart = 0x14;
 		break;
-			
+		// |61 88 | 27  | 32 33 | ee 1b | ee 0b    | 01 05 | 01  | 00 13 a2 00 41 46 40 c2 | 0b ee | 44 30 | 00  | 05  |d6 3f
+		// | MACH | txc | PANID | dshort| sschort  |   ??  | FID | shl                     | my    |  D  0 | opt | val | crc
 	default :
 		break;
 	}

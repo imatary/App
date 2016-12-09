@@ -9,12 +9,36 @@
  * not nice to read, but it could save a lot of time
  */ 
 
-#include "board.h"
-
-
 #ifndef STACKDEFINES_H_
 #define STACKDEFINES_H_
 
+// === includes ===========================================
+#include "board.h"
+
+#if RADIO_TYPE == RADIO_AT86RF230
+# include "at86rf230a.h"
+#elif RADIO_TYPE == RADIO_AT86RF230B
+# include "at86rf230b.h"
+#elif RADIO_TYPE == RADIO_AT86RF231
+# include "at86rf231.h"
+#elif RADIO_TYPE == RADIO_AT86RF212
+# include "at86rf212.h"
+#elif RADIO_TYPE == RADIO_AT86RF232
+# include "at86rf232.h"
+#elif RADIO_TYPE == RADIO_AT86RF233
+# include "at86rf233.h"
+#elif RADIO_TYPE == RADIO_ATMEGA128RFA1_A ||\
+RADIO_TYPE == RADIO_ATMEGA128RFA1_B ||\
+RADIO_TYPE == RADIO_ATMEGA128RFA1_C ||\
+RADIO_TYPE == RADIO_ATMEGA128RFA1_D
+# include "atmega_rfa1.h"
+#elif RADIO_TYPE == RADIO_ATMEGA256RFR2 || RADIO_TYPE == RADIO_ATMEGA2564RFR2
+# include "atmega_rfr2.h"
+#else
+# error "RADIO_TYPE is not defined or wrong"
+#endif
+
+// === defines ============================================
 #define deHIF_DEFAULT_BAUDRATE	HIF_DEFAULT_BAUDRATE
 
 #define deSPI_RATE_1_2			SPI_RATE_1_2
@@ -49,5 +73,7 @@
 #define deTRX24_TX_END_vect		TRX24_TX_END_vect
 #define deTRX24_RX_END_vect		TRX24_RX_END_vect
 #define deTRX_IRQ_vect			TRX_IRQ_vect
+
+#define deMAX_FRAME_RETRIES		SR_MAX_FRAME_RETRES
 
 #endif /* STACKDEFINES_H_ */

@@ -42,7 +42,7 @@ bool_t noTimeout = TRUE;
  */
 void AT_localMode(void)
 {
-	ATERROR ret       = 0;
+	at_status_t ret       = 0;
 	int		inchar    = 0;
 	size_t  counter   = 0;
 	uint32_t th		  = 0;
@@ -178,7 +178,7 @@ static CMD* CMD_findInTable(void)
  *
  * last modified: 2016/12/02
  */
-ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th) 
+at_status_t CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th) 
 {
 #if DEBUG
 	UART_print("== rx Active\r\n");
@@ -1248,6 +1248,14 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				}
 				// No API handle at this place -> check API_0x18_localDevice function
 				break;
+
+/* FV */	case DE_FV :
+				if ( RFmodul.serintCMD_ap == 0  || frame == NULL )
+				{
+					UART_printf("%s\r", AT_VERSION);
+				}
+				// No API handle at this place -> check API_0x18_localDevice function
+				break;
 			
 			default : return INVALID_COMMAND;
 		}
@@ -1276,7 +1284,7 @@ ATERROR CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
  *				 
  * last modified: 2016/12/02
  */				 
-ATERROR CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
+at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 {
 	CMD *pCommand  = NULL;
 	size_t cmdSize = 0;

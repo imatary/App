@@ -15,7 +15,7 @@
 #include <inttypes.h>
 #include <stdint.h>
 
-#include "enum_error.h"
+#include "enum_status.h"
 #include "_global.h"
 
 #define DE_BUFFER_SIZE 256					// need to be 2^n (8, 16, 32, 64 ...), for each buffer
@@ -40,8 +40,8 @@ extern deBuffer_t   RX_deBuf;
 
 void BufferInit			(deBuffer_t *bufType, ...);
 void BufferNewContent	(deBuffer_t *bufType, bool_t val);
-ATERROR BufferIn		(deBuffer_t *bufType, uint8_t inByte);
-ATERROR BufferOut		(deBuffer_t *bufType, uint8_t *pByte);
+at_status_t BufferIn		(deBuffer_t *bufType, uint8_t inByte);
+at_status_t BufferOut		(deBuffer_t *bufType, uint8_t *pByte);
 
 /*
  * careful with this functions

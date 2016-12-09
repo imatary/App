@@ -10,7 +10,7 @@
 #define STACKRELATED_H_
 
 #include "../ATcommands/header/_global.h"
-#include "../ATcommands/header/enum_error.h"
+#include "../ATcommands/header/enum_status.h"
 
 #include "hif.h"
 #include "transceiver.h"
@@ -70,8 +70,8 @@ static uint8_t	(*TRX_init)			(void);
  * TRX_rxHandler();		writes the received frame into the deRX_buffer
  */
 uint8_t TRX_baseInit(void);
-ATERROR TRX_send(void);
-ATERROR TRX_receive(void);
+at_status_t TRX_send(void);
+at_status_t TRX_receive(void);
 
 int TRX_msgFrame		(uint8_t *send);
 int TRX_atRemoteFrame	(uint8_t *send);

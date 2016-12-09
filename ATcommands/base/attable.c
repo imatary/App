@@ -101,6 +101,7 @@ static const CMD StdCmdTable[] =
 	{ "ATSB", AT_SB, READ               },
 		
 	{ "DERU", DE_RU, READ | WRITE       },
+	{ "DEFV", DE_RU, READ               },
 
 };
 

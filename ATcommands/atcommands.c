@@ -21,13 +21,13 @@
 
 device_t RFmodul;
 bool_t   APIframe = FALSE;
-static void ATERROR_print(ATERROR *value);
+static void at_status_t_print(at_status_t *value);
 static uint32_t API_timeHandle(uint32_t arg);
 
 
 void main(void) 
 {
-	ATERROR		  ret = 0;
+	at_status_t	  ret = 0;
 	uint32_t	   th = 0;
 	int		   inchar = 0; // received the data of the UART input (byte by byte)
 	short     counter = 0;
@@ -52,7 +52,7 @@ void main(void)
 	 */
 	while (TRUE)
 	{
-		if( ret ) { ATERROR_print(&ret);  ret = 0; }
+		if( ret ) { at_status_t_print(&ret);  ret = 0; }
 		/*
 		 * Receiver operation
 		 *
@@ -61,7 +61,7 @@ void main(void)
 		if (RX_deBuf.newContent)
 		{
 			ret = TRX_receive();
-			if ( ret )	{ ATERROR_print(&ret);  ret = 0; }
+			if ( ret )	{ at_status_t_print(&ret);  ret = 0; }
 		}
 
 int a;		
@@ -80,7 +80,7 @@ int a;
 			cli(); ret = BufferIn( &UART_deBuf, inchar ); sei();
 			if( ret ) 
 			{ 
-				ATERROR_print(&ret); 
+				at_status_t_print(&ret); 
 				BufferInit(&UART_deBuf, NULL);
 				ret = 0;
 				continue; 
@@ -107,7 +107,7 @@ int a;
 			if ( ('\r' == inchar || '\n' == inchar) && RFmodul.serintCMD_ap == 0 )
 			{ 
 				ret = TRX_send(); 
-				if ( ret )	{ ATERROR_print(&ret); ret = 0; }
+				if ( ret )	{ at_status_t_print(&ret); ret = 0; }
 				counter = 0;
 			}
 			
@@ -146,18 +146,18 @@ int a;
 }
 
 /*
- * ATERROR_print()
+ * at_status_t_print()
  * print a error message to the uart
  * 
  * Received:
- *		ATERROR	value with the return information, which error occurred
+ *		at_status_t	value with the return information, which error occurred
  *
  * Returns:
  *		nothing
  *
  * last modified: 2016/11/24
  */
-static void ATERROR_print(ATERROR *value)
+static void at_status_t_print(at_status_t *value)
 {
 	switch(*value)
 	{
