@@ -15,30 +15,30 @@ Basic Firmware which supported same AT commands of XBee modules and make it posi
 
 ATcommands/atcommands.c (main file)
 
-ATcommands/base/circularBuffer.c
-ATcommands/base/setter.c
-ATcommands/base/atlocal.c
-ATcommands/base/attable.c
-ATcommands/base/nvm_eeprom.c
-ATcommands/base/apiframe.c
+ATcommands/base/circularBuffer.c  
+ATcommands/base/setter.c  
+ATcommands/base/atlocal.c  
+ATcommands/base/attable.c  
+ATcommands/base/nvm_eeprom.c  
+ATcommands/base/apiframe.c  
 
-ATcommands/header/\_global.h
-ATcommands/header/rfmodul.h
-ATcommands/header/atlocal.h
-ATcommands/header/apiframe.h
-ATcommands/header/defaultConfig.h
-ATcommands/header/enum\_general.h
-ATcommands/header/enum\_error.h
-ATcommands/header/enum\_cmd.h
-ATcommands/header/circularBuffer.h
-ATcommands/header/cmd.h
+ATcommands/header/\_global.h  
+ATcommands/header/rfmodul.h  
+ATcommands/header/atlocal.h  
+ATcommands/header/apiframe.h  
+ATcommands/header/defaultConfig.h  
+ATcommands/header/enum\_general.h  
+ATcommands/header/enum\_error.h  
+ATcommands/header/enum\_cmd.h  
+ATcommands/header/circularBuffer.h  
+ATcommands/header/cmd.h  
 
-ATuracoli/trx0.c
-ATuracoli/uart0.c
-ATuracoli/timer0.c
-ATuracoli/stackrelated.h
-ATuracoli/stackrelated\_timer.h
-ATuracoli/stackdefines.h
+ATuracoli/trx0.c   
+ATuracoli/uart0.c  
+ATuracoli/timer0.c  
+ATuracoli/stackrelated.h  
+ATuracoli/stackrelated\_timer.h  
+ATuracoli/stackdefines.h  
 
 /README.md  
 
@@ -76,42 +76,42 @@ The AT command version number contains two version numbers at once.
  * defines of the buffer size and buffer mask
  * prototypes of all buffer functions
 4. cmd.h
- * defines der Kommandoaktionen read, write und execute
+ * defines of read, write und execute actions
  * definition of typedef struct `CMD`
  * if you want to add new AT commands, this file needs to be edited
 5. defaultConfig.h
- * defines der Standartwerte für die Zurücksetzung der Module (XBee basierend)
- * werden weitere XBee Module hinzugefügt muss diese Datei erweitert werden
+ * defines of standard values (XBee based)
+ * if you add new XBee modules please add the standard values in this file
 6. atlocal.h
-•	Prototypen der Funktionen, die in anderen c-Files aufgerufen werden
+ * prototypes of functions which are called by other c-files
 7. enum_cmd.h
-•	Enumeration aller AT Kommandos, die von der Firmware verarbeitet werden
-•	Diese Datei muss editiert werden wenn neue Befehle hinzugefügt werden
+ * enumeration of all AT commands
+ * if you want to add new AT commands, this file needs to be edited
 8. enum_status.h
-•	Enumeration der Status- und Fehlermeldungen
+ * enumeration of status and error messages
 9. rfmodul.h
-•	Definiert das typedef struct RFmodul (Speicherort im der Parameter im Flash)
-•	Prototypen der default setter
-•	Prototypen für das schreiben und lesen zum EEPROM
-10. stackrelated.h – Stack abhängig
-•	Prototypenzeiger der UART-Funktionen
-•	Prototypenzeiger der Transreceiver-Funktionen
-•	Prototypen der Funktionen, die in anderen c-Files aufgerufen werden
+ * definition of typedef struct `RFmodul` (stored all params of the module in flash memory)
+ * prototypes of default setter
+ * prototypes for reading from and writing to the EEPROM
+10. stackrelated.h – Stack dependency
+ * prototype pointer to UART functions
+ * prototype pointer to transreceiver functions
+ * prototypes of functions which are called by other c-files
 11. stackdefines.h
-•	Neue defines der Stack defines um die Suche und das Ersetzen zu erleichtern
+ * renewed defines to make it easier to replace stack related defines
 12. stackrelated_timer.h
-•	Prototypenzeiger der Timer-Funktionen
+ * prototype pointer to Timer functions
 
 #### C Files
 1.	atcommands.c – Hauptdatei mit der main-Funktion
-•	initialisiert die RF modulvariablen
-•	liest den EEPROM aus und speichert die Daten in den Flash
-•	initialisiert den UART und Transceiver Buffer
-•	konfiguriert das Gerät für die einzelnen Operationen
-•	startet die aktive Warteschleife
- ○	ruft die TRX Handler Funktion auf (10.2.9)
- ○	ruft die lokale AT Funktion auf (10.2.2)
- ○	ruft die UART API Frame Handler Funktion auf (10.2.10)
+ * initialisiert die RF modulvariablen
+ * liest den EEPROM aus und speichert die Daten in den Flash
+ * initialisiert den UART und Transceiver Buffer
+ * konfiguriert das Gerät für die einzelnen Operationen
+ * startet die aktive Warteschleife
+  * ruft die TRX Handler Funktion auf (10.2.9)
+  * ruft die lokale AT Funktion auf (10.2.2)
+  * ruft die UART API Frame Handler Funktion auf (10.2.10)
 2.	atlocal.c – Funktionen für die Lokale AT Behandlung
 •	Hauptfunktion für den AT Command Mode
 •	Funktionen read, write und exec für die Lokale Abhandlung
@@ -126,7 +126,7 @@ The AT command version number contains two version numbers at once.
  ○	0x97 remote AT response /* in Arbeit */
 4.	attable.c – Tabelle mit den AT commandos
 •	Auflistung aller Kommandos mit ihren Rechten (rwx) in einem Array
-•	Diese Datei muss editiert werden wenn neue Befehle hinzugefügt werden
+ * if you want to add new AT commands, this file needs to be edited
 5.	circularBuffer.c – Buffer Funktionen
 •	Ausprogrammierte Pufferfunktionen
 6.	nvm_eeprom.c – Speicher- und Lesefunktion für den EEPROM
