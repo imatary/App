@@ -130,16 +130,16 @@ The AT command version number contains two version numbers at once.
  * set user and default values functions
  * get function
  * EEPROM crc function
-7.	setter.c – default setter functions
-•	setter um die Standardwerte in dem Flash wieder herzustellen
-8.	timer0.c – definiert die Verbindung zu der Timer-Funktion des Stacks
-•	Initialisierung Timer-Pointer
-•	Definition der Millisekunden für das Modul
-9.	trx0.c – definiert die Verbindung zu den Transceiver-Funktionen des Stacks
-•	Initialisierungsfunktion für den Transreceiver
-•	Sende- und Empfängerhändler
-•	Funktionen um die Pakete, die gesendet werden zu packen
-10.	uart.c – definiert die Verbindung zu den User-Interface-Funktionen des Stacks
+7.	setter.c
+ * set functions to restore the default values
+8.	timer0.c – defined the relation to the timer functions of the stack
+ * init timer pointer
+ * definition of 'Millisecond'
+9.	trx0.c – defined the relation to the transceiver functions of the stack
+ * init of transreceiver
+ * handler for sending and receiving
+ * functions to pack data packages
+10.	uart.c – defined the relation to the user interface functions of the stack
  * init of UART pointer functions
 
 
