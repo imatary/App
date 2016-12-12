@@ -8,11 +8,19 @@
  * http://www.mikrocontroller.net/articles/FIFO
  */ 
 
-#include "../header/circularBuffer.h"
-#include "../header/_global.h"
+#include <stdlib.h>
+#include <stdarg.h>						// variable argument list for buffer init
+#include "../header/circularBuffer.h"	// struct, prototypes, defines
+
+deBuffer_t UART_deBuf;
+deBuffer_t   RX_deBuf;
 
 /*
  * Set one byte in to circular buffer
+ *
+ * Received:
+ *		deBuffer_t	pointer to the buffer
+ *		uint8_t		the incoming value, which should be stored into the buffer
  *
  * Returns:
  *     BUFFER_FAIL      buffer is full. No more space for more bytes.
@@ -20,22 +28,28 @@
  *
  * last modified: 2016/10/26
  */
-ATERROR BufferIn(deBuffer_t *bufType, uint8_t inByte)
+at_status_t BufferIn(deBuffer_t *bufType, uint8_t inByte)
 {
 	uint8_t next = ((bufType->write + 1) & DE_BUFFER_MASK);
 
 	if (bufType->read == next)
-	return BUFFER_IN_FAIL; // full
+		return BUFFER_IN_FAIL; // full
+	
 
-	//buffer.data[buffer.write] = byte;
-	bufType->data[bufType->write & DE_BUFFER_MASK] = inByte; // absolutely secure (related to the author)
+	bufType->data[bufType->write] = inByte;
+
+	//bufType->data[bufType->write & DE_BUFFER_MASK] = inByte; // absolutely secure (related to the author)
 	bufType->write = next;
-
+	
 	return OP_SUCCESS;
 }
 
 /*
  * Get 1 byte of the buffer, if the byte is ready
+ *
+ * Received:
+ *		deBuffer_t	pointer to the buffer
+ *		uint8_t		pointer to the element which should receive the byte
  *
  * Returns:
  *     BUFFER_FAIL      buffer is empty. he cannot send a byte.
@@ -43,7 +57,7 @@ ATERROR BufferIn(deBuffer_t *bufType, uint8_t inByte)
  *
  * last modified: 2016/10/26
  */
-ATERROR BufferOut(deBuffer_t *bufType, uint8_t *pByte)
+at_status_t BufferOut(deBuffer_t *bufType, uint8_t *pByte)
 {
 	if (bufType->read == bufType->write)
 	return BUFFER_OUT_FAIL;
@@ -57,21 +71,138 @@ ATERROR BufferOut(deBuffer_t *bufType, uint8_t *pByte)
 
 /*
  * Initialize the UART and the RX buffer
+ * it takes a variable list of buffer
+ * the last value need to be the NULL argument
  *
  * Returns:
  *     nothing
  *
  * last modified: 2016/10/28
  */
-void BufferInit()
+void BufferInit(deBuffer_t *bufType, ...)
 {
-	for( int i = 0; DE_BUFFER_SIZE > i; i++ )
+	static va_list arg;
+	deBuffer_t *bufout = bufType;
+	
+	va_start(arg,bufType);
+	do 
 	{
-		UART_deBuf.data[i] = 0;
-		  RX_deBuf.data[i] = 0;
+		for( int i = 0; DE_BUFFER_SIZE > i; i++ )
+		{
+			bufout->data[i] = 0;
+		}
+		bufout->read = 0;
+		bufout->write = 0;
+		bufout->newContent	= FALSE;
+		bufout = va_arg(arg, deBuffer_t*);
+		
+	} while (bufout != NULL);
+	va_end(arg);
+}
+
+// === Helper functions ===================================
+ 
+/*
+ * BufferNewContent
+ * will set the newContent variable to true if the module received some data over the air
+ *
+ * Received:
+ *		deBuffer_t	pointer to the buffer
+ *		bool_t		FALSE or TRUE
+ *
+ * Returns:
+ *     nothing
+ *
+ * last modified: 2016/11/17
+ */
+void BufferNewContent(deBuffer_t *bufType, bool_t val)
+{
+	bufType->newContent = val;
+}
+
+/*
+ * Buffer read pointer reset function,
+ * reset the pointer position of a number of len
+ * if the pointer hit the writing pointer, set the read pointer for
+ *		'+' operation to bufType->write     (buffer can not read until new data was written into the buffer)
+ *      '-' operation to bufType->write + 1 (buffer need to be read until new data can written into the buffer)
+ * and return
+ *
+ * Received:
+ *		deBuffer_t	pointer to the buffer
+ *		char		'+' or '-' for the direction
+ *		uint8_t		the number of elements which should skipped
+ *
+ * Returns:
+ *		nothing
+ *
+ * last modified: 2016/11/28
+ */
+void deBufferReadReset(deBuffer_t* bufType, char operand , uint8_t len)
+{
+	for (uint8_t i = 0; i < len; i++)
+	{
+		if ( '-' == operand ) 
+		{
+			bufType->read = (bufType->read - 1) & DE_BUFFER_MASK;
+		}
+		if ( '-' == operand && bufType->read == bufType->write)
+		{
+			bufType->read == bufType->write+1;
+			return;
+		}
+		if ( '+' == operand ) 
+		{
+			bufType->read = (bufType->read + 1) & DE_BUFFER_MASK;
+		}
+		if ( '+' == operand && bufType->read == bufType->write)
+		{
+			return;
+		}
 	}
-	UART_deBuf.read  = 0;
-	UART_deBuf.write = 0;
-	  RX_deBuf.read  = 0;
-	  RX_deBuf.write = 0;
+	
+}
+
+/*
+ * Buffer write pointer reset function,
+ * reset the pointer position of a number of len
+ * if the pointer hit the read pointer, set the write pointer for
+ *		'+' operation to bufType->read - 1 (no further writing is posible until the buffer was read)
+ *      '-' operation to bufType->read + 1 (no further reading is posible until new data was written into the buffer)
+ * and return
+ *
+ * Received:
+ *		deBuffer_t	pointer to the buffer
+ *		char		'+' or '-' for the direction
+ *		uint8_t		the number of elements which should skipped
+ *
+ * Returns:
+ *		nothing
+ *
+ * last modified: 2016/11/28
+ */
+void deBufferWriteReset(deBuffer_t* bufType,char operand ,uint8_t len)
+{
+	for (uint8_t i = 0; i < len; i++)
+	{
+		if ( '-' == operand )
+		{
+			bufType->write = (bufType->write - 1) & DE_BUFFER_MASK;
+		}
+		if ( '-' == operand && bufType->read == bufType->write)
+		{
+			bufType->read = bufType->read + 1;
+			return;
+		}
+		if ( '+' == operand )
+		{
+			bufType->read = (bufType->read + 1) & DE_BUFFER_MASK;
+		}
+		if ( '+' == operand && bufType->read == bufType->write)
+		{
+			bufType->read = bufType->read + 1;
+			return;
+		}
+	}
+	
 }

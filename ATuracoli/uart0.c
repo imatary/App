@@ -5,7 +5,10 @@
  *  Author: TOE
  */ 
 
+#include <stdlib.h>
+#include "../ATcommands/header/rfmodul.h"
 #include "stackrelated.h"
+#include "stackdefines.h"
 #include "board.h"
 
 /*
@@ -18,9 +21,23 @@
 void UART_init(void)
 {
 	mcu_init();
-	hif_init(HIF_DEFAULT_BAUDRATE);
+	uint32_t baud = deHIF_DEFAULT_BAUDRATE;
+	switch( RFmodul.serintCMD_bd )
+	{
+		case 0x0 : baud =   1200; break;
+		case 0x1 : baud =   2400; break;
+		case 0x2 : baud =   4800; break;
+		case 0x3 : baud =   9600; break;
+		case 0x4 : baud =  19200; break;
+		case 0x5 : baud =  38400; break;
+		case 0x6 : baud =  57600; break;
+		case 0x7 : baud = 115200; break;
+		default : baud = deHIF_DEFAULT_BAUDRATE; break;
+	}
+	hif_init(baud);
 	
 	UART_getc	= hif_getc;
+	UART_putc	= hif_putc;
 
 }
 

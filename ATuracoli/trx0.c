@@ -3,20 +3,65 @@
  *
  * Created: 26.10.2016 09:07:31
  *  Author: TOE
+ *
  */ 
 
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 #include "../ATcommands/header/_global.h"
+#include "../ATcommands/header/rfmodul.h"
 #include "../ATcommands/header/circularBuffer.h"
 #include "stackrelated.h"
+#include "stackdefines.h"
 
 #include "board.h"
+#include "transceiver.h"
+
+// === defines ============================================
+#define PACKAGE_SIZE 127	// size in bytes
+
+// === prototypes =========================================
+/*
+ * TRX_txHandler	sender interrupt handler
+ * TRX_rxHandler	receiver interrupt handler
+ */
+static void TRX_txHandler(void);
+static void TRX_rxHandler(void);
+/*
+ * TRX_msgFrame			prepare the buffer to send a simple text message
+ * TRX_atRemoteFrame	prepare the buffer to send a AT Remote command
+ */
+int TRX_msgFrame		(uint8_t *send);
+int TRX_atRemoteFrame	(uint8_t *send);
+
+// === structs & var init =================================
+/*
+ * transceiver (trx) status structs
+ */
+typedef struct {
+	uint8_t cnt;
+	uint8_t fail;
+	bool_t in_progress;
+}txStatus_t;
+
+typedef struct {
+	uint8_t cnt;
+	uint8_t seq;
+	bool_t fail;
+	bool_t done;
+}rxStatus_t;
 
 txStatus_t tx_stat = {1,FALSE,FALSE};
 rxStatus_t rx_stat = {0,0,FALSE,FALSE};
 
+// === functions ==========================================
 /* 
  * Setup transmitter 
+ * - set the function pointer
  * - configure radio channel
+ * - configure address filter 
  * - enable transmitters automatic crc16 generation
  * - go into RX AACK state,
  * - configure address filter
@@ -25,95 +70,89 @@ rxStatus_t rx_stat = {0,0,FALSE,FALSE};
  * Returns:
  *     nothing
  *
- * last modified: 2016/10/27
+ * last modified: 2016/11/10
  */
-void TRX_setup()
+uint8_t TRX_baseInit(void)
 {	
-	trx_io_init(SPI_RATE_1_2);
-	trx_bit_write(SR_CHANNEL,netCMD.ch);
-	trx_bit_write(SR_TX_AUTO_CRC_ON,TRUE);
+	uint8_t ret;
+	
+	TRX_setPanId	 = trx_set_panid;
+	TRX_setShortAddr = trx_set_shortaddr;
+	TRX_setLongAddr	 = trx_set_longaddr;
+	TRX_init		 = trx_init;
+	TRX_spiInit		 = trx_io_init;
+	TRX_writeReg	 = trx_reg_write;
+	TRX_readReg		 = trx_reg_read;
+	TRX_writeBit	 = trx_bit_write;
+	TRX_readBit		 = trx_bit_read;	
+	TRX_writeTX		 = trx_frame_write;
+	TRX_readRX		 = trx_frame_read;
+	TRX_getRxLength  = trx_frame_get_length;
+	
+	
+	TRX_spiInit(deSPI_RATE_1_2);
+	ret = TRX_init();
+	
+	TRX_writeBit(deSR_CHANNEL, RFmodul.netCMD_ch);
+	TRX_writeBit(deSR_TX_AUTO_CRC_ON, TRUE);
 		
-	//TRX_setPanId(netCMD.id);										// target PAN ID
-	//TRX_setLongAddr( (uint64_t) netCMD.dh<<32 | netCMD.dl );		// destination extended address
+	TRX_setPanId( RFmodul.netCMD_id );											// target PAN ID
+	TRX_setLongAddr( (uint64_t) RFmodul.netCMD_sh << 32 | RFmodul.netCMD_sl );	// device long address
+	TRX_setShortAddr( RFmodul.netCMD_my );										// short address
 
-	trx_reg_write(RG_TRX_STATE, CMD_RX_ON); 
-
-	#if defined(TRX_IRQ_TRX_END)
-		trx_reg_write(RG_IRQ_MASK,TRX_IRQ_TRX_END);
-	#elif defined(TRX_IRQ_RX_END)
-		trx_reg_write(RG_IRQ_MASK,TRX_IRQ_RX_END | TRX_IRQ_TX_END);
+	TRX_writeReg(deRG_TRX_STATE, deCMD_RX_AACK_ON);
+	
+	
+	#if defined(deTRX_IRQ_TRX_END)
+		TRX_writeReg(deRG_IRQ_MASK, deTRX_IRQ_TRX_END);
+		
+	#elif defined(deTRX_IRQ_RX_END)
+		TRX_writeReg(deRG_IRQ_MASK, deTRX_IRQ_RX_END | deTRX_IRQ_TX_END );
+		
 	#else
 	#  error "Unknown IRQ bits"
 	#endif
-	MCU_IRQ_ENABLE();
+	
+	return ret;
 }
 
 /*
  * TRX_send
+ * send a message over antenna to another device
  *
  * Returns:
- *     XX       buffer is empty. he cannot send a byte.
- *     SUCCESS			package was delivered
+ *     TRANSMIT_OUT_FAIL    buffer is empty, module cannot send a byte.
+ *	   TRANSMIT_IN_FAIL		no ACK received
+ *     OP_SUCCESS			package was delivered
  * 
  * last modified: 2016/11/01
  */
 
-ATERROR TRX_send()
+at_status_t TRX_send(void)
 {
 	uint8_t send[PACKAGE_SIZE] = {0};
+	static uint16_t type = 0;
 	int pos;
 
 	/*
-	 * Switch/case handling
-	 * == not completely included in prototype ==
-	 *
-	 */
-	frame._type = 0x0;
-	switch (frame._type)
-	{
-		case 0x00 : pos = TRX_msgFrame(&send[0]);		break;	// TX Transmit Request 64-bit
-		case 0x17 : pos = TRX_atRemoteFrame(&send[0]);	break;	// Remote AT Command
-		
-		case 0x01 : // TX Transmit Request 16-bit
-		case 0x08 : // AT Command
-		case 0x09 : // AT Command Queue Register Value
-		case 0x80 : // RX Receive Packet: 64-bit
-		case 0x81 : // RX Receive Packet: 16-bit
-		case 0x82 : // RX Receive Packet: 64-bit IO
-		case 0x83 : // RX Receive Packet: 16-bit IO
-		case 0x88 : // AT Command Response
-		case 0x89 : // TX Transmit Status
-		case 0x8A : // Modem Status
-		case 0x97 : // Remote AT Command Response
-
-		default: // Error zum speichern setzten
-			UART_print("Value not valid! Please chose one of them:\r\n");
-			UART_print("00 : TX (Transmit) Request 64-bit address\r\n");
-			UART_print("01 : not implemented\r\n");
-			UART_print("08 : not implemented\r\n");
-			UART_print("09 : not implemented\r\n");
-			UART_print("17 : Remote AT Command\r\n");
-			UART_print("80 : not implemented\r\n");
-			UART_print("81 : not implemented\r\n");
-			UART_print("82 : not implemented\r\n");
-			UART_print("83 : not implemented\r\n");
-			UART_print("88 : not implemented\r\n");
-			UART_print("89 : not implemented\r\n");
-			UART_print("8A : not implemented\r\n");
-			UART_print("97 : not implemented\r\n");
-		break;
-	}
+	 * Handle buffer dependent on API mode on or off and return pointer position in the array
+	 */	 
+	if( RFmodul.serintCMD_ap ) { pos = TRX_atRemoteFrame(&send[0]);	}	// API Frame	
+	else					   { pos = TRX_msgFrame(&send[0]);		}	// std TX Transmit Request 64-bit
 	
-	
-	/* Step 2: setup and send package
+	/*
+	 * Step 2: setup and send package
 	 */
-	trx_reg_write(RG_TRX_STATE, CMD_RX_AACK_ON);
+	TRX_writeReg(deRG_TRX_STATE, deCMD_RX_AACK_ON);
 	if (tx_stat.in_progress == FALSE)
 	{
-		UART_printf(">TX FRAME tx: %4d, fail: %3d, tx_seq: %3d\r\n", tx_stat.cnt, tx_stat.fail, send[2]);
+#if DEBUG
+		UART_printf(">TX FRAME tx: %4d, fail: %3d, tx_seq: %3d\r", tx_stat.cnt, tx_stat.fail, send[2]);
+#endif
+		TRX_writeBit(deMAX_FRAME_RETRIES, 3);
 		/* some older SPI transceivers require this coming from RX_AACK*/
-		trx_reg_write(RG_TRX_STATE, CMD_PLL_ON);
-		trx_reg_write(RG_TRX_STATE, CMD_TX_ARET_ON);
+		TRX_writeReg(deRG_TRX_STATE, deCMD_PLL_ON);
+		TRX_writeReg(deRG_TRX_STATE, deCMD_TX_ARET_ON);
 
 		send[2] = tx_stat.cnt;
 		
@@ -123,10 +162,10 @@ ATERROR TRX_send()
 	{
 		UART_printf("%02x ", send[i], i);
 	}
-	UART_print("\r\n");
+	UART_print("\r");
 #endif
 
-		trx_frame_write(pos + 2, send);
+		TRX_writeTX(pos + 2, send);
 		tx_stat.in_progress = TRUE;
 		TRX_SLPTR_HIGH();
 		TRX_SLPTR_LOW();
@@ -135,10 +174,12 @@ ATERROR TRX_send()
 	if (rx_stat.done)
 	{
 		rx_stat.done = FALSE;
-		UART_printf("<RX FRAME rx: %4d, fail: %3d, rx_seq: %3d\r\n", rx_stat.cnt, rx_stat.fail, rx_stat.seq);
+#if DEBUG
+		UART_printf("<RX FRAME rx: %4d, fail: %3d, rx_seq: %3d\r", rx_stat.cnt, rx_stat.fail, rx_stat.seq);
+#endif
 	}
 	
-	trx_reg_write(RG_TRX_STATE, CMD_RX_ON); 
+	//trx_reg_write(RG_TRX_STATE, CMD_RX_ON); 
 	
 	if		( tx_stat.fail ) { return TRANSMIT_OUT_FAIL; }
 	else if ( rx_stat.fail ) { return TRANSMIT_IN_FAIL; }
@@ -147,11 +188,12 @@ ATERROR TRX_send()
 
 /* 
  * Simple text frame 
+ * prepared frame for simple text message
  *
  * Returns:
  *     final position in array
  *
- * last modified: 2016/11/01
+ * last modified: 2016/11/17
  */
 
 int TRX_msgFrame(uint8_t *send)
@@ -165,46 +207,41 @@ int TRX_msgFrame(uint8_t *send)
 	 * - write src. short address
 	 */	
 	
-	sprintf((char*)(send+ 0),"%c",0x61);				// IEEE 802.15.4 FCF: 
-	sprintf((char*)(send+ 1),"%c",0x8c);				// data frame  
-	sprintf((char*)(send+ 2),"%c",0x0);					// sequence counter 
+	sprintf((char*)(send+ 0),"%c",0x61);						// IEEE 802.15.4 FCF: 
+	sprintf((char*)(send+ 1),"%c",0x8c);						// data frame  
+	sprintf((char*)(send+ 2),"%c",0x0);							// sequence counter 
 	
-	sprintf((char*)(send+ 3),"%c",netCMD.id & 0xff);
-	sprintf((char*)(send+ 4),"%c",netCMD.id >>  8);		// destination PAN_ID
+	sprintf((char*)(send+ 3),"%c",RFmodul.netCMD_id & 0xff);
+	sprintf((char*)(send+ 4),"%c",RFmodul.netCMD_id >>  8);		// destination PAN_ID
 	
-	sprintf((char*)(send+ 5),"%c",netCMD.dl >>  0);
-	sprintf((char*)(send+ 6),"%c",netCMD.dl >>  8);
-	sprintf((char*)(send+ 7),"%c",netCMD.dl >> 16);
-	sprintf((char*)(send+ 8),"%c",netCMD.dl >> 24);		// destination ext. addr. low 
+	sprintf((char*)(send+ 5),"%c",RFmodul.netCMD_dl >>  0);
+	sprintf((char*)(send+ 6),"%c",RFmodul.netCMD_dl >>  8);
+	sprintf((char*)(send+ 7),"%c",RFmodul.netCMD_dl >> 16);
+	sprintf((char*)(send+ 8),"%c",RFmodul.netCMD_dl >> 24);		// destination ext. addr. low 
 	
-	sprintf((char*)(send+ 9),"%c",netCMD.dh >>  0);
-	sprintf((char*)(send+10),"%c",netCMD.dh >>  8);
-	sprintf((char*)(send+11),"%c",netCMD.dh >> 16);
-	sprintf((char*)(send+12),"%c",netCMD.dh >> 24);		// destination ext. addr. high 
+	sprintf((char*)(send+ 9),"%c",RFmodul.netCMD_dh >>  0);
+	sprintf((char*)(send+10),"%c",RFmodul.netCMD_dh >>  8);
+	sprintf((char*)(send+11),"%c",RFmodul.netCMD_dh >> 16);
+	sprintf((char*)(send+12),"%c",RFmodul.netCMD_dh >> 24);		// destination ext. addr. high 
 	
-	sprintf((char*)(send+13),"%c",netCMD.my & 0xff);
-	sprintf((char*)(send+14),"%c",netCMD.my >> 8);		// src. short address
-	sprintf((char*)(send+15),"%c",0x0);					
-	sprintf((char*)(send+16),"%c",0x0);					// I do not know in which relation this value stands, but it is in all test 04
+	sprintf((char*)(send+13),"%c",RFmodul.netCMD_my & 0xff);
+	sprintf((char*)(send+14),"%c",RFmodul.netCMD_my >> 8);		// src. short address
+	sprintf((char*)(send+15),"%c",0x00);					
+	sprintf((char*)(send+16),"%c",0x00);						// I do not know in which relation this value stands, but it is in all test 04
 	pos += 16;
 	do
 	{
 		pos +=1;
-		BufferOut(&UART_deBuf, send + pos );
-		
-#if DEBUG
-		UART_printf("%c", *(send + pos) );
-#endif
+		cli(); BufferOut(&UART_deBuf, send + pos ); sei();
 
-	} while ( 0xD != *(send + pos - 1) );
+	} while ( 0xD != *(send + pos - 1) && pos < PACKAGE_SIZE-1 );
 	
 	return pos;
 }
 
 /* 
- * AT Remote Command request 
- * 
- * - TODO - sending ACK by receiving Remote Response
+ * AT Remote Command request
+ * prepared frame for a remote AT command to controll another device
  *
  * Returns:
  *     final position in array
@@ -214,6 +251,9 @@ int TRX_msgFrame(uint8_t *send)
 
 int TRX_atRemoteFrame(uint8_t *send)
 {
+#if DEBUG
+	UART_print("== in API Remote CMD\r\n");
+#endif
 	int pos;
 	/* Step 1: prepare packed
 	 * - set IEEE data frames
@@ -227,57 +267,177 @@ int TRX_atRemoteFrame(uint8_t *send)
 	sprintf((char*)(send+ 1),"%c",0x8c);
 	sprintf((char*)(send+ 2),"%c",0x0);
 	
-	sprintf((char*)(send+ 3),"%c",netCMD.id & 0xff);
-	sprintf((char*)(send+ 4),"%c",netCMD.id >>  8);		// destination PAN_ID
+	sprintf((char*)(send+ 3),"%c",RFmodul.netCMD_id & 0xff);
+	sprintf((char*)(send+ 4),"%c",RFmodul.netCMD_id >>  8);		// destination PAN_ID
 	
-	sprintf((char*)(send+ 5),"%c",netCMD.dl >>  0);
-	sprintf((char*)(send+ 6),"%c",netCMD.dl >>  8);
-	sprintf((char*)(send+ 7),"%c",netCMD.dl >> 16);
-	sprintf((char*)(send+ 8),"%c",netCMD.dl >> 24);		// destination ext. addr. low
+	/* // static version
+	sprintf((char*)(send+ 5),"%c",RFmodul.netCMD_dl >>  0);
+	sprintf((char*)(send+ 6),"%c",RFmodul.netCMD_dl >>  8);
+	sprintf((char*)(send+ 7),"%c",RFmodul.netCMD_dl >> 16);
+	sprintf((char*)(send+ 8),"%c",RFmodul.netCMD_dl >> 24);		// destination ext. addr. low
 	
-	sprintf((char*)(send+ 9),"%c",netCMD.dh >>  0);
-	sprintf((char*)(send+10),"%c",netCMD.dh >>  8);
-	sprintf((char*)(send+11),"%c",netCMD.dh >> 16);
-	sprintf((char*)(send+12),"%c",netCMD.dh >> 24);		// destination ext. addr. high
+	sprintf((char*)(send+ 9),"%c",RFmodul.netCMD_dh >>  0);
+	sprintf((char*)(send+10),"%c",RFmodul.netCMD_dh >>  8);
+	sprintf((char*)(send+11),"%c",RFmodul.netCMD_dh >> 16);
+	sprintf((char*)(send+12),"%c",RFmodul.netCMD_dh >> 24);		// destination ext. addr. high
+	*/
 	
-	sprintf((char*)(send+13),"%c",netCMD.my & 0xff);
-	sprintf((char*)(send+14),"%c",netCMD.my >> 8);		// src. short address
+	sprintf((char*)(send+13),"%c",RFmodul.netCMD_my & 0xff);
+	sprintf((char*)(send+14),"%c",RFmodul.netCMD_my >> 8);		// src. short address
+	
+	sprintf((char*)(send+15),"%c",0x4D);							// it looks like an APS counter
+	sprintf((char*)(send+16),"%c",0x04);						// I do not know in which relation this lines stands, but it is in all test 04
 	
 	// begin data
-	sprintf((char*)(send+15),"%c",0xB5);				// tx counter - this value = 4C
-	sprintf((char*)(send+16),"%c",0x04);				// I do not know in which relation this line stands, but it is in all test 04
+	/* // static version 
+	sprintf((char*)(send+17),"%c",0x01);						// Frame ID
 	
-	sprintf((char*)(send+17),"%c",0x01);				// Frame ID
-	
-	sprintf((char*)(send+18),"%c",netCMD.dh >> 24);
-	sprintf((char*)(send+19),"%c",netCMD.dh >> 16);
-	sprintf((char*)(send+20),"%c",netCMD.dh >>  8);
-	sprintf((char*)(send+21),"%c",netCMD.dh >>  0);
-	sprintf((char*)(send+22),"%c",netCMD.dl >> 24);
-	sprintf((char*)(send+23),"%c",netCMD.dl >> 16);
-	sprintf((char*)(send+24),"%c",netCMD.dl >>  8);
-	sprintf((char*)(send+25),"%c",netCMD.dl >>  0);		// destination long addr.
+	sprintf((char*)(send+18),"%c",RFmodul.netCMD_dh >> 24);
+	sprintf((char*)(send+19),"%c",RFmodul.netCMD_dh >> 16);
+	sprintf((char*)(send+20),"%c",RFmodul.netCMD_dh >>  8);
+	sprintf((char*)(send+21),"%c",RFmodul.netCMD_dh >>  0);
+	sprintf((char*)(send+22),"%c",RFmodul.netCMD_dl >> 24);
+	sprintf((char*)(send+23),"%c",RFmodul.netCMD_dl >> 16);
+	sprintf((char*)(send+24),"%c",RFmodul.netCMD_dl >>  8);
+	sprintf((char*)(send+25),"%c",RFmodul.netCMD_dl >>  0);		// destination long addr.
 	
 	sprintf((char*)(send+26),"%c",0xff);
-	sprintf((char*)(send+27),"%c",0xfe);				// destination short addr.
+	sprintf((char*)(send+27),"%c",0xfe);						// destination short addr.
 	
-	sprintf((char*)(send+28),"%c",0x02);				// cmd option
+	sprintf((char*)(send+28),"%c",0x02);						// cmd option
 	pos = 28;
-	// content	
+	
+	// content
 	do
 	{
 		pos +=1;
-		BufferOut(&UART_deBuf, send + pos );
-#if DEBUG
-		UART_printf("%c", *(send + pos) );
-#endif
+		cli(); BufferOut(&UART_deBuf, send + pos ); sei();
 
-	} while ( 0xD != *(send + pos) );
+	} while ( 0xD != *(send + pos) && pos < PACKAGE_SIZE-1 );
+	*/
 	
-	return pos;
+	pos = 17;
+	at_status_t ret = 0;
+	uint8_t crc = 0xFF;
+	crc -= 0x17;
+	do
+	{
+		cli(); ret = BufferOut( &UART_deBuf, send+pos ); sei();
+		if ( ret == BUFFER_OUT_FAIL ) break;
+		
+		crc -= *(send+pos);
+		pos++;
+		
+	} while ( pos < PACKAGE_SIZE-1 );
+	
+	crc += *(send+pos);	// the user crc need to be deleted
+	if ( crc =! *(send+pos))
+	{
+		UART_printf("%x vs %x", crc, *(send+pos) );
+	}
+	
+	*(send+ 5) = *(send+25);
+	*(send+ 6) = *(send+24);
+	*(send+ 7) = *(send+23);
+	*(send+ 8) = *(send+22);		// destination ext. addr. low
+
+	*(send+ 9) = *(send+21);
+	*(send+10) = *(send+20);
+	*(send+11) = *(send+19);
+	*(send+12) = *(send+18);		// destination ext. addr. high
+	
+	return pos-1;
 }
 
+/*
+ * TRX_receive()
+ * translated received packages 
+ *
+ * Returns:
+ *     OP_SCCESS			frame is received successfully without error
+ *	   TRANSMIT_IN_FAIL		frame is received and an error has occurred
+ *
+ * last modified: 2016/11/12
+ */
 
+
+at_status_t TRX_receive(void)
+{
+	uint8_t flen		= 0;	// total length of the frame which is stored in the buffer
+	uint8_t outchar		= 0;	// received the data of the buffer (byte by byte)
+	uint8_t dataStart	= 0;	// start pointer to print the data through UART
+	uint16_t frameType	= 0;	// received the frame type for frame handling
+	
+	rx_stat.done = FALSE;
+	BufferNewContent(&RX_deBuf, FALSE);
+	
+	/*
+	 * read the len out of the buffer
+	 */
+	cli(); BufferOut(&RX_deBuf, &flen); sei();
+	
+	/* 
+	 * - get the frame type
+	 * - set the data start pointer depending on frame type
+	 * - print the data
+	 */
+	for (int i = 0; i < 2; i++)
+	{
+		cli(); BufferOut(&RX_deBuf, &outchar); sei();
+		if ( i == 0 ) { frameType  = (uint16_t) outchar << 8; }
+		if ( i == 1 ) { frameType |= (uint16_t) outchar; }
+	}
+	
+	switch (frameType)
+	{
+	case 0x618c : //UART_printf(">Frame Type: %"PRIx16"\r", frameType);
+		dataStart = 0xF;
+				// work in progress
+		break;
+		
+	case 0x6188 : // API Response
+		dataStart = 0x14;
+		break;
+		// |61 88 | 27  | 32 33 | ee 1b | ee 0b    | 01 05 | 01  | 00 13 a2 00 41 46 40 c2 | 0b ee | 44 30 | 00  | 05  |d6 3f
+		// | MACH | txc | PANID | dshort| sschort  |   ??  | FID | shl                     | my    |  D  0 | opt | val | crc
+	default :
+		break;
+	}
+		
+	for (uint8_t i = 0; i < flen-0x2; i++)
+	{
+		cli(); BufferOut(&RX_deBuf, &outchar); sei();
+		
+		if ( i == dataStart && FALSE == RFmodul.serintCMD_ap  && ('\r' != outchar || '\n' != outchar) )
+		{
+			UART_printf("%c", outchar);
+		}
+		else if ( RFmodul.serintCMD_ap && i >= dataStart )
+		{
+			UART_printf("%02X ", outchar);
+		}
+		else if ( 0xD == outchar ) 
+		{ 
+			UART_print("\r");
+		}
+		else if ( 0xA == outchar )
+		{
+			UART_print("\n");
+		}
+	}
+	
+	if (RFmodul.serintCMD_ap) { UART_print("\r"); }
+	
+	rx_stat.cnt += 1;
+	rx_stat.done = FALSE;
+	if(FALSE)
+	{
+		rx_stat.fail++;
+		return TRANSMIT_IN_FAIL;
+	}	
+	
+	return OP_SUCCESS;
+}
 
 /*
  * Handler for tx and rx frames
@@ -290,78 +450,52 @@ int TRX_atRemoteFrame(uint8_t *send)
 static void TRX_txHandler()
 {	
 	static volatile uint8_t trac_status;
-	trac_status = trx_bit_read(SR_TRAC_STATUS);
+	trac_status = TRX_readBit(deSR_TRAC_STATUS);
+	
+	TRX_writeReg(deRG_TRX_STATE, deCMD_PLL_ON);
+	TRX_writeReg(deRG_TRX_STATE, deCMD_TX_ARET_ON);
 	
 	tx_stat.in_progress = FALSE;
 	
-	if (TRAC_SUCCESS != trac_status)
+	if (deTRAC_SUCCESS != trac_status)
 	{
-		tx_stat.fail++;
-		UART_print("tx fail\r\n");
+		RFmodul.diagCMD_ea++;
 	}
 	else
 	{
 		tx_stat.cnt++;
-		UART_print("tx success\r\n");
 	}
+	
+	TRX_writeReg(deRG_TRX_STATE, deCMD_RX_AACK_ON);
 }
 
 static void TRX_rxHandler()
 {
-	uint8_t counter, flen = 0, *pfrm;
-	static uint8_t buf[PACKAGE_SIZE] = {0};
-	uint16_t crc;
-	pfrm = buf;
-	rx_stat.done = TRUE;
+	uint8_t flen = 0, receive[PACKAGE_SIZE];
+	
+	flen = TRX_readRX(&receive[0], sizeof(receive), NULL);
+	if ( 0x7F < flen ) // 0x7f == 127(dez)
+	{
+		UART_print("Buffer overflow\r");
+		return;
+	}
+
+	/*
+	 * write the length of the frame in the first field of the buffer
+	 */
+	cli(); BufferIn(&RX_deBuf, flen); sei();
 	
 	/*
-	 * upload frame and check for CRC16 validity 
-	 */
-	counter = flen = trx_frame_read(pfrm, sizeof(buf), NULL);
-	crc = 0;
-	do
+	 * upload the4 frame into RX buffer
+	 */	
+	for (uint8_t i = 0; i < flen; i++)
 	{
-		crc = _crc_ccitt_update(crc, *pfrm++);
+		cli(); BufferIn( &RX_deBuf, receive[i] ); sei();
 	}
-	while(flen--);
+
+	BufferNewContent(&RX_deBuf, TRUE);
+	rx_stat.done = TRUE;
 	
-	/* 
-	 * if crc is correct and frame larger then 5 bytes, update RX frame counter, send ACK and print to UART 
-	 * if crc is correct and frame equal 5 bytes, packet is a ACK package
-	 * else a error is occurred
-	 */
-	if ( crc == 0 && counter > 5 )
-	{
-		rx_stat.cnt += 1;
-		rx_stat.seq  = buf[2];
-UART_printf("<RX FRAME rx: %4d, fail: %3d, rx_seq: %3d\r\n", rx_stat.cnt, rx_stat.fail, rx_stat.seq);
-		UART_printf("%c",buf[counter-3]);
-		//TRX_ack();
-	}
-	else if ( crc == 0 && counter == 5 )
-	{
-		// ACK check
-	}
-	else
-	{
-		UART_print("Receiver error!\r\n");
-		rx_stat.fail++;
-	}	
-	UART_print("\r\n");
-}
-
-void TRX_ack(void)
-{
-	uint8_t send[5];
-	send[0] = 0x2;
-	send[1] = 0x0;
-	send[2] = rx_stat.seq;
-	send[3] = 0x1;
-	send[4] = 0x1;
-	trx_reg_write(RG_TRX_STATE, CMD_PLL_ON);
-
-	trx_frame_write(5, send);
-	trx_reg_write(RG_TRX_STATE, CMD_RX_ON); 
 }
 
 /*
@@ -372,23 +506,23 @@ void TRX_ack(void)
  *
  * last modified: 2016/11/01
  */
-#if defined(TRX_IF_RFA1)
-ISR(TRX24_TX_END_vect)
+#if defined(deTRX_IF_RFA1)
+ISR(deTRX24_TX_END_vect)
 {
 	TRX_txHandler();
 }
 
-ISR(TRX24_RX_END_vect)
+ISR(deTRX24_RX_END_vect)
 {
 	TRX_rxHandler();
 }
 #else  /* !RFA1 */
-ISR(TRX_IRQ_vect)
+ISR(deTRX_IRQ_vect)
 {
 	static volatile uint8_t irq_cause;
-	irq_cause = trx_reg_read(RG_IRQ_STATUS);	
+	irq_cause = TRX_readReg(deRG_IRQ_STATUS);	
 	
-	if (irq_cause & TRX_IRQ_TRX_END)
+	if (irq_cause & deTRX_IRQ_TRX_END)
 	{
 		if (tx_stat.in_progress)
 		{
