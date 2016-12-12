@@ -40,8 +40,8 @@ extern deBuffer_t   RX_deBuf;
 
 void BufferInit			(deBuffer_t *bufType, ...);
 void BufferNewContent	(deBuffer_t *bufType, bool_t val);
-at_status_t BufferIn		(deBuffer_t *bufType, uint8_t inByte);
-at_status_t BufferOut		(deBuffer_t *bufType, uint8_t *pByte);
+at_status_t BufferIn	(deBuffer_t *bufType, uint8_t inByte);
+at_status_t BufferOut	(deBuffer_t *bufType, uint8_t *pByte);
 
 /*
  * careful with this functions

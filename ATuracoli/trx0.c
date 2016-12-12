@@ -19,11 +19,44 @@
 #include "board.h"
 #include "transceiver.h"
 
+// === defines ============================================
 #define PACKAGE_SIZE 127	// size in bytes
+
+// === prototypes =========================================
+/*
+ * TRX_txHandler	sender interrupt handler
+ * TRX_rxHandler	receiver interrupt handler
+ */
+static void TRX_txHandler(void);
+static void TRX_rxHandler(void);
+/*
+ * TRX_msgFrame			prepare the buffer to send a simple text message
+ * TRX_atRemoteFrame	prepare the buffer to send a AT Remote command
+ */
+int TRX_msgFrame		(uint8_t *send);
+int TRX_atRemoteFrame	(uint8_t *send);
+
+// === structs & var init =================================
+/*
+ * transceiver (trx) status structs
+ */
+typedef struct {
+	uint8_t cnt;
+	uint8_t fail;
+	bool_t in_progress;
+}txStatus_t;
+
+typedef struct {
+	uint8_t cnt;
+	uint8_t seq;
+	bool_t fail;
+	bool_t done;
+}rxStatus_t;
 
 txStatus_t tx_stat = {1,FALSE,FALSE};
 rxStatus_t rx_stat = {0,0,FALSE,FALSE};
 
+// === functions ==========================================
 /* 
  * Setup transmitter 
  * - set the function pointer

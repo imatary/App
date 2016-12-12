@@ -13,9 +13,16 @@
 #include "enum_status.h"	// at_status_t
 #include "apiframe.h"
 
-// === functions ==========================================
-bool_t  charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize ,size_t maxCmdSize);
+// === prototypes ==========================================
+/*
+ * Main function which is called  by three plus types,
+ * start of a new loop
+ */
 void	AT_localMode(void);
+
+/*
+ * Functions to read param, execute instructions or write to memory
+ */
 at_status_t CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th);
 at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len);
 #endif /* ATLOCAL_H_ */

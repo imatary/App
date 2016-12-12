@@ -64,35 +64,9 @@ static uint8_t	(*TRX_init)			(void);
  * TRX_baseInit();		base initializer and setup the transceiver for sending or receiving data
  * TRX_send();			function to sent data over air
  * TRX_receive();		function to receive data over the air
- * TRX_msgFrame();		prepare the buffer to send a simple text message
- * TRX_atRemoteFrame();	prepare the buffer to send a AT Remote command
- * TRX_txHandler();
- * TRX_rxHandler();		writes the received frame into the deRX_buffer
  */
 uint8_t TRX_baseInit(void);
 at_status_t TRX_send(void);
 at_status_t TRX_receive(void);
-
-int TRX_msgFrame		(uint8_t *send);
-int TRX_atRemoteFrame	(uint8_t *send);
-
-static void TRX_txHandler(void);
-static void TRX_rxHandler(void);
-
-/*
- * transceiver (trx) status structs
- */
-typedef struct {
-	uint8_t cnt;
-	uint8_t fail;
-	bool_t in_progress;
-}txStatus_t;
-
-typedef struct {
-	uint8_t cnt;
-	uint8_t seq;
-	bool_t fail;
-	bool_t done;
-}rxStatus_t;
 
 #endif /* STACKRELATED_H_ */

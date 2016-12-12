@@ -18,8 +18,20 @@
 #include "../../ATuracoli/stackdefines.h"		// defined register addresses
 
 // === Prototypes =========================================
-static CMD*		CMD_findInTable(void);
+/*
+ * Searched for the AT command in the command table if the module received a command in AT mode
+ */
+static CMD*	CMD_findInTable(void);
+
+/*
+ * Time handler to interrupt the command mode
+ */
 static uint32_t CMD_timeHandle(uint32_t arg);
+
+/*
+ * translate ASCII parameter to Hex values
+ */
+bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize ,size_t maxCmdSize);
 
 
 // === c-File Globals =====================================
