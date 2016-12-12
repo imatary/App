@@ -103,38 +103,34 @@ The AT command version number contains two version numbers at once.
  * prototype pointer to Timer functions
 
 #### C Files
-1.	atcommands.c – Hauptdatei mit der main-Funktion
- * initialisiert die RF modulvariablen
- * liest den EEPROM aus und speichert die Daten in den Flash
- * initialisiert den UART und Transceiver Buffer
- * konfiguriert das Gerät für die einzelnen Operationen
- * startet die aktive Warteschleife
-  * ruft die TRX Handler Funktion auf (10.2.9)
-  * ruft die lokale AT Funktion auf (10.2.2)
-  * ruft die UART API Frame Handler Funktion auf (10.2.10)
-2.	atlocal.c – Funktionen für die Lokale AT Behandlung
-•	Hauptfunktion für den AT Command Mode
-•	Funktionen read, write und exec für die Lokale Abhandlung
- ○	Bei Erweiterung der Kommandos in auslagern oder in Templates umwandeln
-3.	apiframe.c – Funktionen die, die API Frames behandeln
-•	Hauptfunktion um die API Frames abzuarbeiten
-•	Aufruf der Frame-Typ-Funktionen
- ○	0x08 & 0x09 local AT commands, ist in den rwx-Funktionen der atlocal.c Datei in-tegriert
- ○	0x18 specific device commands 
- ○	0x17 remote AT commands, ist in der trx0.c ausprogrammiert 
- ○	0x88 local AT response
- ○	0x97 remote AT response /* in Arbeit */
-4.	attable.c – Tabelle mit den AT commandos
-•	Auflistung aller Kommandos mit ihren Rechten (rwx) in einem Array
+1. atcommands.c – main file with main function
+ * init of RF modul varibles
+ * reads values of EEPROM and store it into FLASH
+ * init UART and transceiver buffer
+ * configure the modul for operrating
+ * starting active waiting loop
+2. atlocal.c – functions for local AT handling
+ * main function of the  AT Command Mode
+ * functions read, write und exec for local handling
+3. apiframe.c – function for API handling
+ * main fubction of API Frame handling
+ * call of diverent frame type functions  
+   \- 0x08 & 0x09 local AT commands, is defined in the rwx functions in atlocal.c  
+   \- 0x18 specific device commands  
+   \- 0x17 remote AT commands, is defined in trx0.c  
+   \- 0x88 local AT response  
+   \- 0x97 remote AT response /* work in progress */
+4. attable.c – table of AT commands
+ * list of all commands and their rights (rwx) in one array
  * if you want to add new AT commands, this file needs to be edited
-5.	circularBuffer.c – Buffer Funktionen
-•	Ausprogrammierte Pufferfunktionen
-6.	nvm_eeprom.c – Speicher- und Lesefunktion für den EEPROM
-•	Definition des EEPROM struct NVM
-•	Set user values und default Funktion
-•	Get Funktion
-•	EEPROM crc Funktionen
-7.	setter.c – Default-Setter-Funktionen
+5.	circularBuffer.c – buffer functions
+ * programmed buffer functions
+6.	nvm_eeprom.c – save and read functions for EEPROM operations
+ * definition of EEPROM struct `NVM`
+ * set user and default values functions
+ * get function
+ * EEPROM crc function
+7.	setter.c – default setter functions
 •	setter um die Standardwerte in dem Flash wieder herzustellen
 8.	timer0.c – definiert die Verbindung zu der Timer-Funktion des Stacks
 •	Initialisierung Timer-Pointer
