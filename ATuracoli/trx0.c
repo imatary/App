@@ -19,9 +19,6 @@
 #include "board.h"
 #include "transceiver.h"
 
-// === defines ============================================
-#define PACKAGE_SIZE 127	// size in bytes
-
 // === prototypes =========================================
 /*
  * TRX_txHandler	sender interrupt handler
@@ -120,25 +117,30 @@ uint8_t TRX_baseInit(void)
  * TRX_send
  * send a message over antenna to another device
  *
+ * Received:
+ *		uint8_t pointer to frame type or send information array if AP 0x97, 0x01 or 0x02 is called
+ *
  * Returns:
  *     TRANSMIT_OUT_FAIL    buffer is empty, module cannot send a byte.
  *	   TRANSMIT_IN_FAIL		no ACK received
  *     OP_SUCCESS			package was delivered
  * 
- * last modified: 2016/11/01
+ * last modified: 2016/12/13
  */
-
-at_status_t TRX_send(void)
+at_status_t TRX_send(uint8_t *senderInfo)
 {
 	uint8_t send[PACKAGE_SIZE] = {0};
 	static uint16_t type = 0;
 	int pos;
 
 	/*
-	 * Handle buffer dependent on API mode on or off and return pointer position in the array
+	 * Handle buffer dependent on AP mode on or off and return pointer position in the array
 	 */	 
-	if( RFmodul.serintCMD_ap ) { pos = TRX_atRemoteFrame(&send[0]);	}	// API Frame	
-	else					   { pos = TRX_msgFrame(&send[0]);		}	// std TX Transmit Request 64-bit
+	if      ( RFmodul.serintCMD_ap && *senderInfo == 0x17 ) { pos = TRX_0x17_atRemoteFrame(&send[0]); }	// AP Remote Frame	
+	else if ( RFmodul.serintCMD_ap && *senderInfo == 0x01 ) { /* pos = TRX_0x01_transmit64Frame(&send[0]); */ } // AP TX Transmit Request 64-bit addr.
+	else if ( RFmodul.serintCMD_ap && *senderInfo == 0x02 ) { /* pos = TRX_0x02_transmit16Frame(&send[0]); */ } // AP TX Transmit Request 16-bit addr.
+	else if ( RFmodul.serintCMD_ap && *senderInfo == 0x97 ) {  }
+	else												  { pos = TRX_msgFrame(&send[0]);		}	// std TX Transmit Request
 	
 	/*
 	 * Step 2: setup and send package
@@ -193,42 +195,79 @@ at_status_t TRX_send(void)
  * Returns:
  *     final position in array
  *
- * last modified: 2016/11/17
+ * last modified: 2016/12/13
  */
-
 int TRX_msgFrame(uint8_t *send)
-{
-	int pos;
+{                                              
+	int pos = 0;
 	/* Step 1: prepare packed
-	 * - set IEEE data frames
-	 * - set sequence counter
+	 * - prepare MAC header, first byte
 	 * - write destination PANID
-	 * - write extended dest. address
-	 * - write src. short address
+	 * - write dest. address
+	 * - write src. address
 	 */	
-	
-	sprintf((char*)(send+ 0),"%c",0x61);						// IEEE 802.15.4 FCF: 
-	sprintf((char*)(send+ 1),"%c",0x8c);						// data frame  
-	sprintf((char*)(send+ 2),"%c",0x0);							// sequence counter 
-	
+	if ( TRUE )													 *send  = 0x01; // if data send to _one_ device else Beacon /* TODO */
+	if ( RFmodul.secCMD_ee == TRUE )							 *send |= 0x08; // security active
+	if ( RFmodul.netCMD_mm == 0x0 || RFmodul.netCMD_mm == 0x2 )  *send |= 0x20; // ACK on
+	*send |= 0x40; // PAN Compression
+		
 	sprintf((char*)(send+ 3),"%c",RFmodul.netCMD_id & 0xff);
-	sprintf((char*)(send+ 4),"%c",RFmodul.netCMD_id >>  8);		// destination PAN_ID
+	sprintf((char*)(send+ 4),"%c",RFmodul.netCMD_id >>  8);				// destination PAN_ID
 	
-	sprintf((char*)(send+ 5),"%c",RFmodul.netCMD_dl >>  0);
-	sprintf((char*)(send+ 6),"%c",RFmodul.netCMD_dl >>  8);
-	sprintf((char*)(send+ 7),"%c",RFmodul.netCMD_dl >> 16);
-	sprintf((char*)(send+ 8),"%c",RFmodul.netCMD_dl >> 24);		// destination ext. addr. low 
+	if ( RFmodul.netCMD_dl > 0xFFFF || RFmodul.netCMD_dh > 0x0 )
+	{
+		sprintf((char*)(send+ 5),"%c",RFmodul.netCMD_dl >>  0);
+		sprintf((char*)(send+ 6),"%c",RFmodul.netCMD_dl >>  8);
+		sprintf((char*)(send+ 7),"%c",RFmodul.netCMD_dl >> 16);
+		sprintf((char*)(send+ 8),"%c",RFmodul.netCMD_dl >> 24);			// destination ext. addr. low
+		
+		sprintf((char*)(send+ 9),"%c",RFmodul.netCMD_dh >>  0);
+		sprintf((char*)(send+10),"%c",RFmodul.netCMD_dh >>  8);
+		sprintf((char*)(send+11),"%c",RFmodul.netCMD_dh >> 16);
+		sprintf((char*)(send+12),"%c",RFmodul.netCMD_dh >> 24);			// destination ext. addr. high
+		
+		*(send+1) |= 0x0C;												// MAC header second byte
+		pos = 13;
+	} 
+	else
+	{
+		sprintf((char*)(send+ 5),"%c",RFmodul.netCMD_dl >>  0);
+		sprintf((char*)(send+ 6),"%c",RFmodul.netCMD_dl >>  8);			// destination short addr.
+		
+		*(send+1) |= 0x08;												// MAC header second byte
+		pos = 7;
+	}
 	
-	sprintf((char*)(send+ 9),"%c",RFmodul.netCMD_dh >>  0);
-	sprintf((char*)(send+10),"%c",RFmodul.netCMD_dh >>  8);
-	sprintf((char*)(send+11),"%c",RFmodul.netCMD_dh >> 16);
-	sprintf((char*)(send+12),"%c",RFmodul.netCMD_dh >> 24);		// destination ext. addr. high 
+	/*
+	 * src address
+	 */
+	if ( RFmodul.netCMD_my > 0x0 )
+	{
+		sprintf((char*)(send+pos),  "%c",RFmodul.netCMD_my & 0xff);
+		sprintf((char*)(send+pos+1),"%c",RFmodul.netCMD_my >> 8);		// src. short address
+		
+		*(send+1) |= 0x80;												// MAC header second byte
+		pos += 2;
+	} 
+	else
+	{
+		sprintf((char*)(send+pos),  "%c",RFmodul.netCMD_sl >>  0);
+		sprintf((char*)(send+pos+1),"%c",RFmodul.netCMD_sl >>  8);
+		sprintf((char*)(send+pos+2),"%c",RFmodul.netCMD_sl >> 16);
+		sprintf((char*)(send+pos+3),"%c",RFmodul.netCMD_sl >> 24);		// src. ext. addr. low
+		
+		sprintf((char*)(send+pos+4),"%c",RFmodul.netCMD_sh >>  0);
+		sprintf((char*)(send+pos+5),"%c",RFmodul.netCMD_sh >>  8);
+		sprintf((char*)(send+pos+6),"%c",RFmodul.netCMD_sh >> 16);
+		sprintf((char*)(send+pos+7),"%c",RFmodul.netCMD_sh >> 24);		// src. ext. addr. high
+		
+		*(send+1) |= 0xC0;												// MAC header second byte
+		pos += 8;
+	}
 	
-	sprintf((char*)(send+13),"%c",RFmodul.netCMD_my & 0xff);
-	sprintf((char*)(send+14),"%c",RFmodul.netCMD_my >> 8);		// src. short address
-	sprintf((char*)(send+15),"%c",0x00);					
-	sprintf((char*)(send+16),"%c",0x00);						// I do not know in which relation this value stands, but it is in all test 04
-	pos += 16;
+	sprintf((char*)(send+pos),"%c",0x00);								// second counter (not implemented)
+	sprintf((char*)(send+pos+1),"%c",0x00);								// I am not sure but this byte could be used as a MAC Command
+	pos += 1;
 	do
 	{
 		pos +=1;
@@ -237,116 +276,6 @@ int TRX_msgFrame(uint8_t *send)
 	} while ( 0xD != *(send + pos - 1) && pos < PACKAGE_SIZE-1 );
 	
 	return pos;
-}
-
-/* 
- * AT Remote Command request
- * prepared frame for a remote AT command to controll another device
- *
- * Returns:
- *     final position in array
- *
- * last modified: 2016/11/01
- */
-
-int TRX_atRemoteFrame(uint8_t *send)
-{
-#if DEBUG
-	UART_print("== in API Remote CMD\r\n");
-#endif
-	int pos;
-	/* Step 1: prepare packed
-	 * - set IEEE data frames
-	 * - set sequence counter
-	 * - write destination PANID
-	 * - write extended dest. address
-	 * - write src. short address
-	 */	
-	
-	sprintf((char*)(send+ 0),"%c",0x61);
-	sprintf((char*)(send+ 1),"%c",0x8c);
-	sprintf((char*)(send+ 2),"%c",0x0);
-	
-	sprintf((char*)(send+ 3),"%c",RFmodul.netCMD_id & 0xff);
-	sprintf((char*)(send+ 4),"%c",RFmodul.netCMD_id >>  8);		// destination PAN_ID
-	
-	/* // static version
-	sprintf((char*)(send+ 5),"%c",RFmodul.netCMD_dl >>  0);
-	sprintf((char*)(send+ 6),"%c",RFmodul.netCMD_dl >>  8);
-	sprintf((char*)(send+ 7),"%c",RFmodul.netCMD_dl >> 16);
-	sprintf((char*)(send+ 8),"%c",RFmodul.netCMD_dl >> 24);		// destination ext. addr. low
-	
-	sprintf((char*)(send+ 9),"%c",RFmodul.netCMD_dh >>  0);
-	sprintf((char*)(send+10),"%c",RFmodul.netCMD_dh >>  8);
-	sprintf((char*)(send+11),"%c",RFmodul.netCMD_dh >> 16);
-	sprintf((char*)(send+12),"%c",RFmodul.netCMD_dh >> 24);		// destination ext. addr. high
-	*/
-	
-	sprintf((char*)(send+13),"%c",RFmodul.netCMD_my & 0xff);
-	sprintf((char*)(send+14),"%c",RFmodul.netCMD_my >> 8);		// src. short address
-	
-	sprintf((char*)(send+15),"%c",0x4D);							// it looks like an APS counter
-	sprintf((char*)(send+16),"%c",0x04);						// I do not know in which relation this lines stands, but it is in all test 04
-	
-	// begin data
-	/* // static version 
-	sprintf((char*)(send+17),"%c",0x01);						// Frame ID
-	
-	sprintf((char*)(send+18),"%c",RFmodul.netCMD_dh >> 24);
-	sprintf((char*)(send+19),"%c",RFmodul.netCMD_dh >> 16);
-	sprintf((char*)(send+20),"%c",RFmodul.netCMD_dh >>  8);
-	sprintf((char*)(send+21),"%c",RFmodul.netCMD_dh >>  0);
-	sprintf((char*)(send+22),"%c",RFmodul.netCMD_dl >> 24);
-	sprintf((char*)(send+23),"%c",RFmodul.netCMD_dl >> 16);
-	sprintf((char*)(send+24),"%c",RFmodul.netCMD_dl >>  8);
-	sprintf((char*)(send+25),"%c",RFmodul.netCMD_dl >>  0);		// destination long addr.
-	
-	sprintf((char*)(send+26),"%c",0xff);
-	sprintf((char*)(send+27),"%c",0xfe);						// destination short addr.
-	
-	sprintf((char*)(send+28),"%c",0x02);						// cmd option
-	pos = 28;
-	
-	// content
-	do
-	{
-		pos +=1;
-		cli(); BufferOut(&UART_deBuf, send + pos ); sei();
-
-	} while ( 0xD != *(send + pos) && pos < PACKAGE_SIZE-1 );
-	*/
-	
-	pos = 17;
-	at_status_t ret = 0;
-	uint8_t crc = 0xFF;
-	crc -= 0x17;
-	do
-	{
-		cli(); ret = BufferOut( &UART_deBuf, send+pos ); sei();
-		if ( ret == BUFFER_OUT_FAIL ) break;
-		
-		crc -= *(send+pos);
-		pos++;
-		
-	} while ( pos < PACKAGE_SIZE-1 );
-	
-	crc += *(send+pos);	// the user crc need to be deleted
-	if ( crc =! *(send+pos))
-	{
-		UART_printf("%x vs %x", crc, *(send+pos) );
-	}
-	
-	*(send+ 5) = *(send+25);
-	*(send+ 6) = *(send+24);
-	*(send+ 7) = *(send+23);
-	*(send+ 8) = *(send+22);		// destination ext. addr. low
-
-	*(send+ 9) = *(send+21);
-	*(send+10) = *(send+20);
-	*(send+11) = *(send+19);
-	*(send+12) = *(send+18);		// destination ext. addr. high
-	
-	return pos-1;
 }
 
 /*
@@ -359,14 +288,13 @@ int TRX_atRemoteFrame(uint8_t *send)
  *
  * last modified: 2016/11/12
  */
-
-
 at_status_t TRX_receive(void)
 {
 	uint8_t flen		= 0;	// total length of the frame which is stored in the buffer
 	uint8_t outchar		= 0;	// received the data of the buffer (byte by byte)
-	uint8_t dataStart	= 0;	// start pointer to print the data through UART
-	uint16_t frameType	= 0;	// received the frame type for frame handling
+	uint8_t dataStart	= 0;	// start position of data payload
+	uint8_t srcAddrLen  = 0;	// source address length
+	uint16_t macHeader	= 0;	// received the frame type for frame handling
 	
 	rx_stat.done = FALSE;
 	BufferNewContent(&RX_deBuf, FALSE);
@@ -384,49 +312,37 @@ at_status_t TRX_receive(void)
 	for (int i = 0; i < 2; i++)
 	{
 		cli(); BufferOut(&RX_deBuf, &outchar); sei();
-		if ( i == 0 ) { frameType  = (uint16_t) outchar << 8; }
-		if ( i == 1 ) { frameType |= (uint16_t) outchar; }
+		if ( i == 0 ) { macHeader  = (uint16_t) outchar & 0xFF; }
+		if ( i == 1 ) { macHeader |= (uint16_t) outchar << 8;   }
 	}
 	
-	switch (frameType)
+	switch ( 0xCC00 & macHeader ) // address length
 	{
-	case 0x618c : //UART_printf(">Frame Type: %"PRIx16"\r", frameType);
-		dataStart = 0xF;
-				// work in progress
-		break;
-		
-	case 0x6188 : // API Response
-		dataStart = 0x14;
-		break;
-		// |61 88 | 27  | 32 33 | ee 1b | ee 0b    | 01 05 | 01  | 00 13 a2 00 41 46 40 c2 | 0b ee | 44 30 | 00  | 05  |d6 3f
-		// | MACH | txc | PANID | dshort| sschort  |   ??  | FID | shl                     | my    |  D  0 | opt | val | crc
-	default :
-		break;
-	}
-		
-	for (uint8_t i = 0; i < flen-0x2; i++)
-	{
-		cli(); BufferOut(&RX_deBuf, &outchar); sei();
-		
-		if ( i == dataStart && FALSE == RFmodul.serintCMD_ap  && ('\r' != outchar || '\n' != outchar) )
-		{
-			UART_printf("%c", outchar);
-		}
-		else if ( RFmodul.serintCMD_ap && i >= dataStart )
-		{
-			UART_printf("%02X ", outchar);
-		}
-		else if ( 0xD == outchar ) 
-		{ 
-			UART_print("\r");
-		}
-		else if ( 0xA == outchar )
-		{
-			UART_print("\n");
-		}
+		case 0x8800 : dataStart = 0x09; srcAddrLen = 2; break; // dest 16 & src 16 -> 4  bytes + 5 bytes =  9
+		case 0x8C00 : dataStart = 0x0F; srcAddrLen = 2; break; // dest 64 & src 16 -> 10 bytes + 5 bytes = 15
+		case 0xC800 : dataStart = 0x0F; srcAddrLen = 8; break; // dest 16 & src 64 -> 10 bytes + 5 bytes = 15
+		case 0xCC00 : dataStart = 0x15; srcAddrLen = 8; break; // dest 64 & src 64 -> 16 bytes + 5 bytes = 21
+		default: return TRANSMIT_IN_FAIL;
 	}
 	
-	if (RFmodul.serintCMD_ap) { UART_print("\r"); }
+	if (0x40 & macHeader == 0x0 && RFmodul.serintCMD_ap > 0 )
+	{
+		TRX_createAPframe( flen-2, dataStart+2, srcAddrLen, 0x40 );
+	}
+	else if ( RFmodul.serintCMD_ap > 0 )
+	{
+		TRX_createAPframe( flen-2, dataStart, srcAddrLen, 0x5 & macHeader );
+	}
+	else 
+	{
+		for (uint8_t i = 0; i < flen-0x2; i++)
+		{
+			cli(); BufferOut(&RX_deBuf, &outchar); sei();
+			if ( i == dataStart ) UART_printf("%c", outchar);
+			
+		}/* end for loop */
+		
+	}
 	
 	rx_stat.cnt += 1;
 	rx_stat.done = FALSE;

@@ -180,7 +180,7 @@ void SET_defaultInEEPROM(void)
 	defaultValuesInEEPROM.serintCMD_bd = BD_INTERFACE_DATA_RATE;
 	defaultValuesInEEPROM.serintCMD_nb = NB_PARITY;
 	defaultValuesInEEPROM.serintCMD_ro = RO_PACKETIZATION_TIMEOUT;
-	defaultValuesInEEPROM.serintCMD_ap = AP_API_ENABLE;
+	defaultValuesInEEPROM.serintCMD_ap = AP_AP_ENABLE;
 	defaultValuesInEEPROM.ioserCMD_d8  = D8_DI8_CONFIGURATION;
 	defaultValuesInEEPROM.ioserCMD_d7  = D7_DIO7_CONFIGURATION;
 	defaultValuesInEEPROM.ioserCMD_d6  = D6_DIO6_CONFIGURATION;

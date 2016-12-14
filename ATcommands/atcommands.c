@@ -22,7 +22,7 @@
 device_t RFmodul;
 bool_t   APIframe = FALSE;
 static void at_status_t_print(at_status_t *value);
-static uint32_t API_timeHandle(uint32_t arg);
+static uint32_t AP_timeHandle(uint32_t arg);
 
 
 void main(void) 
@@ -89,24 +89,24 @@ int a;
 			if (RFmodul.deCMD_ru) UART_printf("%c", inchar );				// return character immediately
 
 			/*
-			 * if API mode active
+			 * if AP mode active
 			 */
 			if ( RFmodul.serintCMD_ap != 0 )
 			{
 				if ( inchar == 0x7E && apicounter == 0 )
 				{
-					th = deTIMER_start(API_timeHandle, deMSEC( 0x64 ), 0 ); // 100 MS
+					th = deTIMER_start(AP_timeHandle, deMSEC( 0x64 ), 0 ); // 100 MS
 					apicounter++;
 				}
 				apicounter = ( apicounter > 0 )? apicounter+1 : 0;
 			}
 			
 			/*
-			 * if a carriage return (0xD) received and the API Mode is disabled send the buffer content 
+			 * if a carriage return (0xD) received and the AP Mode is disabled send the buffer content 
 			 */					
 			if ( ('\r' == inchar || '\n' == inchar) && RFmodul.serintCMD_ap == 0 )
 			{ 
-				ret = TRX_send(); 
+				ret = TRX_send(0); 
 				if ( ret )	{ at_status_t_print(&ret); ret = 0; }
 				counter = 0;
 			}
@@ -131,11 +131,11 @@ int a;
 		} /* end of uart condition */
 		
 		/*
-		 * if API Mode is enabled  and APIframe true handle API Frame
+		 * if AP Mode is enabled  and APIframe true handle AP Frame
 		 */
 		if( APIframe == TRUE && RFmodul.serintCMD_ap !=0 )
 		{
-			API_frameHandle_uart( &apicounter );
+			AP_frameHandle_uart( &apicounter );
 			apicounter = 0;
 			APIframe = FALSE;
 			th = 0;
@@ -183,10 +183,10 @@ static void at_status_t_print(at_status_t *value)
  *
  * last modified: 2016/11/24
  */
-static uint32_t API_timeHandle(uint32_t arg)
+static uint32_t AP_timeHandle(uint32_t arg)
 {
 #if DEBUG
-	UART_print("== API timer active\r\n");
+	UART_print("== AP timer active\r\n");
 #endif
 	APIframe = TRUE;
 	return 0;

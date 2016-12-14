@@ -179,8 +179,8 @@ static CMD* CMD_findInTable(void)
  * - or execute commands
  *
  * Received:
- *		if in API Mode, a frame struct else a NULL pointer
- *		if in API Mode, a pointer to an already allocated array for processing else  a NULL pointer
+ *		if in AP Mode, a frame struct else a NULL pointer
+ *		if in AP Mode, a pointer to an already allocated array for processing else  a NULL pointer
  *		if in  AT Mode, a time handler pointer else a NULL pointer
  *
  * Returns:
@@ -198,9 +198,9 @@ at_status_t CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 #endif
 	CMD *pCommand  = NULL;
 	
-	if ( RFmodul.serintCMD_ap != 0 && frame != NULL ) // API frame
+	if ( RFmodul.serintCMD_ap != 0 && frame != NULL ) // AP frame
 	{
-		pCommand = API_findInTable(frame, array);
+		pCommand = AP_findInTable(frame, array);
 	} 
 	else // AT CMD
 	{
@@ -224,12 +224,12 @@ at_status_t CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 		
 	/*
 	 * handle CMD
-	 * if API frame, check frame length
+	 * if AP frame, check frame length
 	 * exec is allowed
 	 */
 	if ( frame != NULL ) 
 	{
-		if ( API_compareCRC(frame) == FALSE )
+		if ( AP_compareCRC(frame) == FALSE )
 		{
 			if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 			return ERROR;
@@ -1258,7 +1258,7 @@ at_status_t CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				{
 					UART_printf("%"PRIX8"\r", RFmodul.deCMD_ru);
 				}
-				// No API handle at this place -> check API_0x18_localDevice function
+				// No AP handle at this place -> check AP_0x18_localDevice function
 				break;
 
 /* FV */	case DE_FV :
@@ -1266,7 +1266,7 @@ at_status_t CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 				{
 					UART_printf("%s\r", AT_VERSION);
 				}
-				// No API handle at this place -> check API_0x18_localDevice function
+				// No AP handle at this place -> check AP_0x18_localDevice function
 				break;
 			
 			default : return INVALID_COMMAND;
@@ -1284,8 +1284,8 @@ at_status_t CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
  * write values into the memory
  *
  * Received:
- *		if in API Mode, a frame struct else a NULL pointer
- *		if in API Mode, a pointer to an already allocated array for processing else  a NULL pointer
+ *		if in AP Mode, a frame struct else a NULL pointer
+ *		if in AP Mode, a pointer to an already allocated array for processing else  a NULL pointer
  *		if in  AT Mode, a time handler pointer else a NULL pointer
  *
  * Returns:
@@ -1301,10 +1301,10 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 	CMD *pCommand  = NULL;
 	size_t cmdSize = 0;
 	
-	if ( RFmodul.serintCMD_ap != 0 && frame != NULL ) // API frame
+	if ( RFmodul.serintCMD_ap != 0 && frame != NULL ) // AP frame
 	{
 		cmdSize = frame->length-4;
-		pCommand = API_findInTable(frame, array);
+		pCommand = AP_findInTable(frame, array);
 		frame->rwx = WRITE;	
 	} 
 	else // AT CMD
@@ -1341,7 +1341,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 		if ( frame != NULL )
 		{
 			frame->crc -= 0x0;
-			if ( API_compareCRC(frame) == FALSE )
+			if ( AP_compareCRC(frame) == FALSE )
 			{
 				if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 				return ERROR;
@@ -1388,7 +1388,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1428,7 +1428,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 					
 					frame->crc -=  ( cmdString[0] + cmdString[1]);
 					
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1468,7 +1468,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 						frame->crc -=  cmdString[0];
 					}
 					
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1507,7 +1507,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 						frame->crc -=  cmdString[0];
 					}
 					
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1545,7 +1545,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 					
 					frame->crc -=  ( cmdString[0] + cmdString[1]);
 					
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1582,7 +1582,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1622,7 +1622,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 					
 					frame->crc -=  ( cmdString[0] + cmdString[1]);
 					
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1659,7 +1659,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1696,7 +1696,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1733,7 +1733,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1769,7 +1769,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1805,7 +1805,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1842,7 +1842,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1879,7 +1879,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1916,7 +1916,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1958,7 +1958,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -1996,7 +1996,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2030,7 +2030,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2068,7 +2068,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2108,7 +2108,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 					
 					frame->crc -=  ( cmdString[0] + cmdString[1]);
 					
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2148,7 +2148,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 					
 					frame->crc -=  ( cmdString[0] + cmdString[1]);
 					
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2188,7 +2188,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 					
 					frame->crc -=  ( cmdString[0] + cmdString[1]);
 					
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2225,7 +2225,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2266,7 +2266,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2302,7 +2302,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2336,7 +2336,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2370,7 +2370,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2408,7 +2408,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2442,7 +2442,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2476,7 +2476,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2510,7 +2510,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2544,7 +2544,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2578,7 +2578,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2612,7 +2612,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2646,7 +2646,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2680,7 +2680,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2714,7 +2714,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2748,7 +2748,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2782,7 +2782,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2816,7 +2816,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2853,7 +2853,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 					
 					frame->crc -=  ( cmdString[0] + cmdString[1]);
 					
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2890,7 +2890,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2924,7 +2924,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2958,7 +2958,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -2992,7 +2992,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3033,7 +3033,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 						frame->crc -=  cmdString[0];
 					}
 					
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3069,7 +3069,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3103,7 +3103,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3137,7 +3137,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3171,7 +3171,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3205,7 +3205,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3239,7 +3239,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3273,7 +3273,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3307,7 +3307,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3348,7 +3348,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 						frame->crc -=  cmdString[0];
 					}
 					
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3390,7 +3390,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 					
 					frame->crc -=  ( cmdString[0] + cmdString[1]);
 					
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3430,7 +3430,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 					
 					frame->crc -=  ( cmdString[0] + cmdString[1]);
 					
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3467,7 +3467,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 				{
 					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
 					frame->crc -= tmp;
-					if ( API_compareCRC(frame) == FALSE )
+					if ( AP_compareCRC(frame) == FALSE )
 					{
 						if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
 						return ERROR;
@@ -3488,7 +3488,7 @@ at_status_t CMD_write(struct api_f *frame, uint8_t *array, size_t *len)
 			break;
 			
 /* RU */	case DE_RU : {
-				// no API handling
+				// no AP handling
 				if ( RFmodul.serintCMD_ap > 0 && frame != NULL ) return ERROR;
 				
 				uint8_t tmp = 0;

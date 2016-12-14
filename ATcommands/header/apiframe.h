@@ -36,7 +36,7 @@ struct api_f
 	uint8_t		msg[256];	// 256 Byte
 	/*
 	 * create the frame & calc checksum
-	 * 0xFF - (API type + frame ID [+ target address] [+ options] + main content [+ parameter]) = checksum
+	 * 0xFF - (AP type + frame ID [+ target address] [+ options] + main content [+ parameter]) = checksum
 	 *        |<---------------------------------- frame frame->bufLength ------------------->|
 	 */
 	uint8_t  crc;			// 1 Byte
@@ -44,19 +44,35 @@ struct api_f
 
 // === prototypes =========================================
 /*
- * Main function to handle API frames 
+ * Main function to handle AP frames 
  */
-void    API_frameHandle_uart(size_t *len);
+void AP_frameHandle_uart(size_t *len);
 
 /*
- * Searched for the AT command in the command table if the module received an API frame
+ * Searched for the AT command in the command table if the module received an AP frame
  */
-CMD*    API_findInTable(struct api_f *frame, uint8_t *array);
+CMD* AP_findInTable(struct api_f *frame, uint8_t *array);
 
 /*
  * compared the calculated crc with user crc
  */
-bool_t  API_compareCRC(struct api_f *frame);
+bool_t  AP_compareCRC(struct api_f *frame);
 
+/*
+ * created a AP frame if data was received over air
+ */
+void TRX_createAPframe( uint8_t flen, uint8_t dataStart, uint8_t srcAddrLen, uint8_t option);
+
+/*
+ * pack a package for a remote AT command and AT command response
+ */
+int TRX_0x17_atRemoteFrame(uint8_t *send);
+int TRX_0x97_atRemote_response(uint8_t *send);
+
+/*
+ * pack a package for a message which will transmitted
+ */
+int TRX_0x01_transmit64Frame(uint8_t *send);
+int TRX_0x02_transmit16Frame(uint8_t *send);
 
 #endif /* APIFRAME_H_ */

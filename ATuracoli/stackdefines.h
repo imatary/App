@@ -39,6 +39,9 @@ RADIO_TYPE == RADIO_ATMEGA128RFA1_D
 #endif
 
 // === defines ============================================
+#define PACKAGE_SIZE 127	// size in bytes
+
+// === redefines ==========================================
 #define deHIF_DEFAULT_BAUDRATE	HIF_DEFAULT_BAUDRATE
 
 #define deSPI_RATE_1_2			SPI_RATE_1_2
