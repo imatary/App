@@ -48,8 +48,7 @@ void AP_frameHandle_uart(size_t *len)
 	cli(); BufferOut( &UART_deBuf, &outchar[0] ); sei();
 	if ( outchar[0] != STD_DELIMITER ) 
 	{
-		frame.ret = ERROR;
-		AP_0x88_atLocal_response( &frame );
+		BufferInit(&UART_deBuf, NULL);
 		return;
 	}
 	if (RFmodul.deCMD_ru) UART_printf("\rStart delimiter\r%02"PRIX8"\r\r", STD_DELIMITER );
@@ -76,6 +75,7 @@ void AP_frameHandle_uart(size_t *len)
 				frame.ret = CMD_write(&frame, outchar, len);
 				SET_userValInEEPROM();
 			}
+			AP_0x88_atLocal_response( &frame );
 		break;
 		
 		case AT_COMMAND_Q  : 
@@ -89,24 +89,24 @@ void AP_frameHandle_uart(size_t *len)
 			{
 				frame.ret = CMD_write(&frame, outchar, len);
 			}
+			AP_0x88_atLocal_response( &frame );
 		break;
 		
 		case REMOTE_AT_CMD : 
 			if (RFmodul.deCMD_ru) UART_print("Frame type\r17 (AT Remote Command)\r\r");
 			frame.crc -= 0x17;
-			frame.ret = TRX_send(&frame.type); 
+			frame.ret = TRX_send(0x17); 
 		break;
 		
 		case DEVICE_AT_CMD :
 			if (RFmodul.deCMD_ru) UART_print("Frame type\r18 (AT Device Command)\r\r");
 			frame.crc -= 0x18;
 			frame.ret = AP_0x18_localDevice(&frame, outchar, len);
+			AP_0x88_atLocal_response( &frame );
 		break;
 				
 		default : frame.ret = INVALID_COMMAND;
 	}
-		
-	AP_0x88_atLocal_response( &frame );
 }
 
 /*
@@ -357,7 +357,10 @@ static at_status_t AP_0x18_localDevice(struct api_f *frame, uint8_t *array, size
 static void AP_0x88_atLocal_response(struct api_f *frame)
 {
 	frame->crc = 0xFF;
-	if ( frame->ret < 0 ) frame->length = 0;
+	if ( frame->ret < 0 ||\
+	     frame->rwx == WRITE ||\
+		 frame->rwx == EXEC 
+	)    frame->length = 0;
 	frame->length += 5;
 	
 	if ( RFmodul.deCMD_ru )
@@ -429,22 +432,23 @@ static void AP_0x88_atLocal_response(struct api_f *frame)
  */
 static void AP_0x97_atRemote_response(uint16_t length)
 {
-	uint8_t  outchar, crc = 0xFF;
+	uint8_t  outchar, crc;
 	length += 1; // +1 for frame type
 	
 	UART_putc( STD_DELIMITER );						// start delimiter
 	UART_putc( (uint8_t) (length >> 8) );			// frame length
 	UART_putc( (uint8_t) (length & 0xFF) );
 	UART_putc( 0x97 );								// frame type
-	crc -= 0x97;
+	crc = 0x97;
 	
 	for (uint16_t i = 0; i < length-1; i++)
 	{
 		cli(); BufferOut( &RX_deBuf, &outchar ); sei();
 		UART_putc( outchar );
-		crc -= outchar;
+		crc += outchar;
 	}
-	UART_putc(crc);									// checksum
+	UART_putc(0xFF-crc);									// checksum
+	deBufferReadReset(&RX_deBuf, '+', 2);
 }
 
 /*
@@ -499,6 +503,7 @@ static void AP_0x80_0x81_rxReceive( uint16_t length, uint8_t *srcAddr, uint8_t s
 	}
 
 	UART_putc(crc);							// checksum
+	deBufferReadReset(&RX_deBuf, '+', 2);
 }
 
 static void AP_0x17_atRemoteFrame(void)
@@ -515,8 +520,13 @@ static void AP_0x17_atRemoteFrame(void)
 /*
  *
  *
+ * Received:
+ *		uint8_t pointer to send array
  *
+ * Returns:
+ *     final position in array
  *
+ * last modified: 2016/12/15
  */
 void TRX_createAPframe( uint8_t flen, uint8_t dataStart, uint8_t srcAddrLen, uint8_t option )
 {
@@ -534,7 +544,7 @@ void TRX_createAPframe( uint8_t flen, uint8_t dataStart, uint8_t srcAddrLen, uin
 		if ( counter >= dataStart-srcAddrLen )
 		{
 			srcAddrAndOption[pos] = outchar;
-			if () srcAddrAndOption[pos] = option;
+			if (counter == dataStart) srcAddrAndOption[pos] = option;
 			pos++;
 		}
 	}
@@ -542,8 +552,8 @@ void TRX_createAPframe( uint8_t flen, uint8_t dataStart, uint8_t srcAddrLen, uin
 	switch ( srcAddrAndOption[srcAddrLen+1] )
 	{
 		case 0x04 : AP_0x17_atRemoteFrame(); break;									// TX response only
-		case 0x05 : AP_0x97_atRemote_response( (uint16_t) flen-dataStart); break;								// UART response only
-		case 0x00 : AP_0x80_0x81_rxReceive( (uint16_t) flen-dataStart , srcAddrAndOption, srcAddrLen ); break;	// UART response only
+		case 0x05 : AP_0x97_atRemote_response( (uint16_t) flen-dataStart-4); break;								// UART response only
+		case 0x00 : AP_0x80_0x81_rxReceive( (uint16_t) flen-dataStart-4 , srcAddrAndOption, srcAddrLen ); break;	// UART response only
 	}					
 	
 }
@@ -558,17 +568,14 @@ void TRX_createAPframe( uint8_t flen, uint8_t dataStart, uint8_t srcAddrLen, uin
  * Returns:
  *     final position in array
  *
- * last modified: 2016/12/13
+ * last modified: 2016/12/15
  */
 int TRX_0x17_atRemoteFrame(uint8_t *send)
 {
-#if DEBUG
-	UART_print("== in AP Remote CMD\r\n");
-#endif
 	int			pos		= 0;
 	at_status_t ret		= 0;
-	uint8_t		crc		= 0xFF;
-	uint8_t		tmp[10] = {0};
+	uint8_t		crc		= 0x17;
+	uint8_t		tmp[11] = {0};
 	bool_t		flag	= FALSE;
 	
 	/* Step 1: prepare packed
@@ -580,41 +587,40 @@ int TRX_0x17_atRemoteFrame(uint8_t *send)
 	if ( TRUE )													 *send |= 0x01; // if data send to _one_ device else Beacon /* TODO */
 	if ( RFmodul.secCMD_ee == TRUE )							 *send |= 0x08; // security active
 	if ( RFmodul.netCMD_mm == 0x0 || RFmodul.netCMD_mm == 0x2 )  *send |= 0x20; // ACK on
-	*send |= 0x40; // PAN Compression
+	if ( RFmodul.netCMD_dl > 0x0 )								 *send |= 0x40; // PAN Compression on
 	
 	sprintf((char*)(send+ 3),"%c",RFmodul.netCMD_id & 0xff);
 	sprintf((char*)(send+ 4),"%c",RFmodul.netCMD_id >>  8);		// destination PAN_ID
 	
 	/*
 	 * dest. address
-	 */
-	crc -= 0x17;
-	for (char i = 0; i < 10; )
+	 */;
+	for (char i = 0; i < 11; i++ )
 	{
 		cli(); ret = BufferOut( &UART_deBuf, &tmp[i] ); sei();
 		if ( ret == BUFFER_OUT_FAIL ) return 0;
-		crc -= tmp[i];
+		crc += tmp[i];
 	}
 	
-	if ( tmp[8] < 0xFF || tmp[9] < 0xFE )
+	if ( tmp[9] < 0xFF || tmp[10] < 0xFE )
 	{
-		*(send+5) = tmp[9];
-		*(send+6) = tmp[8];
+		*(send+5) = tmp[10];
+		*(send+6) = tmp[9];
 		
 		*(send+1) |= 0x08;												// MAC header second byte
 		pos = 7;
 	} 
 	else
 	{
-		*(send+ 5) = tmp[7];
-		*(send+ 6) = tmp[6];
-		*(send+ 7) = tmp[5];
-		*(send+ 8) = tmp[4];		// destination ext. addr. low
+		*(send+ 5) = tmp[8];
+		*(send+ 6) = tmp[7];
+		*(send+ 7) = tmp[6];
+		*(send+ 8) = tmp[5];		// destination ext. addr. low
 
-		*(send+ 9) = tmp[3];
-		*(send+10) = tmp[2];
-		*(send+11) = tmp[1];
-		*(send+12) = tmp[0];		// destination ext. addr. high
+		*(send+ 9) = tmp[4];
+		*(send+10) = tmp[3];
+		*(send+11) = tmp[2];
+		*(send+12) = tmp[1];		// destination ext. addr. high
 		
 		*(send+1) |= 0x0C;												// MAC header second byte
 		pos = 13;
@@ -650,24 +656,27 @@ int TRX_0x17_atRemoteFrame(uint8_t *send)
 	sprintf((char*)(send+15),"%c",0x4D);								// it looks like an APS counter
 	sprintf((char*)(send+16),"%c",0x04);								// Command type
 	
+	/*
+	 * data
+	 */
 	pos = 17;
+	for ( char i = 0; i<11; i++, pos++ )
+	{
+		*(send+pos) = tmp[i];
+	}
 	
-
 	do
 	{
 		cli(); ret = BufferOut( &UART_deBuf, send+pos ); sei();
 		if ( ret == BUFFER_OUT_FAIL ) break;
 		
-		crc -= *(send+pos);
+		crc += *(send+pos);
 		pos++;
 		
 	} while ( pos < PACKAGE_SIZE-1 );
 	
-	crc += *(send+pos);	// the user crc need to be deleted
-	if ( crc =! *(send+pos))
-	{
-		UART_printf("%x vs %x", crc, *(send+pos) );
-	}
+	crc = crc - *(send+pos);	// the user crc need to be deleted
+	crc = 0xFF - crc;
 	
 	return pos-1;
 }

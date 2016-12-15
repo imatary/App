@@ -54,7 +54,7 @@ bool_t noTimeout = TRUE;
  */
 void AT_localMode(void)
 {
-	at_status_t ret       = 0;
+	at_status_t ret   = 0;
 	int		inchar    = 0;
 	size_t  counter   = 0;
 	uint32_t th		  = 0;
@@ -198,7 +198,7 @@ at_status_t CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 #endif
 	CMD *pCommand  = NULL;
 	
-	if ( RFmodul.serintCMD_ap != 0 && frame != NULL ) // AP frame
+	if ( frame != NULL ) // AP frame
 	{
 		pCommand = AP_findInTable(frame, array);
 	} 
@@ -217,7 +217,7 @@ at_status_t CMD_readOrExec(struct api_f *frame, uint8_t *array, uint32_t *th)
 	if ( NO_AT_CMD == pCommand->ID || NULL == pCommand ) 
 	{
 #if DEBUG
-	UART_print("== Invalide CMD exit!\r\n");
+	UART_print("== Invalid CMD exit!\r\n");
 #endif
 		return INVALID_COMMAND;
 	}

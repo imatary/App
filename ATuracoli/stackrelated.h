@@ -67,7 +67,7 @@ static uint8_t	(*TRX_init)			(void);
  * TRX_receive();		function to receive data over the air
  */
 uint8_t TRX_baseInit(void);
-at_status_t TRX_send(uint8_t *senderInfo);
+at_status_t TRX_send(uint8_t senderInfo);
 at_status_t TRX_receive(void);
 
 #endif /* STACKRELATED_H_ */

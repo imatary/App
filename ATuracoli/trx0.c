@@ -125,9 +125,9 @@ uint8_t TRX_baseInit(void)
  *	   TRANSMIT_IN_FAIL		no ACK received
  *     OP_SUCCESS			package was delivered
  * 
- * last modified: 2016/12/13
+ * last modified: 2016/12/15
  */
-at_status_t TRX_send(uint8_t *senderInfo)
+at_status_t TRX_send(uint8_t senderInfo)
 {
 	uint8_t send[PACKAGE_SIZE] = {0};
 	static uint16_t type = 0;
@@ -136,10 +136,10 @@ at_status_t TRX_send(uint8_t *senderInfo)
 	/*
 	 * Handle buffer dependent on AP mode on or off and return pointer position in the array
 	 */	 
-	if      ( RFmodul.serintCMD_ap && *senderInfo == 0x17 ) { pos = TRX_0x17_atRemoteFrame(&send[0]); }	// AP Remote Frame	
-	else if ( RFmodul.serintCMD_ap && *senderInfo == 0x01 ) { /* pos = TRX_0x01_transmit64Frame(&send[0]); */ } // AP TX Transmit Request 64-bit addr.
-	else if ( RFmodul.serintCMD_ap && *senderInfo == 0x02 ) { /* pos = TRX_0x02_transmit16Frame(&send[0]); */ } // AP TX Transmit Request 16-bit addr.
-	else if ( RFmodul.serintCMD_ap && *senderInfo == 0x97 ) {  }
+	if      ( RFmodul.serintCMD_ap && senderInfo == 0x17 ) { pos = TRX_0x17_atRemoteFrame(&send[0]); }	// AP Remote Frame	
+	else if ( RFmodul.serintCMD_ap && senderInfo == 0x01 ) { /* pos = TRX_0x01_transmit64Frame(&send[0]); */ } // AP TX Transmit Request 64-bit addr.
+	else if ( RFmodul.serintCMD_ap && senderInfo == 0x02 ) { /* pos = TRX_0x02_transmit16Frame(&send[0]); */ } // AP TX Transmit Request 16-bit addr.
+	else if ( RFmodul.serintCMD_ap && senderInfo == 0x97 ) {  }
 	else												  { pos = TRX_msgFrame(&send[0]);		}	// std TX Transmit Request
 	
 	/*
@@ -318,11 +318,13 @@ at_status_t TRX_receive(void)
 	
 	switch ( 0xCC00 & macHeader ) // address length
 	{
-		case 0x8800 : dataStart = 0x09; srcAddrLen = 2; break; // dest 16 & src 16 -> 4  bytes + 5 bytes =  9
-		case 0x8C00 : dataStart = 0x0F; srcAddrLen = 2; break; // dest 64 & src 16 -> 10 bytes + 5 bytes = 15
-		case 0xC800 : dataStart = 0x0F; srcAddrLen = 8; break; // dest 16 & src 64 -> 10 bytes + 5 bytes = 15
-		case 0xCC00 : dataStart = 0x15; srcAddrLen = 8; break; // dest 64 & src 64 -> 16 bytes + 5 bytes = 21
-		default: return TRANSMIT_IN_FAIL;
+		case 0x8800 : dataStart = 0x07; srcAddrLen = 2; break; // dest 16 & src 16 -> 4  bytes + 3 bytes =  7
+		case 0x8C00 : dataStart = 0x0F; srcAddrLen = 2; break; // dest 64 & src 16 -> 10 bytes + 3 bytes = 13
+		case 0xC800 : dataStart = 0x0F; srcAddrLen = 8; break; // dest 16 & src 64 -> 10 bytes + 3 bytes = 13
+		case 0xCC00 : dataStart = 0x15; srcAddrLen = 8; break; // dest 64 & src 64 -> 16 bytes + 3 bytes = 19
+		default: 
+			BufferInit(&RX_deBuf, NULL);
+			return TRANSMIT_IN_FAIL;
 	}
 	
 	if (0x40 & macHeader == 0x0 && RFmodul.serintCMD_ap > 0 )
