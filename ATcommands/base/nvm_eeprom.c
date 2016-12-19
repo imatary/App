@@ -24,12 +24,12 @@
  *	-------------------------------
  *	   160 bytes | total in use
  */ 
-
 #include <stdint.h>							// uintX_t
 #include <string.h>							// srncpy, memcpy, memset
 #include <avr/eeprom.h>						// eeprom write & read
 #include "../header/defaultConfig.h"		// default values
 #include "../header/rfmodul.h"				// RFmodul struct
+
 
 // === defines ============================================
 #define START_POS		0x1DE0	// start position in EEPROM
@@ -240,7 +240,7 @@ void GET_allFromEEPROM(void)
 {
 	NVM ValuesFromEEPROM;
 	uint8_t workBuff[sizeof(NVM)];
-			
+		
 	eeprom_read_block(&ValuesFromEEPROM, (void*) START_POS, sizeof(NVM));	// (1)
 	memcpy(workBuff, &ValuesFromEEPROM, sizeof(NVM));						// (2)
 	uint16_t calcCrc = calc_crc(workBuff, PAYLOAD_LENGTH+4 );

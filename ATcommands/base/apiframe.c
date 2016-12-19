@@ -18,11 +18,14 @@
 #include "../../ATuracoli/stackdefines.h"
 
 // === Prototypes =========================================
-static at_status_t AP_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t *len);
+static at_status_t AP_0x18_localDevice(size_t *len);
 static void		   AP_0x88_atLocal_response(struct api_f *frame);
 static void		   AP_0x97_atRemote_response(uint16_t length);
 static void		   AP_0x80_0x81_rxReceive( uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen );
 static void		   AP_0x17_atRemoteFrame(void);
+
+// === globals ============================================
+struct api_f frame  = {0,0,0,0,{0},0,{0},0};
 
 // === Functions (local handling shared) ==================
 // ===
@@ -37,12 +40,11 @@ static void		   AP_0x17_atRemoteFrame(void);
  * Returns:
  *		nothing
  *
- * last modified: 2016/12/07
+ * last modified: 2016/12/19
  */
-void AP_frameHandle_uart(size_t *len)
+void AP_frameHandle_uart(void)
 {
 	uint8_t  outchar[5]	= {0x0};
-	struct api_f frame  = {0,0,0,0,{0},0,{0},0xFF};
 	
 	// Start delimiter	1 byte	
 	cli(); BufferOut( &UART_deBuf, &outchar[0] ); sei();
@@ -61,18 +63,24 @@ void AP_frameHandle_uart(size_t *len)
 	
 	// frame type	1 byte
 	cli(); BufferOut( &UART_deBuf, &frame.type ); sei();
+	
+	// frame id		1 byte
+	cli(); BufferOut( &UART_deBuf, &frame.id ); sei();
+	if ( RFmodul.deCMD_ru ) UART_printf("Frame ID\r%02"PRIX8"\r\r", frame.id );
+	frame.crc = frame.id;
+	
 	switch ( frame.type )
 	{
 		case AT_COMMAND    : 
 			if (RFmodul.deCMD_ru) UART_print("Frame type\r08 (AT Command)\r\r");
-			frame.crc -= 0x08;
+			frame.crc += 0x08;
 			if ( frame.length == 4)
 			{
-				frame.ret = CMD_readOrExec(&frame, outchar, NULL);
+				frame.ret = CMD_readOrExec(NULL);
 			}
 			else
 			{
-				frame.ret = CMD_write(&frame, outchar, len);
+				frame.ret = CMD_write( (size_t*) &frame.length, TRUE);
 				SET_userValInEEPROM();
 			}
 			AP_0x88_atLocal_response( &frame );
@@ -80,28 +88,28 @@ void AP_frameHandle_uart(size_t *len)
 		
 		case AT_COMMAND_Q  : 
 			if (RFmodul.deCMD_ru) UART_print("Frame type\r09 (AT Command Queue)\r\r");
-			frame.crc -= 0x09;
+			frame.crc += 0x09;
 			if ( frame.length == 4)
 			{
-				frame.ret = CMD_readOrExec(&frame, outchar, NULL);
+				frame.ret = CMD_readOrExec(NULL);
 			}
 			else
 			{
-				frame.ret = CMD_write(&frame, outchar, len);
+				frame.ret = CMD_write((size_t*) &frame.length, TRUE);
 			}
 			AP_0x88_atLocal_response( &frame );
 		break;
 		
 		case REMOTE_AT_CMD : 
 			if (RFmodul.deCMD_ru) UART_print("Frame type\r17 (AT Remote Command)\r\r");
-			frame.crc -= 0x17;
+			frame.crc += 0x17;
 			frame.ret = TRX_send(0x17); 
 		break;
 		
 		case DEVICE_AT_CMD :
 			if (RFmodul.deCMD_ru) UART_print("Frame type\r18 (AT Device Command)\r\r");
-			frame.crc -= 0x18;
-			frame.ret = AP_0x18_localDevice(&frame, outchar, len);
+			frame.crc += 0x18;
+			frame.ret = AP_0x18_localDevice((size_t*) &frame.length);
 			AP_0x88_atLocal_response( &frame );
 		break;
 				
@@ -110,55 +118,67 @@ void AP_frameHandle_uart(size_t *len)
 }
 
 /*
- * AP_findInTable() 
- * - searched in the command table for the command id
+ * AP set AT command stored the AT CMD into frame struct for response 
  *
  * Received:
- *		api_f		the AP frame to store important informations for the response
- *		uint8_t		pointer to an array which is already initialized and available for processing (just to save a little mem)
+ *		uint8_t pointer to the array which hold the AT command line
  *
  * Returns:
- *	   CMD struct		on success
- *     INVALID_COMMAND	on fail
+ *	   nothing
  *
- * last modified: 2016/11/18
+ * last modified: 2016/12/19
  */
-CMD* AP_findInTable(struct api_f *frame, uint8_t *array)
-{
-	// frame id		1 byte
-	cli(); BufferOut( &UART_deBuf, &frame->id ); sei();
-	if ( RFmodul.deCMD_ru ) UART_printf("Frame ID\r%02"PRIX8"\r\r", frame->id );
-	frame->crc -= frame->id;
-	
-	// AT command 2 bytes
-	/*
-	 * Why this intricate way and not simply compare 2 characters at a specific start position?
-	 *   The answer is quiet simple, now there are less commands but if the cmd table grows you'll find
-	 *   double matches, that's why it's better to compare 4 letters.
-	 *
-	 * But what is with the special device commands (DE..)?
-	 *   For this case the frame type 0x18 is added to the library.
-	 */
-	*(array+0) = 'A';
-	*(array+1) = 'T';
-	cli(); BufferOut( &UART_deBuf, array+2 ); sei();
-	cli(); BufferOut( &UART_deBuf, array+3 ); sei();
-	
+void AP_setATcmd(uint8_t *array)
+{	
 	if (RFmodul.deCMD_ru) UART_printf("AT Command\r%02"PRIX8" %02"PRIX8" (%c%c)\r\r", *(array+2), *(array+3), *(array+2), *(array+3));
-	frame->crc -= (*(array+2) + *(array+3));
-	frame->cmd[0] = *(array+2);
-	frame->cmd[1] = *(array+3);
-	
-	// search for CMD in table
-	CMD *workPointer = (CMD*) pStdCmdTable;
-	for (int i = 0; i < command_count ; i++, workPointer++)
+	frame.crc	+= (*(array+2) + *(array+3));
+	frame.cmd[0] =  *(array+2);
+	frame.cmd[1] =  *(array+3);
+}
+
+/*
+ * AP set AT read, write or execute value into frame struct for response 
+ *
+ * Received:
+ *		uint8_t value of READ, WRITE or EXEC
+ *
+ * Returns:
+ *	   nothing
+ *
+ * last modified: 2016/12/19
+ */
+void AP_setRWXopt(uint8_t opt)
+{
+	frame.rwx = opt;
+}
+
+/*
+ * AP set AT command stored the AT CMD for the response in the frame struct
+ *
+ * Received:
+ *		void	pointer to the variable which hold the parameter value
+ *		short	size of the parameter
+ *		uint8_t boolean value whether the message array should be swapped or not
+ *
+ * Returns:
+ *	   nothing
+ *
+ * last modified: 2016/12/19
+ */
+void AP_setMSG(void *val, short length, uint8_t swapp)
+{
+	frame.msg[length+1] = 0x0;
+	frame.length = length;
+	memcpy(frame.msg, val, length);
+	if ( length > 1 && swapp == 1 )
 	{
-		if( strncmp( (const char*) array, workPointer->name, 4 ) == 0 ) 
+		for (short i = 0; i < frame.length/2; i++, length--)
 		{
-			return workPointer;
+			frame.msg[i]        ^= frame.msg[length-1];
+			frame.msg[length-1] ^= frame.msg[i];
+			frame.msg[i]        ^= frame.msg[length-1];
 		}
-	}
-	return NO_AT_CMD;
+	}	
 }
 
 /*
@@ -174,12 +194,28 @@ CMD* AP_findInTable(struct api_f *frame, uint8_t *array)
  *
  * last modified: 2016/11/29
  */
-bool_t AP_compareCRC(struct api_f *frame)
+bool_t AP_compareCRC(void)
 {
 	uint8_t userCRC;
 	cli(); BufferOut( &UART_deBuf, &userCRC); sei();
 	
-	return ( frame->crc == userCRC )? TRUE : FALSE;	
+	return ( 0xFF - frame.crc == userCRC )? TRUE : FALSE;	
+}
+
+/*
+ * The AP update CRC function adds the value of val to the crc checksum
+ *
+ * Received:
+ *		uint8_t	pointer to an unit8_t value
+ *
+ * Returned:
+ *		nothing
+ *
+ * last modified: 2016/12/19
+ */
+void AP_updateCRC(uint8_t *val)
+{
+	frame.crc += *val;
 }
 
 
@@ -206,38 +242,21 @@ bool_t AP_compareCRC(struct api_f *frame)
  *		
  * last modified: 2016/12/07
  */
-static at_status_t AP_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t *len)
-{
-	// frame id		1 byte
-	cli(); BufferOut( &UART_deBuf, &frame->id ); sei();
-	if (RFmodul.deCMD_ru) UART_printf("Frame ID\r%02"PRIX8"\r\r", frame->id );
-	frame->crc -= frame->id;
-	
+static at_status_t AP_0x18_localDevice(size_t *len)
+{	
 	// AT command 2 bytes
-	/*
-	 * Why this intricate way and not simply compare 2 characters at a specific start position?
-	 *   The answer is quiet simple, now there are less commands but if the cmd table grows you'll find
-	 *   double matches, that's why it's better to compare 4 letters.
-	 *
-	 * But what is with the special device commands (DE..)?
-	 *   For this case the frame type 0x18 is added to the library.
-	 */
-	*(array+0) = 'D';
-	*(array+1) = 'E';
-	cli(); BufferOut( &UART_deBuf, array+2 ); sei();
-	cli(); BufferOut( &UART_deBuf, array+3 ); sei();
+	uint8_t pCmdString[5] = {'D','E',0,0,0};
+
+	cli(); BufferOut( &UART_deBuf, &pCmdString[2] ); sei();
+	cli(); BufferOut( &UART_deBuf, &pCmdString[3] ); sei();
 	
-	if (RFmodul.deCMD_ru) UART_printf("DE Command\r%02"PRIX8" %02"PRIX8" (%c%c)\r\r", *(array+2), *(array+3), *(array+2), *(array+3));
-	frame->crc -= (*(array+2) + *(array+3));
-	frame->cmd[0] = *(array+2);
-	frame->cmd[1] = *(array+3);
+	if (RFmodul.deCMD_ru) UART_printf("DE Command\r%02"PRIX8" %02"PRIX8" (%c%c)\r\r", pCmdString[2], pCmdString[3], pCmdString[2], pCmdString[3]);
+	frame.crc += (pCmdString[2] + pCmdString[3]);
+	frame.cmd[0] = pCmdString[2];
+	frame.cmd[1] = pCmdString[3];
 	
 	// search for CMD in table
-	CMD *workPointer = (CMD*) pStdCmdTable;
-	for (int i = 0; i < command_count ; i++, workPointer++)
-	{
-		if( strncmp( (const char*) array, workPointer->name, 4 ) == 0 ) break;
-	}
+	CMD *workPointer = CMD_findInTable(pCmdString);
 	
 	/*
 	 * handle CMD
@@ -245,45 +264,41 @@ static at_status_t AP_0x18_localDevice(struct api_f *frame, uint8_t *array, size
 	 * frame length
 	 * EXEC is allowed
 	 */
-	if ( frame->length == 4 && workPointer->rwxAttrib & EXEC )
+	if ( frame.length == 4 && workPointer->rwxAttrib & EXEC )
 	{
-		frame->rwx = EXEC;
-		if ( AP_compareCRC( frame ) == FALSE )
-		{
-			UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
-			return ERROR;
-		}
+		frame.rwx = EXEC;
+		if ( AP_compareCRC() == FALSE ) return ERROR; 
 		
 		switch( workPointer->rwxAttrib )
 		{
-			default: break;
+			default: return INVALID_COMMAND;
 		}
 	}
 	/*
 	 * frame length
 	 * READ is allowed
 	 */
-	else if ( frame->length == 4 && workPointer->rwxAttrib & READ )
+	else if ( frame.length == 4 && workPointer->rwxAttrib & READ )
 	{
-		frame->rwx = READ;
+		frame.rwx = READ;
 		uint8_t userCRC;
-		if ( AP_compareCRC( frame ) == FALSE )
+		if ( AP_compareCRC() == FALSE )
 		{
-			UART_printf("Expected CRC: %"PRIX8"\r\r", frame->crc );
-			frame->length = 0;
+			UART_printf("Expected CRC: %"PRIX8"\r\r", frame.crc );
+			frame.length = 0;
 			return ERROR;
 		}
 		
 		switch ( workPointer->ID )
 		{
 /* RU */	case DE_RU :
-					frame->length = 1;
-					frame->msg[0] = RFmodul.deCMD_ru;
+					frame.length = 1;
+					frame.msg[0] = RFmodul.deCMD_ru;
 				break;
 				
 /* FV */	case DE_FV :
-					frame->length = 1;
-					memcpy( frame->msg, AT_VERSION, strlen(AT_VERSION)+1 );
+					frame.length = 1;
+					memcpy( frame.msg, AT_VERSION, strlen(AT_VERSION)+1 );
 				break;
 				
 			default: 
@@ -296,10 +311,10 @@ static at_status_t AP_0x18_localDevice(struct api_f *frame, uint8_t *array, size
 	 * string length of input
 	 * writing to RFmodul struct [and to EEPROM] is allowed
 	 */
-	else if ( frame->length > 4 && workPointer->rwxAttrib & WRITE )
+	else if ( frame.length > 4 && workPointer->rwxAttrib & WRITE )
 	{
-		size_t cmdSize = frame->length - 4;
-		frame->rwx = WRITE;
+		size_t cmdSize = frame.length - 4;
+		frame.rwx = WRITE;
 		
 		switch( workPointer->ID )
 		{
@@ -307,21 +322,21 @@ static at_status_t AP_0x18_localDevice(struct api_f *frame, uint8_t *array, size
 				/*
 				 * get the parameter
 				 */
-				cli(); BufferOut( &UART_deBuf, &frame->msg[0] ); sei();
-				frame->crc -= frame->msg[0];
+				cli(); BufferOut( &UART_deBuf, &frame.msg[0] ); sei();
+				frame.crc += frame.msg[0];
 				
 				/*
 				 * compare the parameter
 				 */
-				if ( AP_compareCRC(frame) == FALSE )
+				if ( AP_compareCRC() == FALSE )
 				{
-					if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
+					if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame.crc );
 					return ERROR;
 				}
 
-				if ( cmdSize <= 1 && frame->msg[0] == 0x0 || frame->msg[0] == 0x1 )
+				if ( cmdSize <= 1 && frame.msg[0] == 0x0 || frame.msg[0] == 0x1 )
 				{
-					RFmodul.deCMD_ru = frame->msg[0];
+					RFmodul.deCMD_ru = frame.msg[0];
 				}
 				else 
 				{ 
@@ -506,9 +521,20 @@ static void AP_0x80_0x81_rxReceive( uint16_t length, uint8_t *srcAddr, uint8_t s
 	deBufferReadReset(&RX_deBuf, '+', 2);
 }
 
+/*
+ * explanation
+ *
+ * Received:
+ *		values
+ *
+ * Returns:
+ *		values
+ *
+ * last modified: 20--/--/--
+ */
 static void AP_0x17_atRemoteFrame(void)
 {
-	
+	/* TODO */
 }
 
 
@@ -681,17 +707,50 @@ int TRX_0x17_atRemoteFrame(uint8_t *send)
 	return pos-1;
 }
 
+/*
+ * explanation
+ *
+ * Received:
+ *		values
+ *
+ * Returns:
+ *		values
+ *
+ * last modified: 20--/--/--
+ */
 int TRX_0x01_transmit64Frame(uint8_t *send)
 {
-	
+	/* TODO */
 }
 
+/*
+ * explanation
+ *
+ * Received:
+ *		values
+ *
+ * Returns:
+ *		values
+ *
+ * last modified: 20--/--/--
+ */
 int TRX_0x02_transmit16Frame(uint8_t *send)
 {
-	
+	/* TODO */
 }
 
+/*
+ * explanation
+ *
+ * Received:
+ *		values
+ *
+ * Returns:
+ *		values
+ *
+ * last modified: 20--/--/--
+ */
 int TRX_0x97_atRemote_response(uint8_t *send)
 {
-	
+	/* TODO */
 }

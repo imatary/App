@@ -135,7 +135,7 @@ int a;
 		 */
 		if( APIframe == TRUE && RFmodul.serintCMD_ap !=0 )
 		{
-			AP_frameHandle_uart( &apicounter );
+			AP_frameHandle_uart();
 			apicounter = 0;
 			APIframe = FALSE;
 			th = 0;

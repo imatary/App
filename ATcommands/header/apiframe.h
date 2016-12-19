@@ -46,17 +46,23 @@ struct api_f
 /*
  * Main function to handle AP frames 
  */
-void AP_frameHandle_uart(size_t *len);
+void AP_frameHandle_uart(void);
 
 /*
- * Searched for the AT command in the command table if the module received an AP frame
+ * Set-functions
+ * setATcmd		writes the command into the frame struct array
+ * setRWXopt	writes the READ, WRITE or EXEC flag into the frame struct
+ * setMSG		writes uint8/16/32/64_t value into the uint8_t frame struct array
  */
-CMD* AP_findInTable(struct api_f *frame, uint8_t *array);
+void AP_setATcmd(uint8_t *array);
+void AP_setRWXopt(uint8_t opt);
+void AP_setMSG(void *val, short length, uint8_t swapp);
 
 /*
  * compared the calculated crc with user crc
  */
-bool_t  AP_compareCRC(struct api_f *frame);
+void	AP_updateCRC(uint8_t *val);
+bool_t  AP_compareCRC(void);
 
 /*
  * created a AP frame if data was received over air
