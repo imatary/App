@@ -617,6 +617,7 @@ int TRX_0x17_atRemoteFrame(uint8_t *send)
 	
 	sprintf((char*)(send+ 3),"%c",RFmodul.netCMD_id & 0xff);
 	sprintf((char*)(send+ 4),"%c",RFmodul.netCMD_id >>  8);		// destination PAN_ID
+	pos = 5;
 	
 	/*
 	 * dest. address
@@ -650,6 +651,16 @@ int TRX_0x17_atRemoteFrame(uint8_t *send)
 		
 		*(send+1) |= 0x0C;												// MAC header second byte
 		pos = 13;
+	}
+	
+	/*
+	 * src. PAN ID if PAN Compression off
+	 */
+	if ( *send & 0x40 == 0 )
+	{
+		sprintf((char*)(send+ pos),"%c",RFmodul.netCMD_id & 0xff);
+		sprintf((char*)(send+ pos+1),"%c",RFmodul.netCMD_id >>  8);
+		pos += 2;
 	}
 	
 	/*

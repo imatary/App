@@ -132,10 +132,9 @@ typedef struct nvm {
 /*
  * Get all AT command parameter which are stored in the EEPROM
  *
- * (1) get block of mem
- * (2) check whether it is valid
- * (3) if not, reset to default
- *     if yes, init RFmodul struct and store it
+ * (1) erase everything in eeprom
+ * (2) set default values
+ * (3) write default values to eeprom
  *
  * Returns:
  *     nothing
@@ -147,7 +146,6 @@ void SET_defaultInEEPROM(void)
 	NVM defaultValuesInEEPROM;
 	memset(&defaultValuesInEEPROM, 0xFF,sizeof(NVM));
 	eeprom_write_block(&defaultValuesInEEPROM, (void*) START_POS, sizeof(NVM)); // erase everything
-	eeprom_write_dword((uint32_t*) 0x1E80 ,0xFFFFFFFF);
 	
 	strncpy(defaultValuesInEEPROM.netCMD_ni, NI_NODE_IDENTIFY,9);
 	memset(&defaultValuesInEEPROM.secCMD_ky, 0x00, 16);
