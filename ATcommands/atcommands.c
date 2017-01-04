@@ -21,7 +21,6 @@
 
 device_t RFmodul;
 bool_t   APIframe = FALSE;
-static void at_status_t_print(at_status_t *value);
 static uint32_t AP_timeHandle(uint32_t arg);
 
 
@@ -52,7 +51,7 @@ void main(void)
 	 */
 	while (TRUE)
 	{
-		if( ret ) { at_status_t_print(&ret);  ret = 0; }
+		if( ret ) { UART_print_status(ret);  ret = 0; }
 		/*
 		 * Receiver operation
 		 *
@@ -61,10 +60,9 @@ void main(void)
 		if (RX_deBuf.newContent)
 		{
 			ret = TRX_receive();
-			if ( ret )	{ at_status_t_print(&ret);  ret = 0; }
+			if ( ret )	{ UART_print_status(ret);  ret = 0; }
 		}
 
-int a;		
 		/*
 		 * uart operation
 		 *
@@ -80,13 +78,11 @@ int a;
 			cli(); ret = BufferIn( &UART_deBuf, inchar ); sei();
 			if( ret ) 
 			{ 
-				at_status_t_print(&ret); 
+				UART_print_status(ret); 
 				BufferInit(&UART_deBuf, NULL);
 				ret = 0;
 				continue; 
 			}
-				
-			if (RFmodul.deCMD_ru) UART_printf("%c", inchar );				// return character immediately
 
 			/*
 			 * if AP mode active
@@ -106,8 +102,8 @@ int a;
 			 */					
 			if ( ('\r' == inchar || '\n' == inchar) && RFmodul.serintCMD_ap == 0 )
 			{ 
-				ret = TRX_send(0); 
-				if ( ret )	{ at_status_t_print(&ret); ret = 0; }
+				ret = TRX_send(0, NULL, 0); 
+				if ( ret )	{ UART_print_status(ret); ret = 0; }
 				counter = 0;
 			}
 			
@@ -146,33 +142,6 @@ int a;
 }
 
 /*
- * at_status_t_print()
- * print a error message to the uart
- * 
- * Received:
- *		at_status_t	value with the return information, which error occurred
- *
- * Returns:
- *		nothing
- *
- * last modified: 2016/11/24
- */
-static void at_status_t_print(at_status_t *value)
-{
-	switch(*value)
-	{
-		case TRX_INIT_ERROR		: UART_print("Cannot initialize trx base!\r\n");							break;
-		case BUFFER_IN_FAIL		: UART_print("BufferIn error!\r\n"); 										break;
-		case BUFFER_OUT_FAIL	: UART_print("BufferOut error!\r\n"); 										break;
-		case TRANSMIT_OUT_FAIL	: UART_print("Transmitter send error! Data can't transmitted.\r\n");		break;
-		case TRANSMIT_IN_FAIL	: UART_print("Receiver error! Can't receive or translate the data.\r\n");	break;
-		case TRANSMIT_CRC_FAIL  : UART_print("Receiver error! CRC code does not match.\r\n");				break;
-		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode.\r\n");				break;
-		default					: 																			break;
-	}
-}
-
-/*
  * CMD_timeHandle()
  * 
  * Received:
@@ -185,9 +154,6 @@ static void at_status_t_print(at_status_t *value)
  */
 static uint32_t AP_timeHandle(uint32_t arg)
 {
-#if DEBUG
-	UART_print("== AP timer active\r\n");
-#endif
 	APIframe = TRUE;
 	return 0;
 }

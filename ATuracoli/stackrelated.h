@@ -27,8 +27,12 @@
 void UART_init(void);
 #define UART_print(fmt)			hif_echo(FLASH_STRING(fmt))
 #define UART_printf(fmt, ...)	hif_printf(FLASH_STRING(fmt), __VA_ARGS__)
-int (*UART_getc) (void);
-int (*UART_putc) (int);
+int  (*UART_getc) (void);
+int  (*UART_putc) (int);
+void (*UART_puts) (const char *);
+void UART_print_status(at_status_t value);
+void UART_print_data(uint8_t size, uint64_t val);
+void UART_print_decimal(uint8_t number);
 
 /*
  * transceiver (trx) pointer to functions
@@ -65,9 +69,11 @@ static uint8_t	(*TRX_init)			(void);
  * TRX_baseInit();		base initializer and setup the transceiver for sending or receiving data
  * TRX_send();			function to sent data over air
  * TRX_receive();		function to receive data over the air
+ * TRX_get_TXfail();	returns the send failures (ACK failures)
  */
-uint8_t TRX_baseInit(void);
-at_status_t TRX_send(uint8_t senderInfo);
+uint8_t		TRX_baseInit(void);
+at_status_t TRX_send(uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen);
 at_status_t TRX_receive(void);
+uint8_t		TRX_get_TXfail(void);
 
 #endif /* STACKRELATED_H_ */

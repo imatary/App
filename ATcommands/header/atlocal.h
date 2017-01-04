@@ -23,6 +23,6 @@ void	AT_localMode(void);
 /*
  * Functions to read param, execute instructions or write to memory
  */
-at_status_t CMD_readOrExec(uint32_t *th);
-at_status_t CMD_write(size_t *len, bool_t apFrame);
+at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame);
+at_status_t CMD_write(size_t *len, uint8_t apFrame);
 #endif /* ATLOCAL_H_ */

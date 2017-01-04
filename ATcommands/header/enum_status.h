@@ -19,7 +19,8 @@
 typedef enum
 {
 	/* ADD NEW CODES ON TOP! */
-					
+	
+	TIMER_START_FAIL	= -15,				
 	TRX_INIT_ERROR		= -14,
 	BUFFER_IN_FAIL,
 	BUFFER_OUT_FAIL,
@@ -35,6 +36,7 @@ typedef enum
 	INVALID_COMMAND,
 	ERROR,
 	OP_SUCCESS			=  0,
+	QUIT_CMD_MODE,
 
 	
 }__attribute__((packed)) at_status_t;

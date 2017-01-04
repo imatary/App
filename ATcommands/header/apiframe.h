@@ -10,7 +10,7 @@
 #define APIFRAME_H_
 
 #include <inttypes.h>		// uint8_t
-#include "enum_status.h"		// at_status_t
+#include "enum_status.h"	// at_status_t
 #include "cmd.h"			// CMD
 
 // === std. defines & frame types =========================
@@ -39,8 +39,8 @@ struct api_f
 	 * 0xFF - (AP type + frame ID [+ target address] [+ options] + main content [+ parameter]) = checksum
 	 *        |<---------------------------------- frame frame->bufLength ------------------->|
 	 */
-	uint8_t  crc;			// 1 Byte
-};
+	uint16_t  crc;			// normal it should be 1 Byte but in some cases it cause a calculation error
+}__attribute__((packed));
 
 // === prototypes =========================================
 /*
@@ -59,7 +59,7 @@ void AP_setRWXopt(uint8_t opt);
 void AP_setMSG(void *val, short length, uint8_t swapp);
 
 /*
- * compared the calculated crc with user crc
+ * update or compared the calculated crc with user crc
  */
 void	AP_updateCRC(uint8_t *val);
 bool_t  AP_compareCRC(void);
@@ -73,7 +73,7 @@ void TRX_createAPframe( uint8_t flen, uint8_t dataStart, uint8_t srcAddrLen, uin
  * pack a package for a remote AT command and AT command response
  */
 int TRX_0x17_atRemoteFrame(uint8_t *send);
-int TRX_0x97_atRemote_response(uint8_t *send);
+int TRX_0x97_atRemote_response(uint8_t *send, uint8_t *srcAddr, uint8_t srcAddrLen);
 
 /*
  * pack a package for a message which will transmitted
