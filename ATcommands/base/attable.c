@@ -113,7 +113,6 @@ static const CMD StdCmdTable[] =
 	{ "ATWR", AT_WR,			   EXEC }, // W
 	
 	/* DE */
-	{ "DERU", DE_RU, READ | WRITE       },
 	{ "DEFV", DE_RU, READ               },
 
 };

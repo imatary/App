@@ -6,9 +6,9 @@
  */
 #include <inttypes.h>							// PRIX8/16/32
 #include <stdlib.h>								// size_t, strtol
-#include <ctype.h>								// malloc, free
+#include <ctype.h>								// isgraph
 
-#include "../header/_global.h"					// RFmodul struct
+#include "../header/_global.h"					// boolean values
 #include "../header/atlocal.h"					// prototypes
 #include "../header/rfmodul.h"
 #include "../header/cmd.h"						// CMD
@@ -529,7 +529,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				}  
 				break;
 			
-/* CH */	case AT_ST :
+/* ST */	case AT_ST :
 				if ( RFmodul.serintCMD_ap == 0  || th != NULL )
 				{
 					UART_print_data( 2, RFmodul.sleepmCMD_st);
@@ -1097,7 +1097,7 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 		
 	if ( 0 < RFmodul.serintCMD_ap && 0 < apFrame ) // AP frame
 	{ 
-		cmdSize = (*len)-4;
+		cmdSize = ( TRUE == apFrame )? (*len)-4 : (*len)-2;
 		cli(); BufferOut( &UART_deBuf, &pCmdString[2] ); sei();
 		cli(); BufferOut( &UART_deBuf, &pCmdString[3] ); sei();
 		AP_setATcmd(pCmdString);
@@ -1203,9 +1203,11 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					cli(); BufferOut( &UART_deBuf, &cmdString[0] ); sei();
-					cli(); BufferOut( &UART_deBuf, &cmdString[1] ); sei();
-					
+					uint8_t i = (2>*len)? 2- (int)*len : 0;
+					for (; i < 2; i++)
+					{
+						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
+					}
 					AP_updateCRC( &cmdString[0] ); AP_updateCRC( &cmdString[1] );
 					
 					if ( TRUE == apFrame && AP_compareCRC() == FALSE ) return ERROR;
@@ -1237,7 +1239,8 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					for (uint8_t i = 0; i < 4; i++)
+					uint8_t i = (4>*len)? 4- (int)*len : 0;
+					for (; i < 4; i++)
 					{
 						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
 						AP_updateCRC(&cmdString[i]);
@@ -1269,10 +1272,11 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					for (uint8_t i = 0; i < 4; i++)
+					uint8_t i = (4>*len)? 4- (int)*len : 0;
+					for (; i < 4; i++)
 					{
 						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
-						AP_updateCRC(&cmdString[i]);
+						AP_updateCRC( &cmdString[i] );
 					}
 					if ( TRUE == apFrame && AP_compareCRC() == FALSE ) return ERROR;
 				}
@@ -1302,9 +1306,11 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					cli(); BufferOut( &UART_deBuf, &cmdString[0] ); sei();
-					cli(); BufferOut( &UART_deBuf, &cmdString[1] ); sei();
-					
+					uint8_t i = (2>*len)? 2- (int)*len : 0;
+					for (; i < 2; i++)
+					{
+						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
+					}
 					AP_updateCRC( &cmdString[0] ); AP_updateCRC( &cmdString[1] );
 					
 					if ( TRUE == apFrame && AP_compareCRC() == FALSE )	return ERROR;
@@ -1368,9 +1374,11 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					cli(); BufferOut( &UART_deBuf, &cmdString[0] ); sei();
-					cli(); BufferOut( &UART_deBuf, &cmdString[1] ); sei();
-					
+					uint8_t i = (2>*len)? 2- (int)*len : 0;
+					for (; i < 2; i++)
+					{
+						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
+					}
 					AP_updateCRC( &cmdString[0] ); AP_updateCRC( &cmdString[1] );
 					
 					if ( TRUE == apFrame && AP_compareCRC() == FALSE ) return ERROR;
@@ -1438,7 +1446,7 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 					AP_updateCRC(&tmp);
 					if ( TRUE == apFrame && AP_compareCRC() == FALSE ) return ERROR;
 				}
-				
+
 				/*
 				 * compare the parameter
 				 */
@@ -1775,9 +1783,11 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					cli(); BufferOut( &UART_deBuf, &cmdString[0] ); sei();
-					cli(); BufferOut( &UART_deBuf, &cmdString[1] ); sei();
-					
+					uint8_t i = (2>*len)? 2- (int)*len : 0;
+					for (; i < 2; i++)
+					{
+						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
+					}
 					AP_updateCRC( &cmdString[0] ); AP_updateCRC( &cmdString[1] );
 					
 					if ( TRUE == apFrame && AP_compareCRC() == FALSE ) return ERROR;
@@ -1807,9 +1817,11 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					cli(); BufferOut( &UART_deBuf, &cmdString[0] ); sei();
-					cli(); BufferOut( &UART_deBuf, &cmdString[1] ); sei();
-					
+					uint8_t i = (2>*len)? 2- (int)*len : 0;
+					for (; i < 2; i++)
+					{
+						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
+					}
 					AP_updateCRC( &cmdString[0] ); AP_updateCRC( &cmdString[1] );
 					
 					if ( TRUE == apFrame && AP_compareCRC() == FALSE ) return ERROR;
@@ -1842,9 +1854,11 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					cli(); BufferOut( &UART_deBuf, &cmdString[0] ); sei();
-					cli(); BufferOut( &UART_deBuf, &cmdString[1] ); sei();
-					
+					uint8_t i = (2>*len)? 2- (int)*len : 0;
+					for (; i < 2; i++)
+					{
+						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
+					}
 					AP_updateCRC( &cmdString[0] ); AP_updateCRC( &cmdString[1] );
 					
 					if ( TRUE == apFrame && AP_compareCRC() == FALSE ) return ERROR;
@@ -2393,9 +2407,11 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					cli(); BufferOut( &UART_deBuf, &cmdString[0] ); sei();
-					cli(); BufferOut( &UART_deBuf, &cmdString[1] ); sei();
-					
+					uint8_t i = (2>*len)? 2- (int)*len : 0;
+					for (; i < 2; i++)
+					{
+						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
+					}
 					AP_updateCRC( &cmdString[0] ); AP_updateCRC( &cmdString[1] );
 					
 					if ( TRUE == apFrame && AP_compareCRC() == FALSE ) return ERROR; 
@@ -2543,7 +2559,8 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					for (uint8_t i = 0; i < 8; i++)
+					uint8_t i = ( 8 > *len )? 8 - (int)*len : 0;
+					for (; i < 8; i++)
 					{
 						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
 						AP_updateCRC(&cmdString[i]);
@@ -2805,8 +2822,11 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					cli(); BufferOut( &UART_deBuf, &cmdString[0] ); sei();
-					cli(); BufferOut( &UART_deBuf, &cmdString[1] ); sei();
+					uint8_t i = (2>*len)? 2- (int)*len : 0;
+					for (; i < 2; i++)
+					{
+						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
+					}
 					AP_updateCRC( &cmdString[0] ); AP_updateCRC( &cmdString[1] );
 					if ( TRUE == apFrame && AP_compareCRC() == FALSE ) return ERROR; 
 				}			
@@ -2834,7 +2854,8 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					for (uint8_t i = 0; i < 4; i++)
+					uint8_t i = (4>*len)? 4- (int)*len : 0;
+					for (; i < 4; i++)
 					{
 						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
 						AP_updateCRC(&cmdString[i]);
@@ -2869,9 +2890,11 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					cli(); BufferOut( &UART_deBuf, &cmdString[0] ); sei();
-					cli(); BufferOut( &UART_deBuf, &cmdString[1] ); sei();
-					
+					uint8_t i = (2>*len)? 2- (int)*len : 0;
+					for (; i < 2; i++)
+					{
+						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
+					}
 					AP_updateCRC( &cmdString[0] ); AP_updateCRC( &cmdString[1] );
 					
 					if ( TRUE == apFrame && AP_compareCRC() == FALSE ) return ERROR; 
@@ -2901,9 +2924,11 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				}
 				else if ( FALSE < apFrame )
 				{
-					cli(); BufferOut( &UART_deBuf, &cmdString[0] ); sei();
-					cli(); BufferOut( &UART_deBuf, &cmdString[1] ); sei();
-					
+					uint8_t i = (2>*len)? 2- (int)*len : 0;
+					for (; i < 2; i++)
+					{
+						cli(); BufferOut( &UART_deBuf, &cmdString[i] ); sei();
+					}
 					AP_updateCRC( &cmdString[0] ); AP_updateCRC( &cmdString[1] );
 					
 					if ( TRUE == apFrame && AP_compareCRC() == FALSE ) return ERROR;
