@@ -16,7 +16,7 @@
 #define FLASH_ATTR
 
 // === default values =====================================
-#define AT_VERSION	"0.2.10E7"
+#define AT_VERSION	"0.3.10E7"
 #define MAXBYTES	(100)
 
 // === conditions =========================================

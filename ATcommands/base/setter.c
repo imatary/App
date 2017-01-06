@@ -268,8 +268,6 @@ void SET_cmdoDefault()
 	 RFmodul.atcopCMD_ct = CT_AT_CMD_TIMEOUT;
 	 RFmodul.atcopCMD_gt = GT_GUART_TIMES;
 	 RFmodul.atcopCMD_cc = CC_COMMAND_SEQUENCE_CHAR;
-	 
-	 RFmodul.deCMD_ru	= RU_RETURN_TO_UART;
  }
  
  /*
@@ -278,9 +276,9 @@ void SET_cmdoDefault()
  * Returns:
  *     nothing
  *
- * Last modified: 2016/11/30
+ * Last modified: 20--/--/--
  */
  void SET_deDefault(void)
  {
-	  RFmodul.deCMD_ru	= RU_RETURN_TO_UART;
+	  
  }

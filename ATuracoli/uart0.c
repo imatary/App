@@ -40,7 +40,6 @@ void UART_init(void)
 	UART_getc	= hif_getc;
 	UART_putc	= hif_putc;
 	UART_puts	= hif_puts_p;
-
 }
 
 /*

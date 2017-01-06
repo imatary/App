@@ -50,7 +50,7 @@ typedef struct  {
 	uint16_t diagCMD_ec;        // max 0xFFFF                                          =  16 bit
 	uint16_t diagCMD_ea;        // max 0xFFFF                                          =  16 bit
 	uint32_t diagCMD_dd;        // max 0xFFFFFFFF                                      =  32 bit
-	uint8_t  diagCMD_db;        // max 0xFF                                            =   8 bit 520
+	uint8_t  diagCMD_db;        // max 0xFF                                            =   8 bit
 
 	uint16_t sleepmCMD_st;      // max 0xFFFF                                          =  16 bit
 	uint16_t sleepmCMD_sp : 15; // max 0x68B0                                          =  15 bit
@@ -87,10 +87,8 @@ typedef struct  {
 	bool_t	 netCMD_ce    : 1;	// max 0x1                                             =   1 bit
 	bool_t   netCMD_no    : 1;  // max 0x1                                             =   1 bit
 	bool_t   secCMD_ee    : 1;  // max 0x1                                             =   1 bit
-	bool_t	 deCMD_ru     : 1;	// max 0x1				                               =   1 bit
 	// ------------------------------------------------------------------------------------------------
-	//													   Total:                        665 bit 
-	// mem optimized structure (119 Bytes (952 bits) in use)
+	//													   Total:                        944 bit
 }__attribute__((packed)) device_t;
 
 extern device_t RFmodul;

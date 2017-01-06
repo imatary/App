@@ -102,7 +102,7 @@ void AP_frameHandle_uart(void)
 		
 		case DEVICE_AT_CMD :
 			frame.crc += 0x18;
-			//frame.ret = AP_0x18_localDevice((size_t*) &frame.length);
+			frame.ret = AP_0x18_localDevice((size_t*) &frame.length);
 			AP_0x88_atLocal_response( &frame );
 		break;
 				
@@ -217,13 +217,63 @@ void AP_updateCRC(uint8_t *val)
 // ===
 // ========================================================
 /*
+ * AT Remote Command (local execution)
+ * reads from RX buffer, prepared the response frame struct and send response
+ *
+ * Received:
+ *		uint16_t	length of the received AP Frame
+ *		uint8_t		pointer to the srcAddrAndOtion array
+ *		uint8_t		length of src. addr.
+ *
+ * Returns:
+ *		nothing
+ *
+ * last modified: 2017/01/04
+ */
+static void AP_0x17_atRemoteFrame(uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen)
+{
+	/* 
+	 * - Frame consist a minimum of 14 Bytes
+	 * - read AP Frame ID (1 byte)
+	 * - read dest. addr. (10 bytes) (not important) but need to be deleted
+	 * - read remote option and store it temporary in frame.type
+	 * - copy command information into UART buffer
+	 * - delete crc checksum
+	 * - call rx | w function
+	 * - if remote option is 0x2 reinitialize module config
+	 * - call response function 
+	 */
+	uint8_t outchar;
+	for ( uint16_t i = 0; i < length; i++ )
+	{
+		cli(); BufferOut( &RX_deBuf, &outchar ); sei();
+		if		( 0x0 == i ) { frame.id = outchar; }
+		else if ( 0xB == i ) { frame.type = outchar; }										// the frame type variable will be used for option
+		else if ( 0xB <  i ) { cli(); BufferIn( &UART_deBuf, outchar ); sei(); }
+	}
+	deBufferReadReset(&RX_deBuf, '+', 2);													// delete Frame Checksum
+
+	length -= 12;
+	if ( length > 2 ) { frame.ret = CMD_write( (size_t*) &length, frame.type ); } 
+	else              { frame.ret = CMD_readOrExec( NULL, frame.type ); }
+
+	if ( 0x2 == frame.type && frame.rwx == WRITE )
+	{
+		UART_init();
+		TRX_baseInit();
+	}
+
+	TRX_send( 0x97, srcAddr, srcAddrLen );
+}
+
+/*
  * Specific device commands (AP)
  * interpret the received frame and execute the specific task
  *
  * Received:
- *		api_f	pointer to the frame struct
- *		uint8_t	pointer to an array which is already initialized and available for processing (just to save a little mem)
- *		size_t	the length of the whole input, which is stored in buffer
+ *		api_f		pointer to the frame struct
+ *		uint8_t		pointer to an array which is already initialized and available for processing (just to save a little mem)
+ *		size_t		the length of the whole input, which is stored in buffer
  *
  * Returns:
  *		OP_SUCCESS			no error has occurred
@@ -314,6 +364,62 @@ static at_status_t AP_0x18_localDevice(size_t *len)
 }
 
 /*
+ * RX Receive Packet Frame
+ * prints the received package as an AP frame
+ *
+ * Received:
+ *		uint8_t		pointer to the srcAddrAndOtion array
+ *		uint8_t		length of src. addr.
+ *
+ * Returns:
+ *     nothing
+ *
+ * last modified: 2017/01/03
+ */
+static void AP_0x80_0x81_rxReceive( uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen )
+{
+	uint8_t  outchar;
+	uint16_t crc, frLength = length + 3 + srcAddrLen;		// +2 (frame type) +1 (RSSI) +1 (Option) + src addr length
+	
+	UART_putc( STD_DELIMITER );								// start delimiter
+	UART_putc( (uint8_t) (frLength >> 8) );					// frame length
+	UART_putc( (uint8_t) (frLength & 0xFF) );
+	if ( srcAddrLen == 8 )									// frame type
+	{
+		UART_putc( 0x80 );
+		crc = 0x80;
+	} 
+	else
+	{
+		UART_putc( 0x81 );
+		crc = 0x81;
+	}
+
+	for ( short i = srcAddrLen-1; i >= 0 ; i-- )			// Addr.
+	{
+		UART_putc( *(srcAddr+i) );
+		crc += *(srcAddr+i);
+	}
+	
+	uint8_t x = TRX_readReg(PHY_RSSI) & 0x1F;
+	UART_putc( x );	
+	crc += x;
+	
+	UART_putc( *(srcAddr+srcAddrLen+1) );					// Option
+	crc +=     *(srcAddr+srcAddrLen+1);
+				
+	for (uint16_t i; i < length; i++ )
+	{
+		cli(); BufferOut( &RX_deBuf, &outchar ); sei();
+		UART_putc( outchar );
+		crc += outchar;
+	}
+
+	UART_putc( 0xFF - crc );								// checksum
+	deBufferReadReset(&RX_deBuf, '+', 2);					// delete Frame Checksum
+}
+
+/*
  * AP AT local response
  * generated the output AP frame with the return value of the specific function in AP_frameHandle_uart function
  * if the specific device value of return to uart (DERU) true, it will be printed a detailed message
@@ -387,112 +493,6 @@ static void AP_0x97_atRemote_response(uint16_t length)
 	}
 	UART_putc(0xFF-crc);									// checksum
 	deBufferReadReset(&RX_deBuf, '+', 2);					// delete Frame Checksum
-}
-
-/*
- * RX Receive Packet Frame
- * prints the received package as an AP frame
- *
- * Received:
- *		uint8_t		pointer to the srcAddrAndOtion array
- *		uint8_t		length of src. addr.
- *
- * Returns:
- *     nothing
- *
- * last modified: 2017/01/03
- */
-static void AP_0x80_0x81_rxReceive( uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen )
-{
-	uint8_t  outchar;
-	uint16_t crc, frLength = length + 3 + srcAddrLen;		// +2 (frame type) +1 (RSSI) +1 (Option) + src addr length
-	
-	UART_putc( STD_DELIMITER );								// start delimiter
-	UART_putc( (uint8_t) (frLength >> 8) );					// frame length
-	UART_putc( (uint8_t) (frLength & 0xFF) );
-	if ( srcAddrLen == 8 )									// frame type
-	{
-		UART_putc( 0x80 );
-		crc = 0x80;
-	} 
-	else
-	{
-		UART_putc( 0x81 );
-		crc = 0x81;
-	}
-
-	for ( short i = srcAddrLen-1; i >= 0 ; i-- )			// Addr.
-	{
-		UART_putc( *(srcAddr+i) );
-		crc += *(srcAddr+i);
-	}
-	
-	uint8_t x = TRX_readReg(PHY_RSSI) & 0x1F;
-	UART_putc( x );	
-	crc += x;
-	
-	UART_putc( *(srcAddr+srcAddrLen+1) );					// Option
-	crc +=     *(srcAddr+srcAddrLen+1);
-				
-	for (uint16_t i; i < length; i++ )
-	{
-		cli(); BufferOut( &RX_deBuf, &outchar ); sei();
-		UART_putc( outchar );
-		crc += outchar;
-	}
-
-	UART_putc( 0xFF - crc );								// checksum
-	deBufferReadReset(&RX_deBuf, '+', 2);					// delete Frame Checksum
-}
-
-/*
- * AT Remote Command (local execution)
- * reads from RX buffer, prepared the response frame struct and send response
- *
- * Received:
- *		uint16_t	length of the received AP Frame
- *		uint8_t		pointer to the srcAddrAndOtion array
- *		uint8_t		length of src. addr.
- *
- * Returns:
- *		nothing
- *
- * last modified: 2017/01/04
- */
-static void AP_0x17_atRemoteFrame(uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen)
-{
-	/* 
-	 * - Frame consist a minimum of 14 Bytes
-	 * - read AP Frame ID (1 byte)
-	 * - read dest. addr. (10 bytes) (not important) but need to be deleted
-	 * - read remote option and store it temporary in frame.type
-	 * - copy command information into UART buffer
-	 * - delete crc checksum
-	 * - call rx | w function
-	 * - if remote option is 0x2 reinitialize module config
-	 * - call response function 
-	 */
-	uint8_t outchar;
-	for ( uint16_t i = 0; i < length; i++ )
-	{
-		cli(); BufferOut( &RX_deBuf, &outchar ); sei();
-		if		( 0x0 == i ) { frame.id = outchar; }
-		else if ( 0xB == i ) { frame.type = outchar; }										// the frame type variable will be used for option
-		else if ( 0xB <  i ) { cli(); BufferIn( &UART_deBuf, outchar ); sei(); }
-	}
-	deBufferReadReset(&RX_deBuf, '+', 2);													// delete Frame Checksum
-
-	length -= 12;
-	if ( length > 2 ) { frame.ret = CMD_write( (size_t*) &length, frame.type ); } 
-	else              { frame.ret = CMD_readOrExec( NULL, frame.type ); }
-
-	if ( 0x2 == frame.type && frame.rwx == WRITE )
-	{
-		UART_init();
-		TRX_baseInit();
-	}
-
-	TRX_send( 0x97, srcAddr, srcAddrLen );
 }
 
 

@@ -134,9 +134,9 @@
 /*
  * AT commands: device related
  *
- * last modified: 2016/11/30
+ * last modified: 20--/--/--
  */
-#define RU_RETURN_TO_UART			(FALSE)			// 0x0-0x1 (not a XBee command)
+
 
 
 #endif /* DEFAULTCONFIG_H_ */

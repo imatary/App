@@ -113,7 +113,7 @@ static const CMD StdCmdTable[] =
 	{ "ATWR", AT_WR,			   EXEC }, // W
 	
 	/* DE */
-	{ "DEFV", DE_RU, READ               },
+	{ "DEFV", DE_FV, READ               },
 
 };
 
@@ -132,7 +132,7 @@ const size_t command_count = sizeof(StdCmdTable)/sizeof(CMD);
  * IMPORTANT! : table needs to be sorted alphabetically
  *
  * Received:
- *		uint8_t pointer to the array which hold the AT command line
+ *		uint8_t		pointer to the array which hold the AT command line
  *
  * Returns:
  *		CMD			pointer to command position in the command table
