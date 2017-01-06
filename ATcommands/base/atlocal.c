@@ -2976,21 +2976,7 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				else { return INVALID_PARAMETER;}
 			}
 			break;
-			
-/* RU */	case DE_RU : {
-				// no AP handling
-				if ( RFmodul.serintCMD_ap > 0 && TRUE == apFrame ) return ERROR;
-				
-				uint8_t tmp = 0;
-				if (charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
-				if ( cmdSize <= 1 && tmp >= FALSE && tmp <= TRUE )
-				{
-					RFmodul.deCMD_ru = tmp;
-				}
-				else { return INVALID_PARAMETER; }
-			}
-			break;
-			
+
 			default : return INVALID_COMMAND;		
 		}
 	}
