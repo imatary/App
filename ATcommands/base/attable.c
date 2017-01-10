@@ -120,12 +120,6 @@ static const CMD StdCmdTable[] =
 const CMD *pStdCmdTable = StdCmdTable;
 
 /*
- * command table size
- * - the number of commands which are stored in the command table 
- */
-const size_t command_count = sizeof(StdCmdTable)/sizeof(CMD);
-
-/*
  * Binary search function to find command in table
  * halved the table every time, runtime ~ O( log(n) )
  *
@@ -142,7 +136,7 @@ const size_t command_count = sizeof(StdCmdTable)/sizeof(CMD);
  */
 CMD *CMD_findInTable(uint8_t *cmd)
 {
-	int right  = (int) command_count-1;
+	int right  = ( sizeof(StdCmdTable)/sizeof(CMD) ) - 1; // count of elements in CMD table - 1
 	int middle;
 	int left = 0;
 	int val  = 0;
@@ -151,11 +145,8 @@ CMD *CMD_findInTable(uint8_t *cmd)
 	{
 		middle = left + ( ( right - left) /2 );
 		val = strncmp( (const char*) cmd, (pStdCmdTable+middle)->name, 4 );
-		if ( 0 == val ) 
-		{
-			return (CMD*) (pStdCmdTable+middle);
-		}
 		
+		if      ( 0 == val )   return (CMD*) (pStdCmdTable+middle);		
 		else if ( 0 > val )    right = middle - 1;
 		else /* ( 0 < val ) */ left  = middle + 1;
 		

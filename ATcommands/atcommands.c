@@ -20,7 +20,7 @@
 #include "../ATuracoli/stackrelated_timer.h"		// timer init
 
 device_t RFmodul;
-bool_t   APIframe = FALSE;
+bool_t   APIframe = FALSE;							// global use only in this file
 static uint32_t AP_timeHandle(uint32_t arg);
 
 
@@ -87,9 +87,9 @@ void main(void)
 			/*
 			 * if AP mode active
 			 */
-			if ( RFmodul.serintCMD_ap != 0 )
+			if ( RFmodul.serintCMD_ap > 0 )
 			{
-				if ( inchar == 0x7E && apicounter == 0 )
+				if ( 0x7E == inchar && 0 == apicounter )
 				{
 					th = deTIMER_start(AP_timeHandle, deMSEC( 0x64 ), 0 ); // 100 MS
 					apicounter++;
@@ -102,8 +102,7 @@ void main(void)
 			 */					
 			if ( ('\r' == inchar || '\n' == inchar) && RFmodul.serintCMD_ap == 0 )
 			{ 
-				ret = TRX_send(0, NULL, 0); 
-				if ( ret )	{ UART_print_status(ret); ret = 0; }
+				TRX_send(0, NULL, 0);
 				counter = 0;
 			}
 			
@@ -111,7 +110,7 @@ void main(void)
 			 * if a plus (0x2B) received, count it 
 			 * if the user hit three times the plus button switch to local command mode
 			 */
-			if ( RFmodul.atcopCMD_cc == inchar  ) // && RFmodul.serintCMD_ap == 0
+			if ( inchar == RFmodul.atcopCMD_cc  ) // && RFmodul.serintCMD_ap == 0
 			{
 				counter += 1;
 				if ( 3 == counter )
@@ -129,7 +128,7 @@ void main(void)
 		/*
 		 * if AP Mode is enabled  and APIframe true handle AP Frame
 		 */
-		if( APIframe == TRUE && RFmodul.serintCMD_ap !=0 )
+		if( TRUE == APIframe && RFmodul.serintCMD_ap > 0 )
 		{
 			AP_frameHandle_uart();
 			apicounter = 0;

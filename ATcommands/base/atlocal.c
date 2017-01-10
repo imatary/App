@@ -108,7 +108,11 @@ void AT_localMode(void)
 				else if( counter == 5 ) ret = CMD_readOrExec(&th, FALSE);
 				else if( counter >  5 ) ret = CMD_write(&counter, FALSE);
 				
-				if (ret) UART_print_status(ret);
+				if (ret) 
+				{
+					UART_print_status(ret);
+					BufferInit(&UART_deBuf, NULL); // reset buffer to avoid conflicts
+				}
 				ret = 0;
 				counter = 0;
 				
@@ -197,28 +201,17 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 			
 			// write config to firmware
 /* WR */    case AT_WR : 
+				if ( RFmodul.serintCMD_ap == 0  || th != NULL )
+				{
+					UART_print_status(OP_SUCCESS);
+				}
 				SET_userValInEEPROM();
 				break;
 			
 			// apply changes - currently only a dummy
 /* AC */    case AT_AC : {
-				uint32_t baud = deHIF_DEFAULT_BAUDRATE;
-				switch( RFmodul.serintCMD_bd )
-				{
-					case 0x0 : baud =   1200; break;
-					case 0x1 : baud =   2400; break;
-					case 0x2 : baud =   4800; break;
-					case 0x3 : baud =   9600; break;
-					case 0x4 : baud =  19200; break;
-					case 0x5 : baud =  38400; break;
-					case 0x6 : baud =  57600; break;
-					case 0x7 : baud = 115200; break;
-					default : baud = deHIF_DEFAULT_BAUDRATE; break;
-				}
-				hif_init(baud);
-				TRX_setPanId( RFmodul.netCMD_id );
-				TRX_writeBit(deSR_CHANNEL, RFmodul.netCMD_ch);
-				
+				UART_init();
+				TRX_baseInit();				
 				if ( RFmodul.serintCMD_ap == 0  || th != NULL )
 				{
 					UART_print_status(OP_SUCCESS);
@@ -354,11 +347,11 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 /* NI */	case AT_NI :
 				if ( RFmodul.serintCMD_ap == 0  || th != NULL )
 				{
-					UART_puts( RFmodul.netCMD_ni ); 
+					UART_printf("%s", RFmodul.netCMD_ni );
 				}
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
-					AP_setMSG( &RFmodul.netCMD_ni, strlen( (const char*) RFmodul.netCMD_ni)+1, FALSE );
+					AP_setMSG( &RFmodul.netCMD_ni, strlen( (const char*) RFmodul.netCMD_ni), FALSE );
 				}
 				break;
 			
@@ -548,7 +541,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.sleepmCMD_sp;
-					AP_setMSG( &val, 2, TRUE );
+					AP_setMSG( &val, 1, TRUE );
 				} 
 				break;
 			
@@ -2982,9 +2975,14 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 	}
 	else
 	{
+		UART_print_status(INVALID_COMMAND);
 		return INVALID_COMMAND;
 	}
 	
+	if ( 0x0 == RFmodul.serintCMD_ap)
+	{
+		UART_print_status(OP_SUCCESS);
+	}
 	return OP_SUCCESS;
 }
 

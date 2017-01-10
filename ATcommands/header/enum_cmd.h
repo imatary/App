@@ -109,7 +109,6 @@ typedef enum
 	AT_SB,					// STOP BITS
 	
 	// special device commands
-	DE_RU,					// RETURN TO UART
 	DE_FV					// AT FIRMWARE VERSION
 																		
 }__attribute__((packed)) cmdIDs;										

@@ -40,6 +40,7 @@ int TRX_atRemoteFrame	(uint8_t *send);
 typedef struct {
 	uint8_t cnt;
 	uint8_t fail;
+	uint8_t senderInfo;
 	bool_t in_progress;
 }txStatus_t;
 
@@ -50,7 +51,7 @@ typedef struct {
 	bool_t done;
 }rxStatus_t;
 
-txStatus_t tx_stat = {1,FALSE,FALSE};
+txStatus_t tx_stat = {1,0,0,FALSE};
 rxStatus_t rx_stat = {0,0,FALSE,FALSE};
 
 // === functions ==========================================
@@ -118,17 +119,18 @@ uint8_t TRX_baseInit(void)
  * send a message over antenna to another device
  *
  * Received:
- *		uint8_t		pointer to frame type or send information array if AP 0x97, 0x01 or 0x02 is called
+ *		uint8_t		frame type information
+ *		uint8_t		pointer to frame type or send information array if AP 0x97 is called
+ *		uint8_t		length of source address if AP 0x97 is called
  *
  * Returns:
- *     TRANSMIT_OUT_FAIL    buffer is empty, module cannot send a byte.
- *	   TRANSMIT_IN_FAIL		no ACK received
- *     OP_SUCCESS			package was delivered
+ *     nothing
  * 
- * last modified: 2016/12/15
+ * last modified: 2017/01/10
  */
-at_status_t TRX_send(uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen)
+void TRX_send(uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen)
 {
+	tx_stat.senderInfo = senderInfo;
 	uint8_t send[PACKAGE_SIZE] = {0};
 	int pos;
 
@@ -137,12 +139,18 @@ at_status_t TRX_send(uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen)
 	/*
 	 * Handle buffer dependent on AP mode on or off and return pointer position in the array
 	 */	 
-	if      ( RFmodul.serintCMD_ap && senderInfo == 0x17 ) { pos = TRX_0x17_atRemoteFrame(&send[0]);							}	// AP Remote Command	
-	else if ( RFmodul.serintCMD_ap && senderInfo == 0x01 ) { /* pos = TRX_0x01_transmit64Frame(&send[0]); */					}	// AP TX Transmit Request 64-bit addr.
-	else if ( RFmodul.serintCMD_ap && senderInfo == 0x02 ) { /* pos = TRX_0x02_transmit16Frame(&send[0]); */					}	// AP TX Transmit Request 16-bit addr.
-	else if ( RFmodul.serintCMD_ap && senderInfo == 0x97 ) { pos = TRX_0x97_atRemote_response(&send[0], srcAddr, srcAddrLen);	}	// AP Remote Response
-	else												   { pos = TRX_msgFrame(&send[0]);										}	// AT TX Transmit Request
+	if      ( RFmodul.serintCMD_ap > 0 && senderInfo == 0x17 ) { pos = TRX_0x17_atRemoteFrame(&send[0]);							}	// AP Remote Command	
+	else if ( RFmodul.serintCMD_ap > 0 && senderInfo == 0x00 ) { pos = TRX_0x00_transmit64Frame(&send[0]); 							}	// AP TX Transmit Request 64-bit addr.
+	else if ( RFmodul.serintCMD_ap > 0 && senderInfo == 0x01 ) { pos = TRX_0x01_transmit16Frame(&send[0]); 							}	// AP TX Transmit Request 16-bit addr.
+	else if ( RFmodul.serintCMD_ap > 0 && senderInfo == 0x97 ) { pos = TRX_0x97_atRemote_response(&send[0], srcAddr, srcAddrLen);	}	// AP Remote Response
+	else												       { pos = TRX_msgFrame(&send[0]);										}	// AT TX Transmit Request
 	
+	if (pos == 0) 
+	{
+		if ( RFmodul.serintCMD_ap > 0 ) AP_0x89_txStatus(TRANSMIT_OUT_FAIL);
+		return;
+	}
+
 	/*
 	 * Step 2: setup and send package
 	 */
@@ -169,22 +177,8 @@ at_status_t TRX_send(uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen)
 		TRX_writeTX(pos + 2, send);
 		tx_stat.in_progress = TRUE;
 		TRX_SLPTR_HIGH();
-		TRX_SLPTR_LOW();
-		
+		TRX_SLPTR_LOW();	
 	}
-	if (rx_stat.done)
-	{
-		rx_stat.done = FALSE;
-#if DEBUG
-		UART_printf("<RX FRAME rx: %4d, fail: %3d, rx_seq: %3d\r", rx_stat.cnt, rx_stat.fail, rx_stat.seq);
-#endif
-	}
-	
-	//trx_reg_write(RG_TRX_STATE, CMD_RX_ON); 
-	
-	if		( tx_stat.fail ) { return TRANSMIT_OUT_FAIL; }
-	else if ( rx_stat.fail ) { return TRANSMIT_IN_FAIL; }
-	else					 { return OP_SUCCESS; }
 }
 
 /* 
@@ -197,11 +191,10 @@ at_status_t TRX_send(uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen)
  * Returns:
  *     final position in array
  *
- * last modified: 2016/12/13
+ * last modified: 2016/01/09
  */
 int TRX_msgFrame(uint8_t *send)
 {                                              
-	int pos = 0;
 	/* Step 1: prepare packed
 	 * - prepare MAC header, first byte
 	 * - write destination PANID
@@ -211,65 +204,70 @@ int TRX_msgFrame(uint8_t *send)
 	if ( TRUE )													 *send  = 0x01; // if data send to _one_ device else Beacon /* TODO */
 	if ( RFmodul.secCMD_ee == TRUE )							 *send |= 0x08; // security active
 	if ( RFmodul.netCMD_mm == 0x0 || RFmodul.netCMD_mm == 0x2 )  *send |= 0x20; // ACK on
-	*send |= 0x40; // PAN Compression
+																 *send |= 0x40; // PAN Compression
 		
-	sprintf((char*)(send+ 3),"%c",RFmodul.netCMD_id & 0xff);
-	sprintf((char*)(send+ 4),"%c",RFmodul.netCMD_id >>  8);				// destination PAN_ID
+	*(send+ 3) = (uint8_t) (RFmodul.netCMD_id & 0xff);
+	*(send+ 4) = (uint8_t) (RFmodul.netCMD_id >>  8);							// destination PAN_ID
 	
+	int pos = 5;
 	if ( RFmodul.netCMD_dl > 0xFFFF || RFmodul.netCMD_dh > 0x0 )
 	{
-		sprintf((char*)(send+ 5),"%c",RFmodul.netCMD_dl >>  0);
-		sprintf((char*)(send+ 6),"%c",RFmodul.netCMD_dl >>  8);
-		sprintf((char*)(send+ 7),"%c",RFmodul.netCMD_dl >> 16);
-		sprintf((char*)(send+ 8),"%c",RFmodul.netCMD_dl >> 24);			// destination ext. addr. low
+		*(send+ 5) = (uint8_t) (RFmodul.netCMD_dl >>  0);
+		*(send+ 6) = (uint8_t) (RFmodul.netCMD_dl >>  8);
+		*(send+ 7) = (uint8_t) (RFmodul.netCMD_dl >> 16);
+		*(send+ 8) = (uint8_t) (RFmodul.netCMD_dl >> 24);						// destination ext. addr. low
+
+		*(send+ 9) = (uint8_t) (RFmodul.netCMD_dh >>  0);
+		*(send+10) = (uint8_t) (RFmodul.netCMD_dh >>  8);
+		*(send+11) = (uint8_t) (RFmodul.netCMD_dh >> 16);
+		*(send+12) = (uint8_t) (RFmodul.netCMD_dh >> 24);						// destination ext. addr. high
 		
-		sprintf((char*)(send+ 9),"%c",RFmodul.netCMD_dh >>  0);
-		sprintf((char*)(send+10),"%c",RFmodul.netCMD_dh >>  8);
-		sprintf((char*)(send+11),"%c",RFmodul.netCMD_dh >> 16);
-		sprintf((char*)(send+12),"%c",RFmodul.netCMD_dh >> 24);			// destination ext. addr. high
-		
-		*(send+1) |= 0x0C;												// MAC header second byte
-		pos = 13;
+		*(send+1) |= 0x0C;														// MAC header second byte
+		pos += 8;
 	} 
 	else
 	{
-		sprintf((char*)(send+ 5),"%c",RFmodul.netCMD_dl >>  0);
-		sprintf((char*)(send+ 6),"%c",RFmodul.netCMD_dl >>  8);			// destination short addr.
+		*(send+ 5) = (uint8_t) (RFmodul.netCMD_dl >>  0);
+		*(send+ 6) = (uint8_t) (RFmodul.netCMD_dl >>  8);						// destination short addr.
 		
-		*(send+1) |= 0x08;												// MAC header second byte
-		pos = 7;
+		*(send+1) |= 0x08;														// MAC header second byte
+		pos += 2;
 	}
 	
 	/*
 	 * src address
 	 */
-	if ( RFmodul.netCMD_my > 0x0 )
+	if ( RFmodul.netCMD_my != 0xFFFE )
 	{
-		sprintf((char*)(send+pos),  "%c",RFmodul.netCMD_my & 0xff);
-		sprintf((char*)(send+pos+1),"%c",RFmodul.netCMD_my >> 8);		// src. short address
+		*(send+pos)   = (uint8_t) (RFmodul.netCMD_my & 0xff);
+		*(send+pos+1) = (uint8_t) (RFmodul.netCMD_my >> 8);						// src. short address
 		
-		*(send+1) |= 0x80;												// MAC header second byte
-		pos += 2;
+		*(send+1) |= 0x80;														// MAC header second byte
+		pos += 1;
 	} 
 	else
 	{
-		sprintf((char*)(send+pos),  "%c",RFmodul.netCMD_sl >>  0);
-		sprintf((char*)(send+pos+1),"%c",RFmodul.netCMD_sl >>  8);
-		sprintf((char*)(send+pos+2),"%c",RFmodul.netCMD_sl >> 16);
-		sprintf((char*)(send+pos+3),"%c",RFmodul.netCMD_sl >> 24);		// src. ext. addr. low
+		*(send+pos)   = (uint8_t) (RFmodul.netCMD_sl >>  0);
+		*(send+pos+1) = (uint8_t) (RFmodul.netCMD_sl >>  8);
+		*(send+pos+2) = (uint8_t) (RFmodul.netCMD_sl >> 16);
+		*(send+pos+3) = (uint8_t) (RFmodul.netCMD_sl >> 24);					// src. ext. addr. low
 		
-		sprintf((char*)(send+pos+4),"%c",RFmodul.netCMD_sh >>  0);
-		sprintf((char*)(send+pos+5),"%c",RFmodul.netCMD_sh >>  8);
-		sprintf((char*)(send+pos+6),"%c",RFmodul.netCMD_sh >> 16);
-		sprintf((char*)(send+pos+7),"%c",RFmodul.netCMD_sh >> 24);		// src. ext. addr. high
+		*(send+pos+4) = (uint8_t) (RFmodul.netCMD_sh >>  0);
+		*(send+pos+5) = (uint8_t) (RFmodul.netCMD_sh >>  8);
+		*(send+pos+6) = (uint8_t) (RFmodul.netCMD_sh >> 16);
+		*(send+pos+7) = (uint8_t) (RFmodul.netCMD_sh >> 24);					// src. ext. addr. high
 		
-		*(send+1) |= 0xC0;												// MAC header second byte
-		pos += 8;
+		*(send+1) |= 0xC0;														// MAC header second byte
+		pos += 7;
 	}
 	
-	sprintf((char*)(send+pos),"%c", *(send+2) + (RFmodul.netCMD_sl & 0xFF) );	// second counter, distance to frame counter is last byte of src extended addr. 
-	sprintf((char*)(send+pos+1),"%c", 0x00 );									// this byte will be used as command, 0x00 = no command is given
-	pos += 1;
+	if ( RFmodul.netCMD_mm != 0x1 || RFmodul.netCMD_mm != 0x2 )
+	{
+		*(send+pos)   = (uint8_t) ( *(send+2) + (RFmodul.netCMD_sl & 0xFF) );	// second counter, distance to frame counter is last byte of src extended addr.
+		*(send+pos+1) = 0x00;													// this byte will be used as command, 0x00 = no command is given
+		pos += 2;
+	}
+	
 	do
 	{
 		pos +=1;
@@ -329,7 +327,23 @@ at_status_t TRX_receive(void)
 			return TRANSMIT_IN_FAIL;
 	}
 	
-	if ( RFmodul.serintCMD_ap > 0 )
+	if ( 0x0 == RFmodul.serintCMD_ap )
+	{
+		if ( 0x08 & macHeader )	// security enabled
+		{
+		}
+		else					// security disabled
+		{
+			dataStart += (0x1 == RFmodul.netCMD_mm || 0x2 == RFmodul.netCMD_mm)? 0 : 2;
+			for (uint8_t i = 0; i < flen-0x4; i++)
+			{
+				cli(); BufferOut(&RX_deBuf, &outchar); sei();
+				if ( i >= dataStart ) UART_putc(outchar);
+			}/* end for loop */
+		}
+		deBufferReadReset(&RX_deBuf, '+', 2);
+	} 
+	else
 	{
 		switch ( 0x48 & macHeader ) // define MAC options
 		{
@@ -337,21 +351,9 @@ at_status_t TRX_receive(void)
 			case 0x00 : TRX_createAPframe( flen-2, dataStart+2, srcAddrLen, 0x00 ); break;	// security disabled, PAN compression disabled = add 2 bytes for src PAN ID
 			case 0x08 : TRX_createAPframe( flen-2, dataStart+5, srcAddrLen, 0x08 ); break;	// security  enabled, PAN compression disabled = add 5 bytes for Auxiliary Sec. Header
 			case 0x48 : TRX_createAPframe( flen-2, dataStart+7, srcAddrLen, 0x48 ); break;	// security  enabled, PAN compression  enabled = add 7 bytes for src PAN ID and Auxiliary Sec. header
-			default: return TRANSMIT_IN_FAIL;
-		}
-	} 
-	else
-	{
-		if ( 0x08 & macHeader )	// security enabled
-		{
-		} 
-		else					// security disabled
-		{
-			for (uint8_t i = 0; i < flen-0x2; i++)
-			{
-				cli(); BufferOut(&RX_deBuf, &outchar); sei();
-				if ( i == dataStart ) UART_putc(outchar);
-			}/* end for loop */
+			default:
+			BufferInit(&RX_deBuf, NULL);
+			return TRANSMIT_IN_FAIL;
 		}
 	}
 	
@@ -393,16 +395,42 @@ static void TRX_txHandler(void)
 	TRX_writeReg(deRG_TRX_STATE, deCMD_PLL_ON);
 	TRX_writeReg(deRG_TRX_STATE, deCMD_TX_ARET_ON);
 	
-	tx_stat.in_progress = FALSE;
+	if (TRUE == tx_stat.in_progress)
+	{
+		switch (trac_status)
+		{
+			case TRAC_SUCCESS:
+			#if defined TRAC_SUCCESS_DATA_PENDING
+			case TRAC_SUCCESS_DATA_PENDING:
+			#endif
+			
+			#if defined TRAC_SUCCESS_WAIT_FOR_ACK
+			case TRAC_SUCCESS_WAIT_FOR_ACK:
+			#endif
+			tx_stat.cnt++;
+			if ( 0x0 == RFmodul.serintCMD_ap || (RFmodul.serintCMD_ap > 0x0 && (tx_stat.senderInfo == 0x97 || tx_stat.senderInfo == 0x17)) ) /* do nothing */;
+			else  AP_0x89_txStatus(OP_SUCCESS);
+			break;
+
+			case TRAC_CHANNEL_ACCESS_FAILURE:
+			/* TODO TX_CCA_FAIL; */
+			break;
+
+			case TRAC_NO_ACK:
+			tx_stat.fail++;
+			if ( RFmodul.serintCMD_ap > 0 ) AP_0x89_txStatus(TRANSMIT_OUT_FAIL);
+			else UART_print_status(TRANSMIT_OUT_FAIL);
+			break;
+
+			default:
+			tx_stat.fail++;
+			if ( RFmodul.serintCMD_ap > 0 ) AP_0x89_txStatus(TRANSMIT_OUT_FAIL);
+			else UART_print_status(TRANSMIT_OUT_FAIL);
+			break;
+		}
+	}
 	
-	if (deTRAC_SUCCESS != trac_status)
-	{
-		RFmodul.diagCMD_ea++;
-	}
-	else
-	{
-		tx_stat.cnt++;
-	}
+	tx_stat.in_progress = FALSE;
 	
 	TRX_writeReg(deRG_TRX_STATE, deCMD_RX_AACK_ON);
 }
@@ -433,7 +461,6 @@ static void TRX_rxHandler(void)
 
 	BufferNewContent(&RX_deBuf, TRUE);
 	rx_stat.done = TRUE;
-	
 }
 
 /*

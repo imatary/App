@@ -13,17 +13,6 @@
 #include "enum_status.h"	// at_status_t
 #include "cmd.h"			// CMD
 
-// === std. defines & frame types =========================
-#define STD_DELIMITER	(0x7E)
-#define TX_MSG_64		(0x00)
-#define TX_MSG_16		(0x01)
-#define AT_COMMAND		(0x08)
-#define AT_COMMAND_Q	(0x09)
-#define REMOTE_AT_CMD	(0x17)
-#define DEVICE_AT_CMD	(0x18)
-#define RX_MSG_64		(0x80)
-#define RX_MSG_16		(0x81)
-
 // === object =============================================
 struct api_f 
 {
@@ -65,6 +54,11 @@ void	AP_updateCRC(uint8_t *val);
 bool_t  AP_compareCRC(void);
 
 /*
+ * print an AP frame with transmit status of a 0x00/0x01 AP frame
+ */
+void AP_0x89_txStatus(at_status_t status);
+ 
+/*
  * created a AP frame if data was received over air
  */
 void TRX_createAPframe( uint8_t flen, uint8_t dataStart, uint8_t srcAddrLen, uint8_t option);
@@ -78,7 +72,7 @@ int TRX_0x97_atRemote_response(uint8_t *send, uint8_t *srcAddr, uint8_t srcAddrL
 /*
  * pack a package for a message which will transmitted
  */
-int TRX_0x01_transmit64Frame(uint8_t *send);
-int TRX_0x02_transmit16Frame(uint8_t *send);
+int TRX_0x00_transmit64Frame(uint8_t *send);
+int TRX_0x01_transmit16Frame(uint8_t *send);
 
 #endif /* APIFRAME_H_ */

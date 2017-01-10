@@ -12,7 +12,6 @@
 #include "../header/defaultConfig.h"	// defines for default configuration
 #include "../header/rfmodul.h"			// prototypes
 
-device_t RFmodul;
 /*
  * Set network parameter to default
  *

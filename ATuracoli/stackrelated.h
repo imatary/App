@@ -72,7 +72,7 @@ static uint8_t	(*TRX_init)			(void);
  * TRX_get_TXfail();	returns the send failures (ACK failures)
  */
 uint8_t		TRX_baseInit(void);
-at_status_t TRX_send(uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen);
+void		TRX_send(uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen);
 at_status_t TRX_receive(void);
 uint8_t		TRX_get_TXfail(void);
 

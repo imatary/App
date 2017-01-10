@@ -25,9 +25,6 @@ typedef struct {
 	uint8_t		rwxAttrib;	// 8 Bit for rwx or rwx Attrib bit field
 }__attribute__((packed)) CMD;
 
-extern const CMD *pStdCmdTable;
-extern const size_t command_count;
-
 CMD *CMD_findInTable(uint8_t *cmd);
 
 #endif /* CMD_H_ */
