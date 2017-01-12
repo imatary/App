@@ -149,6 +149,8 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 	{ 
 		cli(); BufferOut( &UART_deBuf, &pCmdString[2] ); sei();
 		cli(); BufferOut( &UART_deBuf, &pCmdString[3] ); sei();
+		if ( 'a' <= pCmdString[2] && 'z' >= pCmdString[2] ) pCmdString[2] -= 0x20;
+		if ( 'a' <= pCmdString[3] && 'z' >= pCmdString[3] ) pCmdString[3] -= 0x20;
 		AP_setATcmd(pCmdString);
 	}
 	else // AT CMD
@@ -329,7 +331,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.netCMD_ce;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}  
 				break;
 			
@@ -363,7 +365,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.netCMD_mm;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}  
 				break;
 			
@@ -375,7 +377,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.netCMD_rr;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -387,7 +389,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.netCMD_rn;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}  
 				break;
 			
@@ -410,7 +412,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.netCMD_no;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -422,7 +424,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.netCMD_sd;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}  
 				break;
 			
@@ -434,7 +436,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.netCMD_a1;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}  
 				break;
 			
@@ -446,7 +448,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.netCMD_a2;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}  
 				break;
 			
@@ -458,7 +460,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.netCMD_ai;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}  
 				break;
 
@@ -470,7 +472,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.secCMD_ee;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -494,7 +496,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.rfiCMD_pl;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}  
 				break;
 			
@@ -506,7 +508,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.rfiCMD_ca;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}  
 				break;
 
@@ -518,7 +520,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.sleepmCMD_sm;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}  
 				break;
 			
@@ -541,7 +543,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.sleepmCMD_sp;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -565,7 +567,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.sleepmCMD_so;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}  
 				break;
 			
@@ -580,7 +582,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.serintCMD_ap;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}
 				break;
 			
@@ -592,7 +594,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.serintCMD_bd;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -604,7 +606,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.serintCMD_nb;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}  
 				break;
 				
@@ -627,7 +629,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.ioserCMD_d8;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -639,7 +641,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.ioserCMD_d7;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -651,7 +653,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.ioserCMD_d6;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -663,7 +665,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.ioserCMD_d5;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -675,7 +677,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.ioserCMD_d4;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -687,7 +689,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.ioserCMD_d3;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -699,7 +701,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.ioserCMD_d2;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -711,7 +713,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.ioserCMD_d1;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -723,7 +725,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.ioserCMD_d0;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -746,7 +748,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.ioserCMD_iu;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -791,7 +793,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.ioserCMD_p0;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -803,7 +805,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = RFmodul.ioserCMD_p1;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				} 
 				break;
 			
@@ -1040,7 +1042,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
 					uint8_t val = 0x01;
-					AP_setMSG( &val, 1, TRUE );
+					AP_setMSG( &val, 1, FALSE );
 				}
 				break;
 			
@@ -1093,6 +1095,9 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 		cmdSize = ( TRUE == apFrame )? (*len)-4 : (*len)-2;
 		cli(); BufferOut( &UART_deBuf, &pCmdString[2] ); sei();
 		cli(); BufferOut( &UART_deBuf, &pCmdString[3] ); sei();
+		if ( 'a' <= pCmdString[2] && 'z' >= pCmdString[2] ) pCmdString[2] -= 0x20;
+		if ( 'a' <= pCmdString[3] && 'z' >= pCmdString[3] ) pCmdString[3] -= 0x20;
+		
 		AP_setATcmd(pCmdString);
 		AP_setRWXopt(WRITE);
 	}
@@ -1174,7 +1179,6 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				 */
 				if ( cmdSize <= 1 && tmp >= 0x0B && tmp <= 0x1A )
 				{
-					TRX_writeBit(deSR_CHANNEL, tmp);
 					RFmodul.netCMD_ch = tmp;
 				}
 				else 
@@ -2979,7 +2983,7 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 		return INVALID_COMMAND;
 	}
 	
-	if ( 0x0 == RFmodul.serintCMD_ap)
+	if ( FALSE == apFrame )
 	{
 		UART_print_status(OP_SUCCESS);
 	}

@@ -30,7 +30,7 @@
 
 // === Prototypes =========================================
 static at_status_t AP_0x18_localDevice(size_t *len);
-static void		   AP_0x88_atLocal_response(struct api_f *frame);
+static void		   AP_0x88_atLocal_response(void);
 static void		   AP_0x97_atRemote_response(uint16_t length);
 static void		   AP_0x80_0x81_rxReceive( uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen );
 static void		   AP_0x17_atRemoteFrame(uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen);
@@ -90,7 +90,7 @@ void AP_frameHandle_uart(void)
 				frame.ret = CMD_write( (size_t*) &frame.length, TRUE);
 				SET_userValInEEPROM();
 			}
-			AP_0x88_atLocal_response( &frame );
+			AP_0x88_atLocal_response();
 		break;
 		
 		case AT_COMMAND_Q  : 
@@ -103,7 +103,7 @@ void AP_frameHandle_uart(void)
 			{
 				frame.ret = CMD_write((size_t*) &frame.length, TRUE);
 			}
-			AP_0x88_atLocal_response( &frame );
+			AP_0x88_atLocal_response();
 		break;
 		
 		case REMOTE_AT_CMD : 
@@ -114,7 +114,7 @@ void AP_frameHandle_uart(void)
 		case DEVICE_AT_CMD :
 			frame.crc += 0x18;
 			frame.ret = AP_0x18_localDevice((size_t*) &frame.length);
-			AP_0x88_atLocal_response( &frame );
+			AP_0x88_atLocal_response();
 		break;
 		
 		case TX_MSG_64 :
@@ -182,16 +182,17 @@ void AP_setMSG(void *val, short length, uint8_t swapp)
 {
 	frame.msg[length+1] = 0x0;
 	frame.length = length;
-	memcpy(frame.msg, val, length);
-	if ( length > 1 && swapp == 1 )
-	{
-		for (short i = 0; i < frame.length/2; i++, length--)
-		{
-			frame.msg[i]        ^= frame.msg[length-1];
-			frame.msg[length-1] ^= frame.msg[i];
-			frame.msg[i]        ^= frame.msg[length-1];
-		}
-	}	
+ 	memcpy(frame.msg, val, length);
+ 	if ( swapp == 1 && length > 1 )
+ 	{
+ 		uint8_t tmp;
+ 		for (short i = 0; i < frame.length/2; i++, length--)
+ 		{
+ 			tmp					= frame.msg[i];
+ 			frame.msg[i]        = frame.msg[length-1];
+ 			frame.msg[length-1] = tmp;
+ 		}
+	}
 }
 
 /*
@@ -454,32 +455,32 @@ static void AP_0x80_0x81_rxReceive( uint16_t length, uint8_t *srcAddr, uint8_t s
  *
  * last modified: 2016/11/30
  */
-static void AP_0x88_atLocal_response(struct api_f *frame)
+static void AP_0x88_atLocal_response(void)
 {
-	if (frame->rwx == EXEC || frame->rwx == WRITE) frame->length = 0;
-	frame->length += 5;
+	if (frame.rwx == EXEC || frame.rwx == WRITE) frame.length = 0;
+	frame.length += 5;
 	
 	UART_putc( STD_DELIMITER );						// start delimiter
-	UART_putc( (uint8_t) (frame->length >> 8) );	// frame length
-	UART_putc( (uint8_t) (frame->length & 0xFF) );
+	UART_putc( (uint8_t) (frame.length >> 8) );	// frame length
+	UART_putc( (uint8_t) (frame.length & 0xFF) );
 	UART_putc( 0x88 );								// frame type
-	UART_putc( frame->id );
-	UART_putc( frame->cmd[0] );						// AT cmd
-	UART_putc( frame->cmd[1] );
-	UART_putc( frame->ret * (-1) );					// cmd option (successful/ not successful etc.)
+	UART_putc( frame.id );
+	UART_putc( frame.cmd[0] );						// AT cmd
+	UART_putc( frame.cmd[1] );
+	UART_putc( frame.ret * (-1) );					// cmd option (successful/ not successful etc.)
 		
 	//			 Type +  Frame ID +  AT Command                   +   Return Value      //
-	frame->crc = 0x88 + frame->id + frame->cmd[0] + frame->cmd[1] + (frame->ret * (-1));
-	if ( frame->rwx == READ )
+	frame.crc = 0x88 + frame.id + frame.cmd[0] + frame.cmd[1] + (frame.ret * (-1));
+	if ( frame.rwx == READ )
 	{
-		for (uint16_t x; x < frame->length-5 ; x++ )
+		for (uint16_t x; x < frame.length-5; x++ )
 		{
-			UART_putc(    frame->msg[x] );
-			frame->crc += frame->msg[x];
+			UART_putc( frame.msg[x] );
+			frame.crc += frame.msg[x];
 		}
 	}
 		
-	UART_putc( 0xFF - frame->crc);					// checksum
+	UART_putc( 0xFF - frame.crc);					// checksum
 }
 
 /*

@@ -57,7 +57,7 @@ bool_t  AP_compareCRC(void);
  * print an AP frame with transmit status of a 0x00/0x01 AP frame
  */
 void AP_0x89_txStatus(at_status_t status);
- 
+
 /*
  * created a AP frame if data was received over air
  */

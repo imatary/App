@@ -18,7 +18,7 @@ static const CMD StdCmdTable[] =
 {
 	/* AT */
 	{ "AT%C", AT_pC, READ               }, // %
-	{ "AT%V", AT_pV, READ               },
+	{ "AT%V", AT_pV, READ               },			// TODO
 	
 	{ "ATA1", AT_A1, READ | WRITE       }, // A
 	{ "ATA2", AT_A2, READ | WRITE       },
@@ -113,7 +113,7 @@ static const CMD StdCmdTable[] =
 	{ "ATWR", AT_WR,			   EXEC }, // W
 	
 	/* DE */
-	{ "DEFV", DE_FV, READ               },
+	{ "DEFV", DE_FV, READ               }, // F
 
 };
 
