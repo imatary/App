@@ -89,6 +89,8 @@ void AP_frameHandle_uart(void)
 			{
 				frame.ret = CMD_write( (size_t*) &frame.length, TRUE);
 				SET_userValInEEPROM();
+				UART_init();
+				TRX_baseInit();
 			}
 			AP_0x88_atLocal_response();
 		break;
@@ -101,7 +103,7 @@ void AP_frameHandle_uart(void)
 			}
 			else
 			{
-				frame.ret = CMD_write((size_t*) &frame.length, TRUE);
+				frame.ret = CMD_write((size_t*) &frame.length, 0x9);
 			}
 			AP_0x88_atLocal_response();
 		break;
@@ -180,19 +182,20 @@ void AP_setRWXopt(uint8_t opt)
  */
 void AP_setMSG(void *val, short length, uint8_t swapp)
 {
-	frame.msg[length+1] = 0x0;
+	frame.msg[length] = 0x0;
+	
 	frame.length = length;
- 	memcpy(frame.msg, val, length);
- 	if ( swapp == 1 && length > 1 )
+ 	memcpy(frame.msg,(uint8_t*) val, length);
+	
+ 	if ( length > 1 && swapp == 1 )
  	{
- 		uint8_t tmp;
- 		for (short i = 0; i < frame.length/2; i++, length--)
- 		{
- 			tmp					= frame.msg[i];
- 			frame.msg[i]        = frame.msg[length-1];
- 			frame.msg[length-1] = tmp;
- 		}
-	}
+	 	for (short i = 0; i < frame.length/2; i++, length--)
+	 	{
+		 	frame.msg[i]        ^= frame.msg[length-1];
+		 	frame.msg[length-1] ^= frame.msg[i];
+		 	frame.msg[i]        ^= frame.msg[length-1];
+	 	}
+ 	}
 }
 
 /*
@@ -457,11 +460,11 @@ static void AP_0x80_0x81_rxReceive( uint16_t length, uint8_t *srcAddr, uint8_t s
  */
 static void AP_0x88_atLocal_response(void)
 {
-	if (frame.rwx == EXEC || frame.rwx == WRITE) frame.length = 0;
+	if (frame.rwx == EXEC || frame.rwx == WRITE || frame.ret < 0 ) frame.length = 0;
 	frame.length += 5;
 	
 	UART_putc( STD_DELIMITER );						// start delimiter
-	UART_putc( (uint8_t) (frame.length >> 8) );	// frame length
+	UART_putc( (uint8_t) (frame.length >> 8) );		// frame length
 	UART_putc( (uint8_t) (frame.length & 0xFF) );
 	UART_putc( 0x88 );								// frame type
 	UART_putc( frame.id );
@@ -473,13 +476,13 @@ static void AP_0x88_atLocal_response(void)
 	frame.crc = 0x88 + frame.id + frame.cmd[0] + frame.cmd[1] + (frame.ret * (-1));
 	if ( frame.rwx == READ )
 	{
-		for (uint16_t x; x < frame.length-5; x++ )
+		frame.length -= 5;
+		for (uint8_t x = 0; x < frame.length; x++)
 		{
 			UART_putc( frame.msg[x] );
 			frame.crc += frame.msg[x];
 		}
 	}
-		
 	UART_putc( 0xFF - frame.crc);					// checksum
 }
 

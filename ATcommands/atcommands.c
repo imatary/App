@@ -72,57 +72,75 @@ void main(void)
 		if ( EOF != inchar )
 		{
 			/*
-			 * push the character into the buffer
-			 * neither interrupts allowed
-			 */
-			cli(); ret = BufferIn( &UART_deBuf, inchar ); sei();
-			if( ret ) 
-			{ 
-				UART_print_status(ret); 
-				BufferInit(&UART_deBuf, NULL);
-				ret = 0;
-				continue; 
-			}
-
-			/*
 			 * if AP mode active
 			 */
 			if ( RFmodul.serintCMD_ap > 0 )
 			{
 				if ( 0x7E == inchar && 0 == apicounter )
 				{
-					th = deTIMER_start(AP_timeHandle, deMSEC( 0x64 ), 0 ); // 100 MS
+					th = deTIMER_start(AP_timeHandle, deMSEC( 0x17 ), 0 ); // 23 MS
 					apicounter++;
 				}
 				apicounter = ( apicounter > 0 )? apicounter+1 : 0;
-			}
-			
-			/*
-			 * if a carriage return (0xD) received and the AP Mode is disabled send the buffer content 
-			 */					
-			if ( ('\r' == inchar || '\n' == inchar) && RFmodul.serintCMD_ap == 0 )
-			{ 
-				TRX_send(0, NULL, 0);
-				counter = 0;
-			}
-			
-			/*
-			 * if a plus (0x2B) received, count it 
-			 * if the user hit three times the plus button switch to local command mode
-			 */
-			if ( inchar == RFmodul.atcopCMD_cc  ) // && RFmodul.serintCMD_ap == 0
-			{
-				counter += 1;
-				if ( 3 == counter )
-				{
-					BufferInit(&UART_deBuf, NULL); // delete all content in the buffer
-					AT_localMode();
-					counter = 0;
-					
-				}
 				
-			} /* end of 0x2B condition */
+				/*
+				 * push the character into the buffer
+				 * neither interrupts allowed
+				 */
+				cli(); ret = BufferIn( &UART_deBuf, inchar ); sei();
+				if( ret ) 
+				{ 
+					UART_print_status(ret); 
+					BufferInit(&UART_deBuf, NULL);
+					ret = 0;
+					continue; 
+				}
 			
+			}
+			else
+			{
+				if ( 0x7E == inchar && 0 == apicounter )
+				{
+					th = deTIMER_start(AP_timeHandle, deMSEC( RFmodul.atcopCMD_gt ), 0 );
+					apicounter++;
+				}
+				apicounter = ( apicounter > 0 )? apicounter+1 : 0;
+				
+				/*
+				 * push the character into the buffer
+				 * neither interrupts allowed
+				 */
+				cli(); ret = BufferIn( &UART_deBuf, inchar ); sei();
+				if( ret ) 
+				{ 
+					UART_print_status(ret); 
+					BufferInit(&UART_deBuf, NULL);
+					ret = 0;
+					continue; 
+				}
+
+			    /*
+			     * if a plus (0x2B) received, count it 
+			     * if the user hit three times the plus button switch to local command mode
+			     */
+				if ((counter == 1 || counter == 2) && inchar != RFmodul.atcopCMD_cc)
+				{
+					counter = 0;
+				}
+			    if ( inchar == RFmodul.atcopCMD_cc  ) // && RFmodul.serintCMD_ap == 0
+			    {
+			    	counter += 1;
+			    	if ( 3 == counter )
+			    	{
+			    		BufferInit(&UART_deBuf, NULL); // delete all content in the buffer
+			    		AT_localMode();
+			    		counter = 0;
+			    		
+			    	}
+			    	
+			    } /* end of 0x2B condition */
+			}
+						
 		} /* end of uart condition */
 		
 		/*
@@ -134,6 +152,14 @@ void main(void)
 			apicounter = 0;
 			APIframe = FALSE;
 			th = 0;
+		}
+		/*
+		 * if a carriage return (0xD) received and the AP Mode is disabled send the buffer content 
+		 */					
+		if ( (('\r' == inchar || '\n' == inchar) || TRUE == APIframe ) && RFmodul.serintCMD_ap == 0 )
+		{ 
+			TRX_send(0, NULL, 0);
+			counter = 0;
 		}
 		
 	} /* end of while loop */ 
