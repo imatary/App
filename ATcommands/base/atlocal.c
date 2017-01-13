@@ -26,13 +26,37 @@ static uint32_t CMD_timeHandle(uint32_t arg);
 /*
  * translate ASCII parameter to Hex values
  */
-bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize ,size_t maxCmdSize);
+static bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize ,size_t maxCmdSize);
 
 
 // === c-File Globals =====================================
-bool_t noTimeout = TRUE;
+static bool_t noTimeout = TRUE;
+static uint8_t atAP_tmp = 0;
 
 // === Functions ==========================================
+/*
+ * Get and set function for temporary AP value.
+ * This variable is needed for API mode to write first to eeprom ans secondly apply the changes.
+ * - Prototypes are declared in rfmodul.h
+ *
+ * Received:
+ *		uint8_t		parameter value for atAP_tmp (set function)
+ *
+ * Returns:
+ *		uint8_t		parameter value of atAP_tmp (get function)
+ *
+ * last modified: 2017/01/13
+ */
+uint8_t GET_atAP_tmp(void)
+{
+	return atAP_tmp;
+}
+
+void SET_atAP_tmp(uint8_t APvalue)
+{
+	if (0x02 >= APvalue) atAP_tmp = APvalue;
+}
+
 /*
  * AT_localMode()
  * - reset the timer
@@ -178,7 +202,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 	}
 	else 
 	{
-		// remove the '\r'/'\n' from the buffer if in CMD Mode
+		// remove the '\r' from the buffer if in CMD Mode
 		deBufferReadReset( &UART_deBuf, '+', 1); 
 	}
 	
@@ -213,8 +237,10 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 			// apply changes - currently only a dummy
 /* AC */    case AT_AC : {
 				UART_init();
-				TRX_baseInit();				
-				if ( RFmodul.serintCMD_ap == 0  || th != NULL )
+				TRX_baseInit();	
+				RFmodul.serintCMD_ap = atAP_tmp;
+	
+				if ( RFmodul.serintCMD_ap == 0  && th != NULL )
 				{
 					UART_print_status(OP_SUCCESS);
 				}
@@ -581,8 +607,8 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				} 
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
-					uint8_t val = RFmodul.serintCMD_ap;
-					AP_setMSG( &val, 1, FALSE );
+					atAP_tmp = RFmodul.serintCMD_ap;
+					AP_setMSG( &atAP_tmp, 1, FALSE );
 				}
 				break;
 			
@@ -1092,7 +1118,7 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 		
 	if ( 0 < RFmodul.serintCMD_ap && 0 < apFrame ) // AP frame
 	{ 
-		cmdSize = ( TRUE >= apFrame )? (*len)-4 : (*len)-2;
+		cmdSize = ( TRUE <= apFrame )? (*len)-4 : (*len)-2;
 		cli(); BufferOut( &UART_deBuf, &pCmdString[2] ); sei();
 		cli(); BufferOut( &UART_deBuf, &pCmdString[3] ); sei();
 		if ( 'a' <= pCmdString[2] && 'z' >= pCmdString[2] ) pCmdString[2] -= 0x20;
@@ -1913,35 +1939,30 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 			 * last modified: 2016/12/02
 			 */
 /* AP */	case AT_AP : { 
-				uint8_t tmp = 0;
 				
 				/*
 				 * get the parameter
 				 */
 				if ( RFmodul.serintCMD_ap == 0  )
 				{
-					if ( charToUint8( &tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
+					if ( charToUint8( &atAP_tmp, len, &cmdSize, 1 ) == FALSE ) return ERROR;
 				} 
-				else if (apFrame == 0x09) // only available in 0x08 and 0x17
-				{ 
-						deBufferReadReset(&UART_deBuf, '+', *len+1); // delete parameter and crc sum
-						return ERROR;
-				}
 				else
 				{
-					cli(); BufferOut( &UART_deBuf, &tmp ); sei();
-					AP_updateCRC(&tmp);
+					cli(); BufferOut( &UART_deBuf, &atAP_tmp ); sei();
+					AP_updateCRC(&atAP_tmp);
 					if ( AP_compareCRC() == FALSE ) return ERROR;
 				}
 				
 				/*
 				 * compare the parameter
 				 */
-				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x2 )
-				{
-					RFmodul.serintCMD_ap = tmp;
+				if ( cmdSize > 1 || atAP_tmp > 0x02 )
+			    { 
+					UART_putc(cmdSize);
+					atAP_tmp = RFmodul.serintCMD_ap;
+					return INVALID_PARAMETER;
 				}
-				else { return INVALID_PARAMETER;}
 			}
 			break;
 			
@@ -3034,7 +3055,7 @@ uint32_t CMD_timeHandle(uint32_t arg)
  *
  * last modified: 2016/12/02
  */
-bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize, size_t maxCmdSize)
+static bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize, size_t maxCmdSize)
 {
 	uint8_t tmp[2] = {0};	
 	/*

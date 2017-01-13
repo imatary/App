@@ -11,6 +11,7 @@
  */ 
 #include <stdint.h>							// uintX_t
 #include <string.h>							// srncpy, memcpy, memset
+#include <alloca.h>
 #include <avr/eeprom.h>						// eeprom write & read
 #include "../header/defaultConfig.h"		// default values
 #include "../header/rfmodul.h"				// RFmodul struct
@@ -45,7 +46,13 @@ void SET_defaultInEEPROM(void)
 	size  = sizeof(device_t) + 8;
 	size += 32 - (size % 32);
 	
-	uint8_t lary[size];
+	/*
+	 * WARNING:
+	 * returns a pointer to the beginning of the allocated space. 
+	 * If the allocation causes stack overflow, program behaviour is
+	 * undefined.
+	 */
+	uint8_t *lary = (uint8_t*) alloca(size);
 	
 	memset(lary, 0xFF, size);
 	lary[0] = 0x88;
@@ -80,7 +87,7 @@ void SET_defaultInEEPROM(void)
  * Returns:
  *     nothing
  *
- * Last modified: 2016/12/23
+ * Last modified: 2017/01/13
  */
 void GET_allFromEEPROM(void)
 {
@@ -88,14 +95,23 @@ void GET_allFromEEPROM(void)
 	size  = sizeof(device_t) + 8;
 	size += 32 - (size % 32);
 	
-	uint8_t lary[size];
+	/*
+	 * WARNING:
+	 * returns a pointer to the beginning of the allocated space. 
+	 * If the allocation causes stack overflow, program behaviour is
+	 * undefined.
+	 */
+	uint8_t *lary = (uint8_t*) alloca(size);
+	
 	memset(lary, 0xFF, size);	
 	eeprom_read_block(lary, (void*) START_POS, size);				// (1)
 	uint16_t calcCrc = calc_crc(lary, sizeof(device_t)+4 );			// (2)
 	uint16_t readCrc = (uint16_t) lary[size-1] << 8 | lary[size-2];
 	
 	if ( readCrc != calcCrc )	 SET_defaultInEEPROM();				// (3)
-	else						 memcpy( &RFmodul, &lary[4], sizeof(device_t) );		
+	else						 memcpy( &RFmodul, &lary[4], sizeof(device_t) );
+	
+	SET_atAP_tmp(RFmodul.serintCMD_ap);		
 }
 
 /*
@@ -108,7 +124,7 @@ void GET_allFromEEPROM(void)
  * Returns:
  *     nothing
  *
- * Last modified: 2016/11/24
+ * Last modified: 2017/01/13
  */
 void SET_userValInEEPROM(void)
 {
@@ -116,14 +132,24 @@ void SET_userValInEEPROM(void)
 	size  = sizeof(device_t) + 8;
 	size += 32 - (size % 32);
 	
-	uint8_t lary[size];
+	/*
+	 * WARNING:
+	 * returns a pointer to the beginning of the allocated space. 
+	 * If the allocation causes stack overflow, program behaviour is
+	 * undefined.
+	 */
+	uint8_t *lary = (uint8_t*) alloca(size);
+	
 	memset(lary, 0xFF, size);
 	lary[0] = 0x80;
 	lary[1] = 0xDE;
 	lary[2] = 0x02;
 	lary[3] = (uint8_t) sizeof(device_t);
 
+	uint8_t tmp = RFmodul.serintCMD_ap;
+	RFmodul.serintCMD_ap = GET_atAP_tmp();
 	memcpy( &lary[4], &RFmodul, sizeof(device_t) );
+	RFmodul.serintCMD_ap = tmp;
 	
 	uint16_t crc_val = calc_crc(lary, sizeof(device_t)+4);
 	memcpy( &lary[size-2], &crc_val, 2);

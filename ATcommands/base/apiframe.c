@@ -36,7 +36,7 @@ static void		   AP_0x80_0x81_rxReceive( uint16_t length, uint8_t *srcAddr, uint8
 static void		   AP_0x17_atRemoteFrame(uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen);
 
 // === globals ============================================
-struct api_f frame  = {0,0,0,0,{0},0,{0},0};
+static struct api_f frame  = {0,0,0,0,{0},0,{0},0};
 
 // === Functions (local handling shared) ==================
 // ===
@@ -58,23 +58,29 @@ void AP_frameHandle_uart(void)
 	uint8_t  outchar[5]	= {0x0};
 	
 	// Start delimiter	1 byte	
-	cli(); BufferOut( &UART_deBuf, &outchar[0] ); sei();
-	if ( outchar[0] != STD_DELIMITER ) 
+	while (TRUE)
 	{
-		BufferInit(&UART_deBuf, NULL);
-		return;
+		cli(); frame.ret = BufferOut( &UART_deBuf, &outchar[0] ); sei();
+		if ( outchar[0] == STD_DELIMITER ) break;
+		if (frame.ret == BUFFER_OUT_FAIL) return;
 	}
 	
 	// frame->bufLength	2 byte
-	cli(); BufferOut( &UART_deBuf, &outchar[0] ); sei();
-	cli(); BufferOut( &UART_deBuf, &outchar[1] ); sei();
+	cli(); frame.ret = BufferOut( &UART_deBuf, &outchar[0] ); sei();
+	cli(); frame.ret = BufferOut( &UART_deBuf, &outchar[1] ); sei();
+	if (frame.ret == BUFFER_OUT_FAIL) return;
+	
 	frame.length = (uint16_t) outchar[0] << 2 | outchar[1] ;
 	
+	
 	// frame type	1 byte
-	cli(); BufferOut( &UART_deBuf, &frame.type ); sei();
+	cli(); frame.ret = BufferOut( &UART_deBuf, &frame.type ); sei();
+	if (frame.ret == BUFFER_OUT_FAIL) return;
 	
 	// frame id		1 byte
-	cli(); BufferOut( &UART_deBuf, &frame.id ); sei();
+	cli(); frame.ret = BufferOut( &UART_deBuf, &frame.id ); sei();
+	if (frame.ret == BUFFER_OUT_FAIL) return;
+	
 	frame.crc = frame.id;
 	
 	switch ( frame.type )
@@ -91,6 +97,7 @@ void AP_frameHandle_uart(void)
 				SET_userValInEEPROM();
 				UART_init();
 				TRX_baseInit();
+				RFmodul.serintCMD_ap = GET_atAP_tmp();
 			}
 			AP_0x88_atLocal_response();
 		break;
@@ -129,7 +136,9 @@ void AP_frameHandle_uart(void)
 			TRX_send(0x01, NULL, 0);
 		break;
 				
-		default : frame.ret = INVALID_COMMAND;
+		default : 
+			frame.ret = INVALID_COMMAND;
+			AP_0x88_atLocal_response();
 	}
 }
 

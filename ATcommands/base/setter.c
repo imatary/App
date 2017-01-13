@@ -98,7 +98,7 @@ void SET_siDefault()
 	RFmodul.serintCMD_bd = BD_INTERFACE_DATA_RATE;
 	RFmodul.serintCMD_nb = NB_PARITY;
 	RFmodul.serintCMD_ro = RO_PACKETIZATION_TIMEOUT;
-	RFmodul.serintCMD_ap = AP_AP_ENABLE;
+	SET_atAP_tmp(AP_AP_ENABLE);
 }
 
 /*
@@ -226,7 +226,7 @@ void SET_cmdoDefault()
 	 RFmodul.serintCMD_bd = BD_INTERFACE_DATA_RATE;
 	 RFmodul.serintCMD_nb = NB_PARITY;
 	 RFmodul.serintCMD_ro = RO_PACKETIZATION_TIMEOUT;
-	 RFmodul.serintCMD_ap = AP_AP_ENABLE;
+	 SET_atAP_tmp(AP_AP_ENABLE);
 	 
 	 RFmodul.ioserCMD_d8 = D8_DI8_CONFIGURATION;
 	 RFmodul.ioserCMD_d7 = D7_DIO7_CONFIGURATION;

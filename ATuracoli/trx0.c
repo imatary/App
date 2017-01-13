@@ -194,7 +194,9 @@ void TRX_send(uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen)
  * last modified: 2016/01/09
  */
 int TRX_msgFrame(uint8_t *send)
-{                                              
+{    
+	at_status_t ret;
+	                                          
 	/* Step 1: prepare packed
 	 * - prepare MAC header, first byte
 	 * - write destination PANID
@@ -239,11 +241,11 @@ int TRX_msgFrame(uint8_t *send)
 	 */
 	if ( RFmodul.netCMD_my != 0xFFFE )
 	{
-		*(send+pos)   = (uint8_t) (RFmodul.netCMD_my & 0xff);
+		*(send+pos)   = (uint8_t)  RFmodul.netCMD_my;
 		*(send+pos+1) = (uint8_t) (RFmodul.netCMD_my >> 8);						// src. short address
-		
+
 		*(send+1) |= 0x80;														// MAC header second byte
-		pos += 1;
+		pos += 2;
 	} 
 	else
 	{
@@ -258,7 +260,7 @@ int TRX_msgFrame(uint8_t *send)
 		*(send+pos+7) = (uint8_t) (RFmodul.netCMD_sh >> 24);					// src. ext. addr. high
 		
 		*(send+1) |= 0xC0;														// MAC header second byte
-		pos += 7;
+		pos += 8;
 	}
 	
 	if ( RFmodul.netCMD_mm != 0x1 || RFmodul.netCMD_mm != 0x2 )
@@ -270,12 +272,12 @@ int TRX_msgFrame(uint8_t *send)
 	
 	do
 	{
+		cli(); ret = BufferOut(&UART_deBuf, send + pos ); sei();
 		pos +=1;
-		cli(); BufferOut(&UART_deBuf, send + pos ); sei();
 
-	} while ( 0xD != *(send + pos - 1) && pos < PACKAGE_SIZE-1 );
-	
-	return pos;
+	} while ( BUFFER_OUT_FAIL != ret && pos < PACKAGE_SIZE-1 );
+
+	return pos-1;
 }
 
 /*
@@ -323,6 +325,7 @@ at_status_t TRX_receive(void)
 		case 0xC800 : dataStart = 0x0D; srcAddrLen = 8; break; // dest 16 & src 64 -> 10 bytes + (dest PAN ID + Frame counter) 3 bytes = 13
 		case 0xCC00 : dataStart = 0x13; srcAddrLen = 8; break; // dest 64 & src 64 -> 16 bytes + (dest PAN ID + Frame counter) 3 bytes = 19
 		default: 
+			rx_stat.fail++;
 			BufferInit(&RX_deBuf, NULL);
 			return TRANSMIT_IN_FAIL;
 	}
@@ -352,19 +355,13 @@ at_status_t TRX_receive(void)
 			case 0x08 : TRX_createAPframe( flen-2, dataStart+5, srcAddrLen, 0x08 ); break;	// security  enabled, PAN compression disabled = add 5 bytes for Auxiliary Sec. Header
 			case 0x48 : TRX_createAPframe( flen-2, dataStart+7, srcAddrLen, 0x48 ); break;	// security  enabled, PAN compression  enabled = add 7 bytes for src PAN ID and Auxiliary Sec. header
 			default:
-			BufferInit(&RX_deBuf, NULL);
-			return TRANSMIT_IN_FAIL;
+				rx_stat.fail++;
+				BufferInit(&RX_deBuf, NULL);
+				return TRANSMIT_IN_FAIL;
 		}
 	}
 	
 	rx_stat.cnt += 1;
-	rx_stat.done = FALSE;
-	if(FALSE)
-	{
-		rx_stat.fail++;
-		return TRANSMIT_IN_FAIL;
-	}	
-	
 	return OP_SUCCESS;
 }
 
