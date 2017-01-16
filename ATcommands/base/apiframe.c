@@ -98,6 +98,7 @@ void AP_frameHandle_uart(void)
 				UART_init();
 				TRX_baseInit();
 				RFmodul.serintCMD_ap = GET_atAP_tmp();
+				RFmodul.atcopCMD_ct  = GET_atCT_tmp();
 			}
 			AP_0x88_atLocal_response();
 		break;

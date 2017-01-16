@@ -32,6 +32,7 @@ static bool_t charToUint8(uint8_t *cmdString, size_t *strlength, size_t *cmdSize
 // === c-File Globals =====================================
 static bool_t noTimeout = TRUE;
 static uint8_t atAP_tmp = 0;
+static uint16_t atCT_tmp = 0;
 
 // === Functions ==========================================
 /*
@@ -55,6 +56,29 @@ uint8_t GET_atAP_tmp(void)
 void SET_atAP_tmp(uint8_t APvalue)
 {
 	if (0x02 >= APvalue) atAP_tmp = APvalue;
+}
+
+/*
+ * Get and set function for temporary CT value.
+ * This variable is needed for API mode to write first to eeprom ans secondly apply the changes.
+ * - Prototypes are declared in rfmodul.h
+ *
+ * Received:
+ *		uint16_t		parameter value for atCT_tmp (set function)
+ *
+ * Returns:
+ *		uint16_t		parameter value of atCT_tmp (get function)
+ *
+ * last modified: 2017/01/17
+ */
+uint16_t GET_atCT_tmp(void)
+{
+	return atCT_tmp;
+}
+
+void SET_atCT_tmp(uint16_t *CTvalue)
+{
+	if (0x02 <= *CTvalue && 0x1770 >= *CTvalue) atCT_tmp = *CTvalue;
 }
 
 /*
@@ -95,7 +119,7 @@ void AT_localMode(void)
 			 * If within the first 5 characters a space character, don't store it in the buffer and don't count,
 			 * count the length of the command
 			 */
-			if ( ' ' == inchar && counter <= 4 ) continue;
+			if ( ' ' == inchar && counter < 4 ) continue;
 			else
 			{
 				if ( isalpha(inchar) && islower(inchar) ) inchar = toupper(inchar);
@@ -239,6 +263,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				UART_init();
 				TRX_baseInit();	
 				RFmodul.serintCMD_ap = atAP_tmp;
+				RFmodul.atcopCMD_ct  = atCT_tmp;
 	
 				if ( RFmodul.serintCMD_ap == 0  && th != NULL )
 				{
@@ -375,7 +400,7 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 /* NI */	case AT_NI :
 				if ( RFmodul.serintCMD_ap == 0  || th != NULL )
 				{
-					UART_printf("%s", RFmodul.netCMD_ni );
+					UART_printf("%s\r", RFmodul.netCMD_ni );
 				}
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
@@ -1029,8 +1054,8 @@ at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame)
 				}
 				else if ( RFmodul.serintCMD_ap > 0 && th == NULL )
 				{
-					uint16_t val = RFmodul.atcopCMD_ct;
-					AP_setMSG( &val, 2, TRUE );
+					atCT_tmp = RFmodul.atcopCMD_ct;
+					AP_setMSG( &atCT_tmp, 2, TRUE );
 				} 
 				break;
 			
@@ -1153,12 +1178,21 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 		for (int i = 0; i < (*len); i++)
 		{
 			cli(); BufferOut(&UART_deBuf, &RFmodul.netCMD_ni[i]); sei();
-			if ( TRUE >= apFrame ) AP_updateCRC(&RFmodul.netCMD_ni[i]);
+			if ( 0xD == RFmodul.netCMD_ni[i] )
+			{
+				*len = i-1;
+				break;
+			}
+			if ( TRUE <= apFrame ) AP_updateCRC(&RFmodul.netCMD_ni[i]);
 		}	
 		RFmodul.netCMD_ni[(*len)+1] = 0x0;
 		
-		if (  AP_compareCRC() == FALSE ) return ERROR;
-		else										       return OP_SUCCESS;
+		if ( TRUE <= apFrame && AP_compareCRC() == FALSE ) return ERROR;
+		else											  
+		{
+			 if ( FALSE == apFrame ) UART_print_status(OP_SUCCESS);
+			 return OP_SUCCESS;
+		}
 	}
 	if (AT_NI == pCommand->ID && *len > 20 )
 	{
@@ -1411,7 +1445,7 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				/*
 				 * compare the parameter
 				 */		
-				if ( cmdSize <= 2 && tmp >= 0x0 && tmp <= 0xFFFF )
+				if ( cmdSize <= 2 && tmp >= 0x1 && tmp <= 0xFFFF )
 				{
 					RFmodul.netCMD_sc = tmp;
 				}
@@ -1923,7 +1957,7 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				/*
 				 * compare the parameter
 				 */
-				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x6 )
+				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x3 )
 				{
 					RFmodul.sleepmCMD_so = tmp;
 				}
@@ -1959,7 +1993,6 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				 */
 				if ( cmdSize > 1 || atAP_tmp > 0x02 )
 			    { 
-					UART_putc(cmdSize);
 					atAP_tmp = RFmodul.serintCMD_ap;
 					return INVALID_PARAMETER;
 				}
@@ -2075,7 +2108,7 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				/*
 				 * compare the parameter
 				 */
-				if ( cmdSize <= 1 && tmp >= 0x0 && tmp <= 0x5 )
+				if ( cmdSize <= 1 && tmp == 0x0 || tmp == 0x3 )
 				{
 					RFmodul.ioserCMD_d8 = tmp;
 				}
@@ -2532,7 +2565,7 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 				/*
 				 * compare the parameter
 				 */
-				if ( cmdSize <= 1 && tmp >= 0xB && tmp <= 0xFF )
+				if ( cmdSize <= 1 && tmp <= 0xFF )
 				{
 					RFmodul.ioserCMD_pt = tmp;
 				}
@@ -2923,16 +2956,16 @@ at_status_t CMD_write(size_t *len, uint8_t apFrame)
 					
 					if ( AP_compareCRC() == FALSE ) return ERROR; 
 				}			
-				uint16_t tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
+				atCT_tmp = (uint16_t) cmdString[0] << 8 | cmdString[1];
 				
 				/*
 				 * compare the parameter
 				 */		
-				if ( cmdSize <= 2 && tmp >= 0x02 && tmp <= 0x1770 )
+				if ( cmdSize > 2 || atCT_tmp < 0x02 || atCT_tmp > 0x1770 )
 				{
-					RFmodul.atcopCMD_ct = tmp;	
+					atCT_tmp = RFmodul.atcopCMD_ct;	
+					return INVALID_PARAMETER; 
 				}
-				else { return INVALID_PARAMETER; }
 			}
 			break;
 			

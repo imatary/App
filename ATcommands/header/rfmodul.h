@@ -106,9 +106,11 @@ void SET_cmdoDefault(void);
 void SET_allDefault(void);
 void SET_deDefault(void);
 void SET_atAP_tmp(uint8_t APvalue);
+void SET_atCT_tmp(uint16_t *CTvalue);
 
 // === get functions ==========================================
 uint8_t GET_atAP_tmp(void);
+uint16_t GET_atCT_tmp(void);
 
 // === EEPROM functions =======================================
 void GET_allFromEEPROM(void);
