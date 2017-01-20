@@ -12,7 +12,6 @@
 #include "../header/defaultConfig.h"	// defines for default configuration
 #include "../header/rfmodul.h"			// prototypes
 
-device_t RFmodul;
 /*
  * Set network parameter to default
  *
@@ -99,7 +98,7 @@ void SET_siDefault()
 	RFmodul.serintCMD_bd = BD_INTERFACE_DATA_RATE;
 	RFmodul.serintCMD_nb = NB_PARITY;
 	RFmodul.serintCMD_ro = RO_PACKETIZATION_TIMEOUT;
-	RFmodul.serintCMD_ap = AP_API_ENABLE;
+	SET_atAP_tmp(AP_AP_ENABLE);
 }
 
 /*
@@ -227,7 +226,7 @@ void SET_cmdoDefault()
 	 RFmodul.serintCMD_bd = BD_INTERFACE_DATA_RATE;
 	 RFmodul.serintCMD_nb = NB_PARITY;
 	 RFmodul.serintCMD_ro = RO_PACKETIZATION_TIMEOUT;
-	 RFmodul.serintCMD_ap = AP_API_ENABLE;
+	 SET_atAP_tmp(AP_AP_ENABLE);
 	 
 	 RFmodul.ioserCMD_d8 = D8_DI8_CONFIGURATION;
 	 RFmodul.ioserCMD_d7 = D7_DIO7_CONFIGURATION;
@@ -268,8 +267,6 @@ void SET_cmdoDefault()
 	 RFmodul.atcopCMD_ct = CT_AT_CMD_TIMEOUT;
 	 RFmodul.atcopCMD_gt = GT_GUART_TIMES;
 	 RFmodul.atcopCMD_cc = CC_COMMAND_SEQUENCE_CHAR;
-	 
-	 RFmodul.deCMD_ru	= RU_RETURN_TO_UART;
  }
  
  /*
@@ -278,9 +275,9 @@ void SET_cmdoDefault()
  * Returns:
  *     nothing
  *
- * Last modified: 2016/11/30
+ * Last modified: 20--/--/--
  */
  void SET_deDefault(void)
  {
-	  RFmodul.deCMD_ru	= RU_RETURN_TO_UART;
+	  
  }

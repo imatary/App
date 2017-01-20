@@ -1,6 +1,7 @@
 # ignore original µracoli data
 Sniffer/
 WiBo/
+dde_backup/
 calosc.c                          
 diagradio.c                       
 rsensor.c                         

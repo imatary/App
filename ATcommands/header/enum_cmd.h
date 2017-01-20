@@ -52,7 +52,7 @@ typedef enum
 	AT_SO,					// SLEEP OPTION
 	AT_SS,					// SLEEP STATUS
 	// serial interfacing								
-	AT_AP,					// API ENABLE
+	AT_AP,					// AP ENABLE
 	AT_BD,					// INTERFACE DATA RATE	
 	AT_NB,					// PARITY
 	AT_RO,					// PACKETIZATION TIMEOUT
@@ -109,7 +109,6 @@ typedef enum
 	AT_SB,					// STOP BITS
 	
 	// special device commands
-	DE_RU,					// RETURN TO UART
 	DE_FV					// AT FIRMWARE VERSION
 																		
 }__attribute__((packed)) cmdIDs;										

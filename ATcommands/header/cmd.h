@@ -20,14 +20,11 @@
 
 // === struct and struct table ============================
 typedef struct {
-	const char*	name;
+	const char *name;
 	cmdIDs		ID;			// AT ID of enum type cmdIDs
 	uint8_t		rwxAttrib;	// 8 Bit for rwx or rwx Attrib bit field
-	uint8_t		Param;		// Pointer to parameter start position in UART_inBuf
-	//uint8_t :1;			// reserves one byte, is it really necessary? If yes we will loose 1 byte with each AT command, with 50 commands we loose 50 byte for nothing.
 }__attribute__((packed)) CMD;
 
-extern const CMD *pStdCmdTable;
-extern const size_t command_count;
+CMD *CMD_findInTable(uint8_t *cmd);
 
 #endif /* CMD_H_ */

@@ -66,7 +66,7 @@
  *
  * last modified: 2016/11/10
  */
-#define AP_API_ENABLE				(0x0)			// 0x0-0x2 (XBee default '0')
+#define AP_AP_ENABLE				(0x0)			// 0x0-0x2 (XBee default '0')
 #define BD_INTERFACE_DATA_RATE		(0x5)			// 0x0-0x7 (XBee default '3')
 #define NB_PARITY					(0x0)			// 0x0-0x4 (XBee default '0')
 #define RO_PACKETIZATION_TIMEOUT	(0x3)			// 0x0-0xFF (XBee default '3')
@@ -134,9 +134,9 @@
 /*
  * AT commands: device related
  *
- * last modified: 2016/11/30
+ * last modified: 20--/--/--
  */
-#define RU_RETURN_TO_UART			(FALSE)			// 0x0-0x1 (not a XBee command)
+
 
 
 #endif /* DEFAULTCONFIG_H_ */

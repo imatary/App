@@ -47,7 +47,7 @@ The AT command version number contains two version numbers at once.
 * the first part is the version number of the AT command API
 * the second part consists the firmware version on which the AT command API is besed
 
-#### Version 0.1.10EF
+#### Version 0.3.10EF
 * configurable in AT & AP mode (XCTU, HTerm)
 * configurable in AT mode PuTTY (other programms are not tested)
 * set PAN ID
@@ -59,10 +59,10 @@ The AT command version number contains two version numbers at once.
 * set the Command Mode Timeout
 * stored the symbol to enter the AT command mode
 * sending of simple text messages (Point2Point)
- * the current version supported only a package size  of 127Byte everthing else get lost
+ * the current version supported only a package size of 127Byte everthing else get lost
 * sending of remote AT commands (Point2Point)
 * received text messages
-* received "API Frames" over air but the API sent it direktly to UART (no frame handling)
+* received "API Frames" over air, except RX (Receive) Packet IO
 
 #### H Files
 1. _global.h
@@ -148,5 +148,3 @@ The AT command version number contains two version numbers at once.
 [1]: http://www.atmel.com/tools/atmelstudio.aspx#download "Atmel Studio 7"
 
 created by [ http://dresden-elektronik.de/](http://dresden-elektronik.de/)
-
-a

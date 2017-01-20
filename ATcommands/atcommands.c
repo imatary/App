@@ -20,9 +20,8 @@
 #include "../ATuracoli/stackrelated_timer.h"		// timer init
 
 device_t RFmodul;
-bool_t   APIframe = FALSE;
-static void at_status_t_print(at_status_t *value);
-static uint32_t API_timeHandle(uint32_t arg);
+static bool_t   expired = FALSE;					// global use only in this file
+static uint32_t DE_timeHandle(uint32_t arg);
 
 
 void main(void) 
@@ -52,7 +51,7 @@ void main(void)
 	 */
 	while (TRUE)
 	{
-		if( ret ) { at_status_t_print(&ret);  ret = 0; }
+		if( ret ) { UART_print_status(ret);  ret = 0; }
 		/*
 		 * Receiver operation
 		 *
@@ -61,10 +60,9 @@ void main(void)
 		if (RX_deBuf.newContent)
 		{
 			ret = TRX_receive();
-			if ( ret )	{ at_status_t_print(&ret);  ret = 0; }
+			if ( ret )	{ UART_print_status(ret);  ret = 0; }
 		}
 
-int a;		
 		/*
 		 * uart operation
 		 *
@@ -80,100 +78,95 @@ int a;
 			cli(); ret = BufferIn( &UART_deBuf, inchar ); sei();
 			if( ret ) 
 			{ 
-				at_status_t_print(&ret); 
+				UART_print_status(ret); 
 				BufferInit(&UART_deBuf, NULL);
 				ret = 0;
-				continue; 
 			}
-				
-			if (RFmodul.deCMD_ru) UART_printf("%c", inchar );				// return character immediately
-
+			
 			/*
-			 * if API mode active
+			 * handle timer according to AP mode value
 			 */
-			if ( RFmodul.serintCMD_ap != 0 )
+			if ( RFmodul.serintCMD_ap > 0 )
 			{
-				if ( inchar == 0x7E && apicounter == 0 )
+				if ( 0x7E == inchar && 0 == apicounter )
 				{
-					th = deTIMER_start(API_timeHandle, deMSEC( 0x64 ), 0 ); // 100 MS
+					th = deTIMER_start(DE_timeHandle, deMSEC( 0x18 ), 0 ); // 24 MS
 					apicounter++;
 				}
 				apicounter = ( apicounter > 0 )? apicounter+1 : 0;
-			}
 			
-			/*
-			 * if a carriage return (0xD) received and the API Mode is disabled send the buffer content 
-			 */					
-			if ( ('\r' == inchar || '\n' == inchar) && RFmodul.serintCMD_ap == 0 )
-			{ 
-				ret = TRX_send(); 
-				if ( ret )	{ at_status_t_print(&ret); ret = 0; }
-				counter = 0;
-			}
-			
-			/*
-			 * if a plus (0x2B) received, count it 
-			 * if the user hit three times the plus button switch to local command mode
-			 */
-			if ( RFmodul.atcopCMD_cc == inchar  ) // && RFmodul.serintCMD_ap == 0
+			} /* end API mode */
+			else
 			{
-				counter += 1;
-				if ( 3 == counter )
+				/*
+			     * if a plus (0x2B) received, start timer and count plus signs 
+			     * if the user hit three times the plus button, he needs to wait 
+				 * until the timer has expired to switch into local command mode
+				 *
+				 * else kill the timer and reset the counter
+			     */
+				
+				if ((counter == 1 || counter == 2) && inchar != RFmodul.atcopCMD_cc)
 				{
-					BufferInit(&UART_deBuf, NULL); // delete all content in the buffer
-					AT_localMode();
+					th = deTIMER_stop(th);
 					counter = 0;
+					expired = FALSE;
 					
 				}
+				else if ( inchar == RFmodul.atcopCMD_cc && 0 < counter && 3 > counter)
+				{
+					th = deTIMER_restart(th, deMSEC( RFmodul.atcopCMD_gt) );
+					counter+=1;
+				}
+				else if ( inchar == RFmodul.atcopCMD_cc && 0 == counter )
+				{
+					th = deTIMER_start(DE_timeHandle, deMSEC( RFmodul.atcopCMD_gt ), 0 );
+					counter+=1;
+					
+				} /* end of 0x2B condition */
 				
-			} /* end of 0x2B condition */
-			
+				/*
+				 * if plus counter = 0 send the buffer content 
+				 */					
+				if ( 0 == counter )
+				{ 
+					TRX_send(0, NULL, 0);
+				}
+			  
+			}/* end AT mode */
+						
 		} /* end of uart condition */
 		
+		
 		/*
-		 * if API Mode is enabled  and APIframe true handle API Frame
+		 * if AP Mode is enabled  and expired true handle AP Frame
 		 */
-		if( APIframe == TRUE && RFmodul.serintCMD_ap !=0 )
+		if( TRUE == expired && RFmodul.serintCMD_ap > 0 )
 		{
-			API_frameHandle_uart( &apicounter );
+			AP_frameHandle_uart();
 			apicounter = 0;
-			APIframe = FALSE;
+			expired = FALSE;
 			th = 0;
 		}
+		
+		/*
+		 * enter AT Mode
+		 */
+		if ( 3 == counter && TRUE == expired )
+		{
+			BufferInit(&UART_deBuf, NULL); // delete all content in the buffer
+			AT_localMode();
+			counter = 0;
+			expired = FALSE;
+		}
+		
 		
 	} /* end of while loop */ 
 
 }
 
 /*
- * at_status_t_print()
- * print a error message to the uart
- * 
- * Received:
- *		at_status_t	value with the return information, which error occurred
- *
- * Returns:
- *		nothing
- *
- * last modified: 2016/11/24
- */
-static void at_status_t_print(at_status_t *value)
-{
-	switch(*value)
-	{
-		case TRX_INIT_ERROR		: UART_print("Cannot initialize trx base!\r\n");							break;
-		case BUFFER_IN_FAIL		: UART_print("BufferIn error!\r\n"); 										break;
-		case BUFFER_OUT_FAIL	: UART_print("BufferOut error!\r\n"); 										break;
-		case TRANSMIT_OUT_FAIL	: UART_print("Transmitter send error! Data can't transmitted.\r\n");		break;
-		case TRANSMIT_IN_FAIL	: UART_print("Receiver error! Can't receive or translate the data.\r\n");	break;
-		case TRANSMIT_CRC_FAIL  : UART_print("Receiver error! CRC code does not match.\r\n");				break;
-		case COMMAND_MODE_FAIL	: UART_print("AT command mode error! Quit command mode.\r\n");				break;
-		default					: 																			break;
-	}
-}
-
-/*
- * CMD_timeHandle()
+ * DE_timeHandle()
  * 
  * Received:
  *		uint32_t arg	this argument can be used in this function
@@ -183,11 +176,8 @@ static void at_status_t_print(at_status_t *value)
  *
  * last modified: 2016/11/24
  */
-static uint32_t API_timeHandle(uint32_t arg)
+static uint32_t DE_timeHandle(uint32_t arg)
 {
-#if DEBUG
-	UART_print("== API timer active\r\n");
-#endif
-	APIframe = TRUE;
+	expired = TRUE;
 	return 0;
 }

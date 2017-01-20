@@ -10,22 +10,40 @@
 #include <string.h>
 #include <avr/interrupt.h>
 
-#include "../header/rfmodul.h"
-#include "../header/atlocal.h"
-#include "../header/apiframe.h"
-#include "../header/circularBuffer.h"			// buffer
-#include "../../ATuracoli/stackrelated.h"		// UART_print(f)
-#include "../../ATuracoli/stackdefines.h"
+#include "../header/rfmodul.h"					// RF module information
+#include "../header/atlocal.h"					// AT command functions
+#include "../header/apiframe.h"					// AP frame struct + AP TRX functions
+#include "../header/circularBuffer.h"			// UART & RX buffer
+#include "../../ATuracoli/stackrelated.h"		// UART_print(f), TRX_send(f)
+#include "../../ATuracoli/stackdefines.h"		// defined register addresses
+
+// === std. defines & frame types =========================
+#define STD_DELIMITER	(0x7E)
+#define TX_MSG_64		(0x00)
+#define TX_MSG_16		(0x01)
+#define AT_COMMAND		(0x08)
+#define AT_COMMAND_Q	(0x09)
+#define REMOTE_AT_CMD	(0x17)
+#define DEVICE_AT_CMD	(0x18)
+#define RX_MSG_64		(0x80)
+#define RX_MSG_16		(0x81)
 
 // === Prototypes =========================================
-static at_status_t API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t *len);
-static void  API_0x88_atLocal_response(struct api_f *frame);
+static at_status_t AP_0x18_localDevice(size_t *len);
+static void		   AP_0x88_atLocal_response(void);
+static void		   AP_0x97_atRemote_response(uint16_t length);
+static void		   AP_0x80_0x81_rxReceive( uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen );
+static void		   AP_0x17_atRemoteFrame(uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen);
 
-// === Functions ==========================================
+// === globals ============================================
+static struct api_f frame  = {0,0,0,0,{0},0,{0},0};
 
+// === Functions (local handling shared) ==================
+// ===
+// ========================================================
 /*
- * API_frameHandle_uart 
- * is called when the API mode is active and the standard delimiter was recognized
+ * AP_frameHandle_uart 
+ * is called when the AP mode is active and the standard delimiter was recognized
  *
  * Received:
  *		size_t the length of input
@@ -33,86 +51,264 @@ static void  API_0x88_atLocal_response(struct api_f *frame);
  * Returns:
  *		nothing
  *
- * last modified: 2016/12/07
+ * last modified: 2016/12/19
  */
-void API_frameHandle_uart(size_t *len)
+void AP_frameHandle_uart(void)
 {
 	uint8_t  outchar[5]	= {0x0};
-	struct api_f frame  = {0,0,0,0,0,{0},0,{0},0xFF};
 	
 	// Start delimiter	1 byte	
-	cli(); BufferOut( &UART_deBuf, &outchar[0] ); sei();
-	if ( outchar[0] != STD_DELIMITER ) 
+	while (TRUE)
 	{
-		frame.ret = ERROR;
-		API_0x88_atLocal_response( &frame );
-		return;
+		cli(); frame.ret = BufferOut( &UART_deBuf, &outchar[0] ); sei();
+		if ( outchar[0] == STD_DELIMITER ) break;
+		if (frame.ret == BUFFER_OUT_FAIL) return;
 	}
-	if (RFmodul.deCMD_ru) UART_printf("\rStart delimiter\r%02"PRIX8"\r\r", STD_DELIMITER );
-
+	
 	// frame->bufLength	2 byte
-	cli(); BufferOut( &UART_deBuf, &outchar[0] ); sei();
-	cli(); BufferOut( &UART_deBuf, &outchar[1] ); sei();
+	cli(); frame.ret = BufferOut( &UART_deBuf, &outchar[0] ); sei();
+	cli(); frame.ret = BufferOut( &UART_deBuf, &outchar[1] ); sei();
+	if (frame.ret == BUFFER_OUT_FAIL) return;
+	
 	frame.length = (uint16_t) outchar[0] << 2 | outchar[1] ;
-	if (RFmodul.deCMD_ru) UART_printf("Length\r%02"PRIX8" %02"PRIX8" (%u)\r\r", outchar[0], outchar[1], frame.length );
+	
 	
 	// frame type	1 byte
-	cli(); BufferOut( &UART_deBuf, &frame.type ); sei();
+	cli(); frame.ret = BufferOut( &UART_deBuf, &frame.type ); sei();
+	if (frame.ret == BUFFER_OUT_FAIL) return;
+	
+	// frame id		1 byte
+	cli(); frame.ret = BufferOut( &UART_deBuf, &frame.id ); sei();
+	if (frame.ret == BUFFER_OUT_FAIL) return;
+	
+	frame.crc = frame.id;
+	
 	switch ( frame.type )
 	{
-		case AT_COMMAND    : 
-			if (RFmodul.deCMD_ru) UART_print("Frame type\r08 (AT Command)\r\r");
-			frame.crc -= 0x08;
+		case AT_COMMAND    :
+			frame.crc += 0x08;
 			if ( frame.length == 4)
 			{
-				frame.ret = CMD_readOrExec(&frame, outchar, NULL);
+				frame.ret = CMD_readOrExec(NULL, TRUE);
 			}
 			else
 			{
-				frame.ret = CMD_write(&frame, outchar, len);
+				frame.ret = CMD_write( (size_t*) &frame.length, TRUE);
 				SET_userValInEEPROM();
+				UART_init();
+				TRX_baseInit();
+				RFmodul.serintCMD_ap = GET_atAP_tmp();
+				RFmodul.atcopCMD_ct  = GET_atCT_tmp();
 			}
+			AP_0x88_atLocal_response();
 		break;
 		
 		case AT_COMMAND_Q  : 
-			if (RFmodul.deCMD_ru) UART_print("Frame type\r09 (AT Command Queue)\r\r");
-			frame.crc -= 0x09;
+			frame.crc += 0x09;
 			if ( frame.length == 4)
 			{
-				frame.ret = CMD_readOrExec(&frame, outchar, NULL);
+				frame.ret = CMD_readOrExec(NULL, TRUE);
 			}
 			else
 			{
-				frame.ret = CMD_write(&frame, outchar, len);
+				frame.ret = CMD_write((size_t*) &frame.length, 0x9);
 			}
+			AP_0x88_atLocal_response();
 		break;
 		
 		case REMOTE_AT_CMD : 
-			if (RFmodul.deCMD_ru) UART_print("Frame type\r17 (AT Remote Command)\r\r");
-			frame.crc -= 0x17;
-			frame.ret = TRX_send(); 
+			frame.crc += 0x17;
+			TRX_send(0x17, NULL, 0); 
 		break;
 		
 		case DEVICE_AT_CMD :
-			if (RFmodul.deCMD_ru) UART_print("Frame type\r18 (AT Device Command)\r\r");
-			frame.crc -= 0x18;
-			frame.ret = API_0x18_localDevice(&frame, outchar, len);
+			frame.crc += 0x18;
+			frame.ret = AP_0x18_localDevice((size_t*) &frame.length);
+			AP_0x88_atLocal_response();
+		break;
+		
+		case TX_MSG_64 :
+			frame.crc += 0x00;
+			TRX_send(0x00, NULL, 0);
+		break;
+		
+		case TX_MSG_16 :
+			frame.crc += 0x01;
+			TRX_send(0x01, NULL, 0);
 		break;
 				
-		default : frame.ret = INVALID_COMMAND;
+		default : 
+			frame.ret = INVALID_COMMAND;
+			AP_0x88_atLocal_response();
 	}
-		
-	API_0x88_atLocal_response( &frame );
 }
 
 /*
- * Specific device commands (API)
+ * AP set AT command stored the AT CMD into frame struct for response 
+ *
+ * Received:
+ *		uint8_t pointer to the array which hold the AT command line
+ *
+ * Returns:
+ *	   nothing
+ *
+ * last modified: 2016/12/19
+ */
+void AP_setATcmd(uint8_t *array)
+{
+	frame.crc	+= (*(array+2) + *(array+3));
+	frame.cmd[0] =  *(array+2);
+	frame.cmd[1] =  *(array+3);
+}
+
+/*
+ * AP set AT read, write or execute value into frame struct for response 
+ *
+ * Received:
+ *		uint8_t value of READ, WRITE or EXEC
+ *
+ * Returns:
+ *	   nothing
+ *
+ * last modified: 2016/12/19
+ */
+void AP_setRWXopt(uint8_t opt)
+{
+	frame.rwx = opt;
+}
+
+/*
+ * AP set AT command stored the AT CMD for the response in the frame struct
+ *
+ * Received:
+ *		void	pointer to the variable which hold the parameter value
+ *		short	size of the parameter
+ *		uint8_t boolean value whether the message array should be swapped or not
+ *
+ * Returns:
+ *	   nothing
+ *
+ * last modified: 2016/12/19
+ */
+void AP_setMSG(void *val, short length, uint8_t swapp)
+{
+	frame.msg[length] = 0x0;
+	
+	frame.length = length;
+ 	memcpy(frame.msg,(uint8_t*) val, length);
+	
+ 	if ( length > 1 && swapp == 1 )
+ 	{
+	 	for (short i = 0; i < frame.length/2; i++, length--)
+	 	{
+		 	frame.msg[i]        ^= frame.msg[length-1];
+		 	frame.msg[length-1] ^= frame.msg[i];
+		 	frame.msg[i]        ^= frame.msg[length-1];
+	 	}
+ 	}
+}
+
+/*
+ * The AP compare function red the user crc value from the buffer
+ * and compared it with the calculated crc sum
+ *
+ * Received:
+ *		api_f	the AP frame to store important informations for the response
+ *
+ * Returned:
+ *		TRUE	if calculated crc equal to user crc
+ *		FALSE	if calculated crc is not equal to user crc
+ *
+ * last modified: 2016/11/29
+ */
+bool_t AP_compareCRC(void)
+{	
+	uint8_t userCRC;
+	cli(); BufferOut( &UART_deBuf, &userCRC); sei();
+	return ( (uint8_t) (0xFF - frame.crc) == userCRC )? TRUE : FALSE;	
+}
+
+/*
+ * The AP update CRC function adds the value of val to the crc checksum
+ *
+ * Received:
+ *		uint8_t	pointer to an unit8_t value
+ *
+ * Returned:
+ *		nothing
+ *
+ * last modified: 2016/12/19
+ */
+void AP_updateCRC(uint8_t *val)
+{
+	frame.crc += *val;
+}
+
+
+
+
+
+// === Functions (local handling static) ==================
+// ===
+// ========================================================
+/*
+ * AT Remote Command (local execution)
+ * reads from RX buffer, prepared the response frame struct and send response
+ *
+ * Received:
+ *		uint16_t	length of the received AP Frame
+ *		uint8_t		pointer to the srcAddrAndOtion array
+ *		uint8_t		length of src. addr.
+ *
+ * Returns:
+ *		nothing
+ *
+ * last modified: 2017/01/04
+ */
+static void AP_0x17_atRemoteFrame(uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen)
+{
+	/* 
+	 * - Frame consist a minimum of 14 Bytes
+	 * - read AP Frame ID (1 byte)
+	 * - read dest. addr. (10 bytes) (not important) but need to be deleted
+	 * - read remote option and store it temporary in frame.type
+	 * - copy command information into UART buffer
+	 * - delete crc checksum
+	 * - call rx | w function
+	 * - if remote option is 0x2 reinitialize module config
+	 * - call response function 
+	 */
+	uint8_t outchar;
+	for ( uint16_t i = 0; i < length; i++ )
+	{
+		cli(); BufferOut( &RX_deBuf, &outchar ); sei();
+		if		( 0x0 == i ) { frame.id = outchar; }
+		else if ( 0xB == i ) { frame.type = outchar; }										// the frame type variable will be used for option
+		else if ( 0xB <  i ) { cli(); BufferIn( &UART_deBuf, outchar ); sei(); }
+	}
+	deBufferReadReset(&RX_deBuf, '+', 2);													// delete Frame Checksum
+
+	length -= 12;
+	if ( length > 2 ) { frame.ret = CMD_write( (size_t*) &length, frame.type ); } 
+	else              { frame.ret = CMD_readOrExec( NULL, frame.type ); }
+
+	if ( 0x2 == frame.type && frame.rwx == WRITE )
+	{
+		UART_init();
+		TRX_baseInit();
+	}
+
+	TRX_send( 0x97, srcAddr, srcAddrLen );
+}
+
+/*
+ * Specific device commands (AP)
  * interpret the received frame and execute the specific task
  *
  * Received:
- *		api_f	pointer to the frame struct
- *		uint8_t	pointer to an array which is already initialized and available for processing (just to save a little mem)
- *		size_t	the length of the whole input, which is stored in buffer
+ *		api_f		pointer to the frame struct
+ *		uint8_t		pointer to an array which is already initialized and available for processing (just to save a little mem)
+ *		size_t		the length of the whole input, which is stored in buffer
  *
  * Returns:
  *		OP_SUCCESS			no error has occurred
@@ -122,38 +318,20 @@ void API_frameHandle_uart(size_t *len)
  *		
  * last modified: 2016/12/07
  */
-static at_status_t API_0x18_localDevice(struct api_f *frame, uint8_t *array, size_t *len)
-{
-	// frame id		1 byte
-	cli(); BufferOut( &UART_deBuf, &frame->id ); sei();
-	if (RFmodul.deCMD_ru) UART_printf("Frame ID\r%02"PRIX8"\r\r", frame->id );
-	frame->crc -= frame->id;
-	
+static at_status_t AP_0x18_localDevice(size_t *len)
+{	
 	// AT command 2 bytes
-	/*
-	 * Why this intricate way and not simply compare 2 characters at a specific start position?
-	 *   The answer is quiet simple, now there are less commands but if the cmd table grows you'll find
-	 *   double matches, that's why it's better to compare 4 letters.
-	 *
-	 * But what is with the special device commands (DE..)?
-	 *   For this case the frame type 0x18 is added to the library.
-	 */
-	*(array+0) = 'D';
-	*(array+1) = 'E';
-	cli(); BufferOut( &UART_deBuf, array+2 ); sei();
-	cli(); BufferOut( &UART_deBuf, array+3 ); sei();
+	uint8_t pCmdString[5] = {'D','E',0,0,0};
+
+	cli(); BufferOut( &UART_deBuf, &pCmdString[2] ); sei();
+	cli(); BufferOut( &UART_deBuf, &pCmdString[3] ); sei();
 	
-	if (RFmodul.deCMD_ru) UART_printf("DE Command\r%02"PRIX8" %02"PRIX8" (%c%c)\r\r", *(array+2), *(array+3), *(array+2), *(array+3));
-	frame->crc -= (*(array+2) + *(array+3));
-	frame->cmd[0] = *(array+2);
-	frame->cmd[1] = *(array+3);
+	frame.crc += (pCmdString[2] + pCmdString[3]);
+	frame.cmd[0] = pCmdString[2];
+	frame.cmd[1] = pCmdString[3];
 	
 	// search for CMD in table
-	CMD *workPointer = (CMD*) pStdCmdTable;
-	for (int i = 0; i < command_count ; i++, workPointer++)
-	{
-		if( strncmp( (const char*) array, workPointer->name, 4 ) == 0 ) break;
-	}
+	CMD *workPointer = CMD_findInTable(pCmdString);
 	
 	/*
 	 * handle CMD
@@ -161,45 +339,35 @@ static at_status_t API_0x18_localDevice(struct api_f *frame, uint8_t *array, siz
 	 * frame length
 	 * EXEC is allowed
 	 */
-	if ( frame->length == 4 && workPointer->rwxAttrib & EXEC )
+	if ( frame.length == 4 && workPointer->rwxAttrib & EXEC )
 	{
-		frame->rwx = EXEC;
-		if ( API_compareCRC( frame ) == FALSE )
-		{
-			UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
-			return ERROR;
-		}
+		frame.rwx = EXEC;
+		if ( AP_compareCRC() == FALSE ) return ERROR; 
 		
 		switch( workPointer->rwxAttrib )
 		{
-			default: break;
+			default: return INVALID_COMMAND;
 		}
 	}
 	/*
 	 * frame length
 	 * READ is allowed
 	 */
-	else if ( frame->length == 4 && workPointer->rwxAttrib & READ )
+	else if ( frame.length == 4 && workPointer->rwxAttrib & READ )
 	{
-		frame->rwx = READ;
+		frame.rwx = READ;
 		uint8_t userCRC;
-		if ( API_compareCRC( frame ) == FALSE )
+		if ( AP_compareCRC() == FALSE )
 		{
-			UART_printf("Expected CRC: %"PRIX8"\r\r", frame->crc );
-			frame->length = 0;
+			frame.length = 0;
 			return ERROR;
 		}
 		
 		switch ( workPointer->ID )
 		{
-/* RU */	case DE_RU :
-					frame->length = 1;
-					frame->msg[0] = RFmodul.deCMD_ru;
-				break;
-				
 /* FV */	case DE_FV :
-					frame->length = 1;
-					memcpy( frame->msg, AT_VERSION, strlen(AT_VERSION)+1 );
+					frame.length = 1;
+					memcpy( frame.msg, AT_VERSION, strlen(AT_VERSION)+1 );
 				break;
 				
 			default: 
@@ -212,40 +380,14 @@ static at_status_t API_0x18_localDevice(struct api_f *frame, uint8_t *array, siz
 	 * string length of input
 	 * writing to RFmodul struct [and to EEPROM] is allowed
 	 */
-	else if ( frame->length > 4 && workPointer->rwxAttrib & WRITE )
+	else if ( frame.length > 4 && workPointer->rwxAttrib & WRITE )
 	{
-		size_t cmdSize = frame->length - 4;
-		frame->rwx = WRITE;
+		size_t cmdSize = frame.length - 4;
+		frame.rwx = WRITE;
 		
 		switch( workPointer->ID )
 		{
-/* RU */   case DE_RU : {
-				/*
-				 * get the parameter
-				 */
-				cli(); BufferOut( &UART_deBuf, &frame->msg[0] ); sei();
-				frame->crc -= frame->msg[0];
-				
-				/*
-				 * compare the parameter
-				 */
-				if ( API_compareCRC(frame) == FALSE )
-				{
-					if ( RFmodul.deCMD_ru ) UART_printf("Expected CRC: %"PRIX8"\r\r",  frame->crc );
-					return ERROR;
-				}
-
-				if ( cmdSize <= 1 && frame->msg[0] == 0x0 || frame->msg[0] == 0x1 )
-				{
-					RFmodul.deCMD_ru = frame->msg[0];
-				}
-				else 
-				{ 
-					return INVALID_PARAMETER;
-				}
-			}
-			default : 
-				return INVALID_COMMAND;
+			default :  return INVALID_COMMAND;
 		}
 	}
 	else
@@ -257,174 +399,736 @@ static at_status_t API_0x18_localDevice(struct api_f *frame, uint8_t *array, siz
 }
 
 /*
- * API AT local response
- * generated the output API frame with the return value of the specific function in API_frameHandle_uart function
+ * RX Receive Packet Frame
+ * prints the received package as an AP frame
+ *
+ * Received:
+ *		uint8_t		pointer to the srcAddrAndOtion array
+ *		uint8_t		length of src. addr.
+ *
+ * Returns:
+ *     nothing
+ *
+ * last modified: 2017/01/03
+ */
+static void AP_0x80_0x81_rxReceive( uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen )
+{
+	uint8_t  outchar;
+	uint16_t frLength = length + 3 + srcAddrLen;		// +2 (frame type) +1 (RSSI) +1 (Option) + src addr length
+	
+	UART_putc( STD_DELIMITER );								// start delimiter
+	UART_putc( (uint8_t) (frLength >> 8) );					// frame length
+	UART_putc( (uint8_t) (frLength & 0xFF) );
+	if ( srcAddrLen == 8 )									// frame type
+	{
+		UART_putc( 0x80 );
+		frame.crc = 0x80;
+	} 
+	else
+	{
+		UART_putc( 0x81 );
+		frame.crc = 0x81;
+	}
+
+	for ( short i = srcAddrLen-1; i >= 0 ; i-- )			// Addr.
+	{
+		UART_putc( *(srcAddr+i) );
+		frame.crc += *(srcAddr+i);
+	}
+	
+	uint8_t x = TRX_readReg(PHY_RSSI) & 0x1F;
+	UART_putc( x );	
+	frame.crc += x;
+	
+	UART_putc( *(srcAddr+srcAddrLen+1) );					// Option
+	frame.crc +=     *(srcAddr+srcAddrLen+1);
+				
+	for (uint16_t i; i < length; i++ )
+	{
+		cli(); BufferOut( &RX_deBuf, &outchar ); sei();
+		UART_putc( outchar );
+		frame.crc += outchar;
+	}
+
+	UART_putc( 0xFF - frame.crc );								// checksum
+	deBufferReadReset(&RX_deBuf, '+', 2);					// delete Frame Checksum
+}
+
+/*
+ * AP AT local response
+ * generated the output AP frame with the return value of the specific function in AP_frameHandle_uart function
  * if the specific device value of return to uart (DERU) true, it will be printed a detailed message
  * else the the frame will be written to the uart
  *
  * Received:
- *		api_f	the API information frame struct
+ *		api_f	the AP information frame struct
  *
  * Returns:
  *		nothing
  *
  * last modified: 2016/11/30
  */
-static void API_0x88_atLocal_response(struct api_f *frame)
+static void AP_0x88_atLocal_response(void)
 {
-	frame->crc = 0xFF;
-	if ( frame->ret < 0 ) frame->length = 0;
-	frame->length += 5;
+	if (frame.rwx == EXEC || frame.rwx == WRITE || frame.ret < 0 ) frame.length = 0;
+	frame.length += 5;
 	
-	if ( RFmodul.deCMD_ru )
+	UART_putc( STD_DELIMITER );						// start delimiter
+	UART_putc( (uint8_t) (frame.length >> 8) );		// frame length
+	UART_putc( (uint8_t) (frame.length & 0xFF) );
+	UART_putc( 0x88 );								// frame type
+	UART_putc( frame.id );
+	UART_putc( frame.cmd[0] );						// AT cmd
+	UART_putc( frame.cmd[1] );
+	UART_putc( frame.ret * (-1) );					// cmd option (successful/ not successful etc.)
+		
+	//			 Type +  Frame ID +  AT Command                   +   Return Value      //
+	frame.crc = 0x88 + frame.id + frame.cmd[0] + frame.cmd[1] + (frame.ret * (-1));
+	if ( frame.rwx == READ )
 	{
-		UART_print("\r********** AT RESPONSE **********\r");
-		UART_printf("Start delimiter\r%02"PRIX8"\r\r", STD_DELIMITER );
-		UART_printf("Length\r%02"PRIX8" %02"PRIX8" (%u)\r\r", frame->length >> 8, frame->length & 0xFF, frame->length );
-		UART_print("Frame type\r88 (AT Command Response)\r\r");
-		UART_printf("Frame ID\r%02"PRIX8"\r\r", frame->id );
-		UART_printf("AT Command\r%02"PRIX8" %02"PRIX8" (%c%c)\r\r", frame->cmd[0], frame->cmd[1], frame->cmd[0], frame->cmd[1]);
-		UART_printf("Command status\r%02"PRIX8" (%s)\r\r", frame->ret * (-1), (frame->ret * (-1) == 0)? "OK" :\
-																			  (frame->ret * (-1) == 1)? "ERROR" :\
-																			  (frame->ret * (-1) == 2)? "Invalid Command" :\
-																			  (frame->ret * (-1) == 3)? "Invalid Parameter" : "" );
-		if (frame->length > 5) UART_print("Response\r");
-		
-		frame->crc -=  ( 0x88 + frame->id + frame->cmd[0] + frame->cmd[1] + (frame->ret * (-1)) );
-		
-		for (uint16_t x; x < frame->length-5 ; x++ )
+		frame.length -= 5;
+		for (uint8_t x = 0; x < frame.length; x++)
 		{
-			frame->crc -= frame->msg[x];
-			if ( RFmodul.deCMD_ru ) UART_printf("%02"PRIX8" ", frame->msg[x] );
+			UART_putc( frame.msg[x] );
+			frame.crc += frame.msg[x];
 		}
-		if (frame->length > 5) UART_print("\r\r");
-		UART_printf("Checksum\r%02"PRIX8"\r\r",frame->crc);
+	}
+	UART_putc( 0xFF - frame.crc);					// checksum
+}
+
+/*
+ *
+ * received:
+ *		uint8_t		transmit status value
+ *
+ * Returns:
+ *		nothing
+ *
+ * last modified: 2017/01/09
+ */
+void AP_0x89_txStatus(at_status_t status)
+{
+	UART_putc( STD_DELIMITER );						// start delimiter
+	UART_putc( 0x0 );								// frame length
+	UART_putc( 0x3 );
+	UART_putc( 0x89 );
+	UART_putc( frame.id );
+	
+	frame.crc = 0x89 + frame.id;
+	
+	switch (status)
+	{
+		case OP_SUCCESS			: UART_putc( 0x00 ); frame.crc += 0x00; break;	// success
+		case TRANSMIT_OUT_FAIL	: UART_putc( 0x01 ); frame.crc += 0x01; break;	// No acknowledgment received
+		default					: UART_putc( 0x85 ); frame.crc += 0x85; break;	// Unknown ERROR
+	}
+	
+	UART_putc(0xFF - frame.crc);
+}
+
+/*
+ * AT Remote Response Frame (read frame)
+ * prints the response of an AT Remote Command
+ *
+ * received:
+ *		uint16_t	length of data content
+ *
+ * Returns:
+ *		nothing
+ *
+ * last modified: 2016/12/14
+ */
+static void AP_0x97_atRemote_response(uint16_t length)
+{
+	uint8_t  outchar;
+	uint16_t frLength = length + 1;					// +1 for frame type
+	
+	UART_putc( STD_DELIMITER );								// start delimiter
+	UART_putc( (uint8_t) (frLength >> 8) );					// frame length
+	UART_putc( (uint8_t) (frLength & 0xFF) );
+	UART_putc( 0x97 );										// frame type
+	frame.crc = 0x97;
+	
+	for (uint16_t i = 0; i < length; i++)
+	{
+		cli(); BufferOut( &RX_deBuf, &outchar ); sei();
+		UART_putc( outchar );
+		frame.crc += outchar;
+	}
+	UART_putc(0xFF - frame.crc);									// checksum
+	deBufferReadReset(&RX_deBuf, '+', 2);					// delete Frame Checksum
+}
+
+
+
+
+// === Functions (transreceiver) ==========================
+// ===
+// ========================================================
+/*
+ * TRX_createAPframe
+ * creates an AP frame and print it to UART
+ *
+ * Received:
+ *		uint8_t		length of the received frame
+ *		uint8_t		position where the data payload starts
+ *		uint8_t		length of source address
+ *		uint8_t		MAC options
+ *
+ * Returns:
+ *     final position in array
+ *
+ * last modified: 2016/12/15
+ */
+void TRX_createAPframe( uint8_t flen, uint8_t dataStart, uint8_t srcAddrLen, uint8_t option )
+{
+	/* AES decryption not supported -- if security decryption functions are added delete this upper part */
+	if ( option == 0x48 || option == 0x08 ) return;
+	/**********************************************************************/
+	
+	uint8_t outchar, DigiHeader = 0, srcAddrAndOption[10] = {0x0}; // size = max 8 bytes for src address and 2 bytes for Digi data header
+	
+	/*
+	 * - delete  dest. PANID, dest. addr., [src. PANID] (max 12 bytes)
+	 * - read src addr (2 or 8 bytes)
+	 * - read Digi data header 2 Bytes
+	 * - check type of data header and handle data
+	 */
+	if ( RFmodul.netCMD_mm == 0x0 || RFmodul.netCMD_mm == 0x3 ) DigiHeader = 2; // if Digi header included add temporary two bytes for data header 
+
+	for (uint8_t counter = 0, pos = 0; pos < srcAddrLen + DigiHeader && counter < flen; counter++ )
+	{
+		cli(); BufferOut( &RX_deBuf, &outchar ); sei();
+		if ( counter >= dataStart-srcAddrLen )
+		{
+			srcAddrAndOption[pos] = outchar;
+			pos++;
+		}
+	}
+	
+	switch ( srcAddrAndOption[srcAddrLen+1] )
+	{
+		case 0x04 : AP_0x17_atRemoteFrame( (uint16_t) flen-dataStart-4 , srcAddrAndOption, srcAddrLen );  break;	// TX response only
+		case 0x05 : AP_0x97_atRemote_response( (uint16_t) flen-dataStart-4 );							  break;	// UART response only
+		default   : AP_0x80_0x81_rxReceive( (uint16_t) flen-dataStart-4 , srcAddrAndOption, srcAddrLen ); break;	// UART response only
+	}					
+	
+}
+
+/* 
+ * AT Remote Command (remote request)
+ * prepared frame for a remote AT command to control another device
+ *
+ * Received:
+ *		uint8_t		pointer to send array
+ *
+ * Returns:
+ *     final position in array
+ *
+ * last modified: 2016/12/15
+ */
+int TRX_0x17_atRemoteFrame(uint8_t *send)
+{
+	int			pos		= 0;
+	at_status_t ret		= 0;
+	uint8_t		tmp[11] = {0x0};
+	bool_t		flag	= FALSE;
+	 
+	/* Step 1: prepare packed
+	 * - prepare MAC header, first byte
+	 * - write destination PANID
+	 * - write dest. address
+	 * - write src. address
+	 */	
+																 *(send) |= 0x01; // send data to _one_ device
+	if ( RFmodul.secCMD_ee == TRUE )							 *(send) |= 0x08; // security active
+	if ( RFmodul.netCMD_mm == 0x0 || RFmodul.netCMD_mm == 0x2 )  *(send) |= 0x20; // ACK on
+																 *(send) |= 0x40; // PAN Compression on
+	
+	*(send+ 3) = (uint8_t) (RFmodul.netCMD_id & 0xff);
+	*(send+ 4) = (uint8_t) (RFmodul.netCMD_id >>  8);							// destination PAN_ID
+	pos = 5;
+	
+	/*
+	 * dest. address
+	 */;
+	for (char i = 0; i < 11; i++ )
+	{
+		cli(); ret = BufferOut( &UART_deBuf, &tmp[i] ); sei();
+		if ( ret == BUFFER_OUT_FAIL ) return 0;
+		frame.crc += tmp[i];
+	}
+	
+	
+	if ( tmp[8] == 0xFF && tmp[9] == 0xFE )										// if 16bit address is deactivate 
+	{
+		*(send+ 5) = tmp[7];
+		*(send+ 6) = tmp[6];
+		*(send+ 7) = tmp[5];
+		*(send+ 8) = tmp[4];													// destination ext. addr. low
+
+		*(send+ 9) = tmp[3];
+		*(send+10) = tmp[2];
+		*(send+11) = tmp[1];
+		*(send+12) = tmp[0];													// destination ext. addr. high
+		
+		*(send+1) |= 0x0C;														// MAC header second byte
+		pos = 13;
+	}
+	else if ( tmp[0] == 0x00 &&\
+	          tmp[1] == 0x00 &&\
+			  tmp[2] == 0x00 &&\
+			  tmp[3] == 0x00 &&\
+			  tmp[4] == 0x00 &&\
+			  tmp[5] == 0x00 &&\
+			  tmp[6] == 0xFF &&\
+			  tmp[7] == 0xFF ||
+			  tmp[8] == 0xFF &&\
+			  tmp[9] == 0xFF)													// if command is a broadcast message
+	{
+		 *(send+5) = 0xFF;
+		 *(send+6) = 0xFF;
+		 
+		 *(send+1) |= 0x08;														// MAC header second byte
+		 pos = 7;
+	}
+	else																		// if message is send with 16bit address
+	{
+		*(send+5) = tmp[9];
+		*(send+6) = tmp[8];
+		
+		*(send+1) |= 0x08;														// MAC header second byte
+		pos = 7;
+	}
+	
+	/*
+	 * src. address
+	 */
+	if ( RFmodul.netCMD_my > 0x0 )
+	{
+		*(send+pos)   = (uint8_t) (RFmodul.netCMD_my & 0xff);
+		*(send+pos+1) = (uint8_t) (RFmodul.netCMD_my >> 8);						// src. short address
+		
+		*(send+1) |= 0x80;														// MAC header second byte
+		pos += 2;
 	}
 	else
 	{
-		UART_putc( STD_DELIMITER );						// start delimiter
-		UART_putc( (uint8_t) (frame->length >> 8) );	// frame length
-		UART_putc( (uint8_t) (frame->length & 0xFF) );
-		UART_putc( 0x88 );								// frame type
-		UART_putc( frame->id );
-		UART_putc( frame->cmd[0] );						// AT cmd
-		UART_putc( frame->cmd[1] );
-		UART_putc( frame->ret * (-1) );					// cmd option (successful/ not successful etc.)
+		*(send+pos)   = (uint8_t) (RFmodul.netCMD_sl >>  0);
+		*(send+pos+1) = (uint8_t) (RFmodul.netCMD_sl >>  8);
+		*(send+pos+2) = (uint8_t) (RFmodul.netCMD_sl >> 16);
+		*(send+pos+3) = (uint8_t) (RFmodul.netCMD_sl >> 24);					// src. ext. addr. low
+
+		*(send+pos+4) = (uint8_t) (RFmodul.netCMD_sh >>  0);
+		*(send+pos+5) = (uint8_t) (RFmodul.netCMD_sh >>  8);
+		*(send+pos+6) = (uint8_t) (RFmodul.netCMD_sh >> 16);
+		*(send+pos+7) = (uint8_t) (RFmodul.netCMD_sh >> 24);					// src. ext. addr. high
 		
-		//			   Typ  +  Frame ID +  AT Command                   +   Return Value      //
-		frame->crc -= (0x88 + frame->id + frame->cmd[0] + frame->cmd[1] + (frame->ret * (-1)) );
-		
-		for (uint16_t x; x < frame->length-5 ; x++ )
-		{
-			UART_putc(    frame->msg[x] );
-			frame->crc -= frame->msg[x];
-		}
-		
-		UART_putc(frame->crc);							// checksum
+		*(send+1) |= 0xC0;														// MAC header second byte
+		pos += 8;
 	}
 	
-}
-
-
-/*
- * The API compare function red the user crc value from the buffer
- * and compared it with the calculated crc sum
- *
- * Received:
- *		api_f	the API frame to store important informations for the response
- *
- * Returned:
- *		TRUE	if calculated crc equal to user crc
- *		FALSE	if calculated crc is not equal to user crc
- *
- * last modified: 2016/11/29
- */
-bool_t API_compareCRC(struct api_f *frame)
-{
-	uint8_t userCRC;
-	cli(); BufferOut( &UART_deBuf, &userCRC); sei();
+	if ( RFmodul.netCMD_mm != 0x1 || RFmodul.netCMD_mm != 0x2 )
+	{
+		*(send+pos)   = (uint8_t) ( *(send+2) + (RFmodul.netCMD_sl & 0xFF) );	// second counter, distance to frame counter is last byte of src extended addr.
+		*(send+pos+1) = 0x04;													// this byte will be used as command, 0x04 AT remote command
+		pos += 2;
+	}
+		
+	*(send+pos) = frame.id;
+	pos += 1;
 	
-	return ( frame->crc == userCRC )? TRUE : FALSE;	
-}
-
-
-/*
- * API_findInTable() 
- * - searched in the command table for the command id
- *
- * Received:
- *		api_f		the API frame to store important informations for the response
- *		uint8_t		pointer to an array which is already initialized and available for processing (just to save a little mem)
- * Returns:
- *	   CMD struct		on success
- *     INVALID_COMMAND	on fail
- *
- * last modified: 2016/11/18
- */
-CMD* API_findInTable(struct api_f *frame, uint8_t *array)
-{
-	// frame id		1 byte
-	cli(); BufferOut( &UART_deBuf, &frame->id ); sei();
-	if ( RFmodul.deCMD_ru ) UART_printf("Frame ID\r%02"PRIX8"\r\r", frame->id );
-	frame->crc -= frame->id;
-	
-	// AT command 2 bytes
 	/*
-	 * Why this intricate way and not simply compare 2 characters at a specific start position?
-	 *   The answer is quiet simple, now there are less commands but if the cmd table grows you'll find
-	 *   double matches, that's why it's better to compare 4 letters.
-	 *
-	 * But what is with the special device commands (DE..)?
-	 *   For this case the frame type 0x18 is added to the library.
+	 * data
 	 */
-	*(array+0) = 'A';
-	*(array+1) = 'T';
-	cli(); BufferOut( &UART_deBuf, array+2 ); sei();
-	cli(); BufferOut( &UART_deBuf, array+3 ); sei();
-	
-	if (RFmodul.deCMD_ru) UART_printf("AT Command\r%02"PRIX8" %02"PRIX8" (%c%c)\r\r", *(array+2), *(array+3), *(array+2), *(array+3));
-	frame->crc -= (*(array+2) + *(array+3));
-	frame->cmd[0] = *(array+2);
-	frame->cmd[1] = *(array+3);
-	
-	// search for CMD in table
-	CMD *workPointer = (CMD*) pStdCmdTable;
-	for (int i = 0; i < command_count ; i++, workPointer++)
+	for ( char i = 0; i<11; i++, pos++ )
 	{
-		if( strncmp( (const char*) array, workPointer->name, 4 ) == 0 ) 
-		{
-			return workPointer;
-		}
+		*(send+pos) = tmp[i];
 	}
-	return NO_AT_CMD;
+	
+	frame.length -= 12;
+	do
+	{
+		cli(); ret = BufferOut( &UART_deBuf, send+pos ); sei();
+		if ( ret == BUFFER_OUT_FAIL ) break;
+		
+		frame.crc += *(send+pos);
+		pos++;
+		
+	} while ( frame.length-- || pos < PACKAGE_SIZE-1 );
+
+	if ( AP_compareCRC() == FALSE ) return 0;
+	
+	return pos-1;
 }
 
 /*
+ * AT Remote Command (response)
+ * send result information of received and executed 0x17 Remote Command 
  *
+ * Received:
+ *		uint8_t		pointer to send array
+ *		uint8_t		pointer to source address array
+ *		uint8_t		source address length
  *
+ * Returns:
+ *		final position in array
  *
+ * last modified: 2017/01/05
  */
-void API_0x97_atRemote_response(uint8_t flen)
+int TRX_0x97_atRemote_response(uint8_t *send, uint8_t *srcAddr, uint8_t srcAddrLen)
 {
-	uint8_t outchar = 0, crc = 0xFF;
+	int	pos	= 0;
+	/* Step 1: prepare packed
+	 * - prepare MAC header, first byte
+	 * - write destination PANID
+	 * - write dest. address
+	 * - write src. address
+	 */
+																*(send) |= 0x01; // send data to _one_ device
+	if ( RFmodul.secCMD_ee == TRUE )							*(send) |= 0x08; // security active
+	if ( RFmodul.netCMD_mm == 0x0 || RFmodul.netCMD_mm == 0x2 ) *(send) |= 0x20; // ACK on
+																*(send) |= 0x40; // PAN Compression on
 	
-	UART_putc( STD_DELIMITER );					// start delimiter
-	UART_putc( 0x00 );	// frame length
-	UART_putc( flen );
-	UART_putc( 0x97 );								// frame type
-	crc -=   0x97;
-	
-	for (uint8_t i = 0; i < flen-0x2; i++)
+	*(send+ 3) = (uint8_t) (RFmodul.netCMD_id & 0xff);
+	*(send+ 4) = (uint8_t) (RFmodul.netCMD_id >>  8);							// destination PAN_ID
+	pos = 5;
+	/*
+	 * dest. addr.
+	 */
+	for ( char i = 0; i < srcAddrLen; i++, pos++ )
 	{
-		cli(); BufferOut(&RX_deBuf, &outchar); sei();
+		*(send+pos) = *(srcAddr+i);
+	}
+	*(send+1) |= (srcAddrLen == 8)? 0xC : 0x8;
+
+	/*
+	 * src. address
+	 */
+	if ( RFmodul.netCMD_my > 0x0 )
+	{
+		*(send+pos)	  = (uint8_t) (RFmodul.netCMD_my & 0xff);
+		*(send+pos+1) = (uint8_t) (RFmodul.netCMD_my >> 8);						// src. short address
 		
-		if ( RFmodul.serintCMD_ap && i >= 0x14 )
+		*(send+1) |= 0x80;														// MAC header second byte
+		pos += 2;
+	}
+	else
+	{
+		*(send+pos)   = (uint8_t) (RFmodul.netCMD_sl >>  0);
+		*(send+pos+1) = (uint8_t) (RFmodul.netCMD_sl >>  8);
+		*(send+pos+2) = (uint8_t) (RFmodul.netCMD_sl >> 16);
+		*(send+pos+3) = (uint8_t) (RFmodul.netCMD_sl >> 24);					// src. ext. addr. low
+		
+		*(send+pos+4) = (uint8_t) (RFmodul.netCMD_sh >>  0);
+		*(send+pos+5) = (uint8_t) (RFmodul.netCMD_sh >>  8);
+		*(send+pos+6) = (uint8_t) (RFmodul.netCMD_sh >> 16);
+		*(send+pos+7) = (uint8_t) (RFmodul.netCMD_sh >> 24);					// src. ext. addr. high
+		
+		*(send+1) |= 0xC0;														// MAC header second byte
+		pos += 8;
+	}
+	
+	if ( RFmodul.netCMD_mm != 0x1 || RFmodul.netCMD_mm != 0x2 )
+	{
+		*(send+pos) = (uint8_t) ( *(send+2) + (RFmodul.netCMD_sl & 0xFF) );		// second counter, distance to frame counter is last byte of src extended addr.
+		*(send+pos+1) = 0x05;													// this byte will be used as command, 0x05 AT remote command response
+		pos += 2;
+	}
+	
+	/*
+	 * data
+	 */
+	*(send+pos) = frame.id;														// AP Frame ID
+	
+	*(send+pos+1) = (uint8_t) (RFmodul.netCMD_sh >> 24);
+	*(send+pos+2) = (uint8_t) (RFmodul.netCMD_sh >> 16);
+	*(send+pos+3) = (uint8_t) (RFmodul.netCMD_sh >>  8);
+	*(send+pos+4) = (uint8_t) (RFmodul.netCMD_sh >>  0);						// src. ext. addr. high
+	
+	*(send+pos+5) = (uint8_t) (RFmodul.netCMD_sl >> 24);
+	*(send+pos+6) = (uint8_t) (RFmodul.netCMD_sl >> 16);
+	*(send+pos+7) = (uint8_t) (RFmodul.netCMD_sl >>  8);
+	*(send+pos+8) = (uint8_t) (RFmodul.netCMD_sl >>  0);						// src. ext. addr. low
+	
+	*(send+pos+9)  = (uint8_t) (RFmodul.netCMD_my >> 8);
+	*(send+pos+10) = (uint8_t) (RFmodul.netCMD_my & 0xFF);						// src. short address
+	
+	*(send+pos+11) = frame.cmd[0];
+	*(send+pos+12) = frame.cmd[1];												// command
+	*(send+pos+13) = frame.ret * (-1);											// command status
+	
+	pos +=14;
+	for ( char i = 0; i < frame.length; i++, pos++ )							// content [optional]
+	{
+		*(send+pos) = frame.msg[i];
+	}
+	
+	return pos;
+}
+
+/*
+ * Frame will be send as text message with a 64bit address
+ *
+ * Received:
+ *		uint8_t		pointer to send array
+ *
+ * Returns:
+ *		final position in array
+ *
+ * last modified: 2017/01/09
+ */
+int TRX_0x00_transmit64Frame(uint8_t *send)
+{
+	int			pos		= 0;
+	at_status_t ret		= 0;
+	uint8_t		tmp[8]  = {0x0};
+	
+	/* Step 1: prepare packed
+	 * - prepare MAC header, first byte
+	 * - write dest. address
+	 * - write destination PANID
+	 * - write src. address
+	 */	
+									 *(send) |= 0x01;							// send data to a device
+	if ( RFmodul.secCMD_ee == TRUE ) *(send) |= 0x08;							// security active
+
+	pos = 5;	
+	/*
+	 * dest. address
+	 */
+	for (char i = 0; i < 8; i++)
+	{
+		cli(); ret = BufferOut( &UART_deBuf, &tmp[i] ); sei();
+		if ( ret == BUFFER_OUT_FAIL ) return 0;
+		frame.crc += tmp[i];
+	}
+	
+	if ( tmp[0] == 0x00 &&\
+		 tmp[1] == 0x00 &&\
+		 tmp[2] == 0x00 &&\
+		 tmp[3] == 0x00 &&\
+		 tmp[4] == 0x00 &&\
+		 tmp[5] == 0x00 &&\
+		 tmp[6] == 0xFF &&\
+		 tmp[7] == 0xFF )														// if command is a broadcast message
+	{
+		*(send+5) = 0xFF;
+		*(send+6) = 0xFF;
+		
+		*(send+1) |= 0x08;														// MAC header second byte
+		pos += 2;
+	}
+	else
+	{
+		for (char i = 0; i < 8; i++)
 		{
-			UART_putc( outchar );
-			crc -= outchar;
+			*(send+pos+i) = tmp[7-i];
 		}
-	} /* End of for loop */
+		*(send+1) |= 0x0C;														// MAC header second byte
+		pos += 8;
+	}
+
+	/*
+	 * handle of API Option field and  set PAN ID
+	 */
+	cli(); ret = BufferOut( &UART_deBuf, &tmp[0] ); sei();
+	if ( ret == BUFFER_OUT_FAIL ) return 0;
+	frame.crc += tmp[0];
 	
-	UART_putc( crc );
+	if ( (RFmodul.netCMD_mm == 0x0 || RFmodul.netCMD_mm == 0x2) && tmp[0] != 0x1 )  
+	{
+		*(send) |= 0x20;														// ACK on
+	}
 	
+	if ( tmp[0] == 0x4 )
+	{
+		*(send+3) = 0xFF;
+		*(send+4) = 0xFF;														// source PAN_ID
+		
+		*(send+pos)   = RFmodul.netCMD_id & 0xff;
+		*(send+pos+1) = RFmodul.netCMD_id >> 8;									// destination PAN_ID
+		
+		pos += 2;
+	}
+	else
+	{
+		*(send) |= 0x40;														// PAN Compression on
+
+		*(send+ 3) = RFmodul.netCMD_id & 0xff;
+		*(send+ 4) = RFmodul.netCMD_id >> 8;									// destination PAN_ID = source PAN_ID
+	}
+		
+	/*
+	 * src. address
+	 */
+	if ( RFmodul.netCMD_my != 0xFFFE )
+	{
+		*(send+pos)   = RFmodul.netCMD_my & 0xff;
+		*(send+pos+1) = RFmodul.netCMD_my >> 8;									// src. short address
+		
+		*(send+1) |= 0x80;														// MAC header second byte
+		pos += 2;
+	}
+	else
+	{
+		*(send+pos)   = (uint8_t) (RFmodul.netCMD_sl >>  0);
+		*(send+pos+1) = (uint8_t) (RFmodul.netCMD_sl >>  8);
+		*(send+pos+2) = (uint8_t) (RFmodul.netCMD_sl >> 16);
+		*(send+pos+3) = (uint8_t) (RFmodul.netCMD_sl >> 24);					// src. ext. addr. low
+		
+		*(send+pos+4) = (uint8_t) (RFmodul.netCMD_sh >>  0);
+		*(send+pos+5) = (uint8_t) (RFmodul.netCMD_sh >>  8);
+		*(send+pos+6) = (uint8_t) (RFmodul.netCMD_sh >> 16);
+		*(send+pos+7) = (uint8_t) (RFmodul.netCMD_sh >> 24);					// src. ext. addr. high
+		
+		*(send+1) |= 0xC0;														// MAC header second byte
+		pos += 8;
+	}
+	
+	if ( RFmodul.netCMD_mm != 0x1 || RFmodul.netCMD_mm != 0x2 )
+	{
+		*(send+pos)   = (uint8_t) ( *(send+2) + (RFmodul.netCMD_sl & 0xFF));	// second counter, distance to frame counter is last byte of src extended addr.
+		*(send+pos+1) = 0x00;													// this byte will be used as command, 0x04 AT remote command
+		pos += 2;
+	}
+	
+	/*
+	 * data
+	 */
+	frame.length -= 11;
+	do
+	{
+		cli(); ret = BufferOut( &UART_deBuf, send+pos ); sei();
+		if ( ret == BUFFER_OUT_FAIL ) break;
+		
+		frame.crc += *(send+pos);
+		pos++;
+		
+	} while ( frame.length-- || pos < PACKAGE_SIZE-1 );
+
+	if ( AP_compareCRC() == FALSE ) return 0;
+	
+	return pos-1;
+}
+
+/*
+ * Frame will be send as text message with a 16bit address
+ *
+ * Received:
+ *		uint8_t		pointer to send array
+ *
+ * Returns:
+ *		final position in array
+ *
+ * last modified: 2017/01/09
+ */
+int TRX_0x01_transmit16Frame(uint8_t *send)
+{
+	int			pos		= 0;
+	at_status_t ret		= 0;
+	uint8_t		tmp		= 0x0;
+	
+	/* Step 1: prepare packed
+	 * - prepare MAC header, first byte
+	 * - write dest. address
+	 * - write destination PANID
+	 * - write src. address
+	 */	
+									 *(send)   |= 0x01;							// send data to a device
+	if ( RFmodul.secCMD_ee == TRUE ) *(send)   |= 0x08;							// security active
+									 *(send+1) |= 0x08;							// dest. address type (16bit)
+	pos = 5;	
+	/*
+	 * dest. address
+	 */
+	cli(); ret = BufferOut( &UART_deBuf, send+6 ); sei();
+	cli(); ret = BufferOut( &UART_deBuf, send+5 ); sei();
+	if ( ret == BUFFER_OUT_FAIL ) return 0;
+	frame.crc += *(send+5) + *(send+6);
+	
+	/*
+	 * handle of API Option field and  set PAN ID
+	 */
+	cli(); ret = BufferOut( &UART_deBuf, &tmp ); sei();
+	if ( ret == BUFFER_OUT_FAIL ) return 0;
+	frame.crc += tmp;
+	
+	if ( (RFmodul.netCMD_mm == 0x0 || RFmodul.netCMD_mm == 0x2) && tmp != 0x1 )  
+	{
+		*(send) |= 0x20; // ACK on
+	}
+	
+	if ( tmp == 0x4 )
+	{
+		*(send+3) = 0xFF;
+		*(send+4) = 0xFF;														// source PAN_ID
+		
+		*(send+ 7) = (uint8_t) (RFmodul.netCMD_id & 0xff);
+		*(send+ 8) = (uint8_t) (RFmodul.netCMD_id >>  8);						// destination PAN_ID
+		
+		pos += 4;
+	}
+	else
+	{
+		*(send) |= 0x40; // PAN Compression on
+
+		*(send+ 3) = (uint8_t) (RFmodul.netCMD_id & 0xff);
+		*(send+ 4) = (uint8_t) (RFmodul.netCMD_id >>  8);						// destination PAN_ID = source PAN_ID
+		
+		pos += 2;
+	}
+		
+	
+	/*
+	 * src. address
+	 */
+	if ( RFmodul.netCMD_my != 0xFFFE )
+	{
+		*(send+pos)   = (uint8_t) (RFmodul.netCMD_my & 0xff);
+		*(send+pos+1) = (uint8_t) (RFmodul.netCMD_my >> 8);						// src. short address
+		
+		*(send+1) |= 0x80;														// MAC header second byte
+		pos += 2;
+	}
+	else
+	{
+		*(send+pos)   = (uint8_t) (RFmodul.netCMD_sl >>  0);
+		*(send+pos+1) = (uint8_t) (RFmodul.netCMD_sl >>  8);
+		*(send+pos+2) = (uint8_t) (RFmodul.netCMD_sl >> 16);
+		*(send+pos+3) = (uint8_t) (RFmodul.netCMD_sl >> 24);					// src. ext. addr. low
+
+		*(send+pos+4) = (uint8_t) (RFmodul.netCMD_sh >>  0);
+		*(send+pos+5) = (uint8_t) (RFmodul.netCMD_sh >>  8);
+		*(send+pos+6) = (uint8_t) (RFmodul.netCMD_sh >> 16);
+		*(send+pos+7) = (uint8_t) (RFmodul.netCMD_sh >> 24);					// src. ext. addr. high
+		
+		*(send+1) |= 0xC0;														// MAC header second byte
+		pos += 8;
+	}
+	
+	if ( RFmodul.netCMD_mm != 0x1 || RFmodul.netCMD_mm != 0x2 )
+	{
+		*(send+pos)   = (uint8_t) (*(send+2) + (RFmodul.netCMD_sl & 0xFF) );	// second counter, distance to frame counter is last byte of src extended addr.
+		*(send+pos+1) = 0x00;													// this byte will be used as command, 0x04 AT remote command
+		pos += 2;
+	}
+	
+	/*
+	 * data
+	 */
+	frame.length -= 5;
+	do
+	{
+		cli(); ret = BufferOut( &UART_deBuf, send+pos ); sei();
+		if ( ret == BUFFER_OUT_FAIL ) break;
+		
+		frame.crc += *(send+pos);
+		pos++;
+		
+	} while ( frame.length-- || pos < PACKAGE_SIZE-1 );
+	
+	if ( AP_compareCRC() == FALSE ) return 0;
+	
+	return pos-1;
 }
