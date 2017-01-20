@@ -76,7 +76,7 @@
  *
  * last modified: 2016/11/10
  */
-#define D8_DI8_CONFIGURATION		(0x0)			// 0x0-0x5 (XBee default '0')
+#define D8_DI8_CONFIGURATION		(0x0)			// 0x0 & 0x5 (XBee default '0')
 #define D7_DIO7_CONFIGURATION		(0x0)			// 0x0-0x5 (XBee default '1')
 #define D6_DIO6_CONFIGURATION		(0x0)			// 0x0-0x5 (XBee default '0')
 #define D5_DIO5_CONFIGURATION		(0x0)			// 0x0-0x5 (XBee default '1')

@@ -10,107 +10,169 @@
 #define RFMODUL_H_
 
 #include <inttypes.h>
+#include <stddef.h>
 #include "_global.h"
 
-// === struct =============================================
-typedef struct  {
-	uint8_t	 netCMD_ni[21];     // max 20* 0xFF                                        = 168 bit
-	uint8_t  secCMD_ky[16];	    // max FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF (32 characters)= 128 Bit
-	uint8_t  serintCMD_ro;      // max 0xFF                                            =   8 bit
-	uint8_t  atcopCMD_cc;       // max 0xFF                                            =   8 bit
-	uint64_t iolpCMD_ia;        // 0xFFFFFFFFFFFFFFFF                                  =  64 bit
-
-	uint16_t netCMD_id;         // max 0xFFFF                                          =  16 bit
-	uint16_t netCMD_my;         // max 0xFFFF                                          =  16 bit
-	uint8_t  netCMD_nt;         // max 0xFC                                            =   8 bit
-	uint16_t netCMD_sc;         // max 0xFFFF                                          =  16 bit
-	uint32_t netCMD_dh;         // max 0xFFFFFFFF                                      =  32 bit
-	uint32_t netCMD_dl;         // max 0xFFFFFFFF                                      =  32 bit
-	uint32_t netCMD_sh;         // max 0xFFFFFFFF                                      =  32 bit
-	uint32_t netCMD_sl;         // max 0xFFFFFFFF                                      =  32 bit
-
-	uint16_t ioserCMD_ir;       // max 0xFFFF                                          =  16 bit
-	uint8_t  ioserCMD_pr;       // max 0xFF                                            =   8 bit
-	uint8_t  ioserCMD_it;       // max 0xFF                                            =   8 bit
-	uint8_t  ioserCMD_ic;       // max 0xFF                                            =   8 bit
-	uint8_t  ioserCMD_pt;       // max 0xFF                                            =   8 bit
-	uint8_t  ioserCMD_rp;       // max 0xFF                                            =   8 bit
-
-	uint8_t  iolpCMD_T0;        // max 0xFF                                            =   8 bit
-	uint8_t  iolpCMD_T1;        // max 0xFF                                            =   8 bit
-	uint8_t  iolpCMD_T2;        // max 0xFF                                            =   8 bit
-	uint8_t  iolpCMD_T3;        // max 0xFF                                            =   8 bit
-	uint8_t  iolpCMD_T4;        // max 0xFF                                            =   8 bit
-	uint8_t  iolpCMD_T5;        // max 0xFF                                            =   8 bit
-	uint8_t  iolpCMD_T6;        // max 0xFF                                            =   8 bit
-	uint8_t  iolpCMD_T7;        // max 0xFF                                            =   8 bit
-
-	uint16_t diagCMD_vr;        // max 0xFFFF                                          =  16 bit
-	uint16_t diagCMD_hv;        // max 0xFFFF                                          =  16 bit
-	uint16_t diagCMD_ec;        // max 0xFFFF                                          =  16 bit
-	uint16_t diagCMD_ea;        // max 0xFFFF                                          =  16 bit
-	uint32_t diagCMD_dd;        // max 0xFFFFFFFF                                      =  32 bit
-	uint8_t  diagCMD_db;        // max 0xFF                                            =   8 bit
-
-	uint16_t sleepmCMD_st;      // max 0xFFFF                                          =  16 bit
-	uint16_t sleepmCMD_sp : 15; // max 0x68B0                                          =  15 bit
-	uint16_t sleepmCMD_dp : 15; // max 0x68B0                                          =  15 bit
-	uint16_t atcopCMD_ct  : 13; // max 0x1770                                          =  13 bit
-	uint16_t atcopCMD_gt  : 12; // max 0xCE4                                           =  12 bit
-	uint8_t  rfiCMD_ca    : 7;  // max 0x50                                            =   7 bit
-	uint8_t  netCMD_ch    : 6;  // max 0x1A                                            =   6 bit
-	uint8_t  netCMD_ai 	  : 6;  // a1(0xF) & a2(0xF) = ai 0x13                         =   6 bit
-	uint8_t  netCMD_a1    : 4;  // max 0xF                                             =   4 bit
-	uint8_t  netCMD_a2    : 4;  // max 0xF                                             =   4 bit
-	uint8_t	 netCMD_mm    : 3;  // max 0x4                                             =   3 bit
-	uint8_t  ioserCMD_d8  : 3;  // max 0x5                                             =   3 bit
-	uint8_t  ioserCMD_d7  : 3;  // max 0x5                                             =   3 bit
-	uint8_t  ioserCMD_d6  : 3;  // max 0x5                                             =   3 bit
-	uint8_t  ioserCMD_d5  : 3;  // max 0x5                                             =   3 bit
-	uint8_t  ioserCMD_d4  : 3;  // max 0x5                                             =   3 bit
-	uint8_t  ioserCMD_d3  : 3;  // max 0x5                                             =   3 bit
-	uint8_t  ioserCMD_d2  : 3;  // max 0x5                                             =   3 bit
-	uint8_t  ioserCMD_d1  : 3;  // max 0x5                                             =   3 bit
-	uint8_t  ioserCMD_d0  : 3;  // max 0x5                                             =   3 bit
-	uint8_t  serintCMD_bd : 3;  // max 0x7                                             =   3 bit
-	uint8_t  serintCMD_nb : 3;  // max 0x4                                             =   3 bit
-	uint8_t  sleepmCMD_so : 3;  // max 0x6                                             =   3 bit
-	uint8_t  sleepmCMD_sm : 3;  // max 0x6                                             =   3 bit
-	uint8_t  rfiCMD_pl    : 3;  // max 0x4                                             =   3 bit
-	uint8_t  netCMD_sd    : 3;  // max 0x4                                             =   3 bit
-	uint8_t  netCMD_rr    : 2;  // max 0x3                                             =   2 bit
-	uint8_t  netCMD_rn    : 2;  // max 0x3                                             =   2 bit
-	uint8_t  ioserCMD_p0  : 2;  // max 0x2                                             =   2 bit
-	uint8_t  ioserCMD_p1  : 2;  // max 0x2                                             =   2 bit
-	uint8_t  serintCMD_ap : 2;  // max 0x2                                             =   2 bit
-	bool_t   ioserCMD_iu  : 1;  // max 0x1                                             =   1 bit
-	bool_t	 netCMD_ce    : 1;	// max 0x1                                             =   1 bit
-	bool_t   netCMD_no    : 1;  // max 0x1                                             =   1 bit
-	bool_t   secCMD_ee    : 1;  // max 0x1                                             =   1 bit
-	// ------------------------------------------------------------------------------------------------
-	//													   Total:                        944 bit
-}__attribute__((packed)) device_t;
-
-extern device_t RFmodul;
-
 // === set functions ==========================================
-void SET_netDefault(void);
-void SET_secDefault(void);
-void SET_rfiDefault(void);
-void SET_sleepDafault(void);
-void SET_siDefault(void);
-void SET_iosDefault(void);
-void SET_iolpDefault(void);
-void SET_diagDefault(void);
-void SET_cmdoDefault(void);
 void SET_allDefault(void);
-void SET_deDefault(void);
-void SET_atAP_tmp(uint8_t APvalue);
-void SET_atCT_tmp(uint16_t *CTvalue);
+void SET_netCMD_ni   (uint8_t *val, uint8_t len);
+void SET_secCMD_ky   (uint8_t *val, uint8_t len);
+void SET_serintCMD_ro(uint8_t  val);
+void SET_atcopCMD_cc (uint8_t  val);
+void SET_iolpCMD_ia  (uint64_t val);
+
+void SET_netCMD_id   (uint16_t val);
+void SET_netCMD_my   (uint16_t val);
+void SET_netCMD_nt   (uint8_t  val);
+void SET_netCMD_sc   (uint16_t val);
+void SET_netCMD_dh   (uint32_t val);
+void SET_netCMD_dl   (uint32_t val);
+void SET_netCMD_sh   (uint32_t val);
+void SET_netCMD_sl   (uint32_t val);
+
+void SET_ioserCMD_ir (uint16_t val);
+void SET_ioserCMD_pr (uint8_t  val);
+void SET_ioserCMD_it (uint8_t  val);
+void SET_ioserCMD_ic (uint8_t  val);
+void SET_ioserCMD_pt (uint8_t  val);
+void SET_ioserCMD_rp (uint8_t  val);
+
+void SET_iolpCMD_T0  (uint8_t  val);
+void SET_iolpCMD_T1  (uint8_t  val);
+void SET_iolpCMD_T2  (uint8_t  val);
+void SET_iolpCMD_T3  (uint8_t  val);
+void SET_iolpCMD_T4  (uint8_t  val);
+void SET_iolpCMD_T5  (uint8_t  val);
+void SET_iolpCMD_T6  (uint8_t  val);
+void SET_iolpCMD_T7  (uint8_t  val);
+
+void SET_diagCMD_vr  (uint16_t val);
+void SET_diagCMD_hv  (uint16_t val);
+void SET_diagCMD_ec  (uint16_t val);
+void SET_diagCMD_ea  (uint16_t val);
+void SET_diagCMD_dd  (uint32_t val);
+void SET_diagCMD_db  (uint8_t  val);
+
+void SET_sleepmCMD_st(uint16_t val);
+void SET_sleepmCMD_sp(uint16_t val);
+void SET_sleepmCMD_dp(uint16_t val);
+void SET_atcopCMD_ct (uint16_t val);
+void SET_atcopCMD_gt (uint16_t val);
+void SET_rfiCMD_ca   (uint8_t  val);
+void SET_netCMD_ch   (uint8_t  val);
+void SET_netCMD_ai   (uint8_t  val);
+void SET_netCMD_a1   (uint8_t  val);
+void SET_netCMD_a2   (uint8_t  val);
+void SET_netCMD_mm   (uint8_t  val);
+void SET_ioserCMD_d8 (uint8_t  val);
+void SET_ioserCMD_d7 (uint8_t  val);
+void SET_ioserCMD_d6 (uint8_t  val);
+void SET_ioserCMD_d5 (uint8_t  val);
+void SET_ioserCMD_d4 (uint8_t  val);
+void SET_ioserCMD_d3 (uint8_t  val);
+void SET_ioserCMD_d2 (uint8_t  val);
+void SET_ioserCMD_d1 (uint8_t  val);
+void SET_ioserCMD_d0 (uint8_t  val);
+void SET_serintCMD_bd(uint8_t  val);
+void SET_serintCMD_nb(uint8_t  val);
+void SET_sleepmCMD_so(uint8_t  val);
+void SET_sleepmCMD_sm(uint8_t  val);
+void SET_rfiCMD_pl   (uint8_t  val);
+void SET_netCMD_sd   (uint8_t  val);
+void SET_netCMD_rr   (uint8_t  val);
+void SET_netCMD_rn   (uint8_t  val);
+void SET_ioserCMD_p0 (uint8_t  val);
+void SET_ioserCMD_p1 (uint8_t  val);
+void SET_serintCMD_ap(uint8_t  val);
+void SET_ioserCMD_iu (bool_t   val);
+void SET_netCMD_ce   (bool_t   val);
+void SET_netCMD_no   (bool_t   val);
+void SET_secCMD_ee   (bool_t   val);
+
+void SET_atAP_tmp    (void* APvalue, uint8_t len);	// defined in atlocal.c
+void SET_atCT_tmp    (void* CTvalue, uint8_t len);	// defined in atlocal.c
 
 // === get functions ==========================================
-uint8_t GET_atAP_tmp(void);
-uint16_t GET_atCT_tmp(void);
+size_t   GET_device_tSize(void);
+uint8_t	 *GET_netCMD_ni(void);
+uint8_t  *GET_secCMD_ky(void);
+uint8_t  GET_serintCMD_ro(void);
+uint8_t  GET_atcopCMD_cc(void); 
+uint64_t GET_iolpCMD_ia(void);
+
+uint16_t GET_netCMD_id(void);
+uint16_t GET_netCMD_my(void);
+uint8_t  GET_netCMD_nt(void);
+uint16_t GET_netCMD_sc(void);
+uint32_t GET_netCMD_dh(void);
+uint32_t GET_netCMD_dl(void);
+uint32_t GET_netCMD_sh(void);
+uint32_t GET_netCMD_sl(void);
+
+uint16_t GET_ioserCMD_ir(void);
+uint8_t  GET_ioserCMD_pr(void);
+uint8_t  GET_ioserCMD_it(void);
+uint8_t  GET_ioserCMD_ic(void);
+uint8_t  GET_ioserCMD_pt(void);
+uint8_t  GET_ioserCMD_rp(void);
+
+uint8_t  GET_iolpCMD_T0(void);
+uint8_t  GET_iolpCMD_T1(void);
+uint8_t  GET_iolpCMD_T2(void);
+uint8_t  GET_iolpCMD_T3(void);
+uint8_t  GET_iolpCMD_T4(void);
+uint8_t  GET_iolpCMD_T5(void);
+uint8_t  GET_iolpCMD_T6(void);
+uint8_t  GET_iolpCMD_T7(void);
+
+uint16_t GET_diagCMD_vr(void);
+uint16_t GET_diagCMD_hv(void);
+uint16_t GET_diagCMD_ec(void);
+uint16_t GET_diagCMD_ea(void);
+uint32_t GET_diagCMD_dd(void);
+uint8_t  GET_diagCMD_db(void);
+
+uint16_t GET_sleepmCMD_st(void);
+uint16_t GET_sleepmCMD_sp(void);
+uint16_t GET_sleepmCMD_dp(void);
+uint16_t GET_atcopCMD_ct(void);
+uint16_t GET_atcopCMD_gt(void);
+uint8_t  GET_rfiCMD_ca(void);
+uint8_t  GET_netCMD_ch(void);
+uint8_t  GET_netCMD_ai(void);
+uint8_t  GET_netCMD_a1(void);
+uint8_t  GET_netCMD_a2(void);
+uint8_t	 GET_netCMD_mm(void);
+uint8_t  GET_ioserCMD_d8(void);
+uint8_t  GET_ioserCMD_d7(void);
+uint8_t  GET_ioserCMD_d6(void);
+uint8_t  GET_ioserCMD_d5(void);
+uint8_t  GET_ioserCMD_d4(void);
+uint8_t  GET_ioserCMD_d3(void);
+uint8_t  GET_ioserCMD_d2(void);
+uint8_t  GET_ioserCMD_d1(void);
+uint8_t  GET_ioserCMD_d0(void);
+uint8_t  GET_serintCMD_bd(void);
+uint8_t  GET_serintCMD_nb(void);
+uint8_t  GET_sleepmCMD_so(void);
+uint8_t  GET_sleepmCMD_sm(void);
+uint8_t  GET_rfiCMD_pl(void);
+uint8_t  GET_netCMD_sd(void);
+uint8_t  GET_netCMD_rr(void);
+uint8_t  GET_netCMD_rn(void);
+uint8_t  GET_ioserCMD_p0(void);
+uint8_t  GET_ioserCMD_p1(void);
+uint8_t  GET_serintCMD_ap(void);
+bool_t   GET_ioserCMD_iu(void); 
+bool_t	 GET_netCMD_ce(void);
+bool_t   GET_netCMD_no(void);
+bool_t   GET_secCMD_ee(void);
+
+uint8_t GET_atAP_tmp(void);			// defined in atlocal.c
+uint16_t GET_atCT_tmp(void);		// defined in atlocal.c
+
+// === general functions ======================================
+void deviceMemcpy(uint8_t *arrayStart, bool_t from_device_t);
 
 // === EEPROM functions =======================================
 void GET_allFromEEPROM(void);

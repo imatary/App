@@ -26,6 +26,9 @@
 static inline uint16_t crc_16_ccitt(uint16_t crc, uint8_t data);
 static        uint16_t calc_crc(uint8_t* pBuffer, uint16_t size);
 
+// === globals ============================================
+static uint8_t lary[1024];
+
 // === functions ==========================================
 /*
  * Get all AT command parameter which are stored in the EEPROM
@@ -42,38 +45,27 @@ static        uint16_t calc_crc(uint8_t* pBuffer, uint16_t size);
  */
 void SET_defaultInEEPROM(void)
 {
-	size_t size;
-	size  = sizeof(device_t) + 8;
-	size += 32 - (size % 32);
-	
-	/*
-	 * WARNING:
-	 * returns a pointer to the beginning of the allocated space. 
-	 * If the allocation causes stack overflow, program behaviour is
-	 * undefined.
-	 */
-	uint8_t *lary = (uint8_t*) alloca(size);
-	
-	memset(lary, 0xFF, size);
+	uint8_t size = (uint8_t) GET_device_tSize();
+	memset(lary, 0xFF, size + 8);
 	lary[0] = 0x88;
 	lary[1] = 0xDE;
 	lary[2] = 0x02;
-	lary[3] = (uint8_t) sizeof(device_t);
+	lary[3] = size;
 	
 	SET_allDefault();
-	RFmodul.netCMD_sh = eeprom_read_dword( (uint32_t*) ADDR_SH );
-	RFmodul.netCMD_sl = eeprom_read_dword( (uint32_t*) ADDR_SL );
-	RFmodul.netCMD_ai = 0x0;
-	RFmodul.diagCMD_db = 0x0;
-	RFmodul.diagCMD_ec = 0x0;
-	RFmodul.diagCMD_ea = 0x0;
+	SET_netCMD_sh ( eeprom_read_dword( (uint32_t*) ADDR_SH ) );
+	SET_netCMD_sl ( eeprom_read_dword( (uint32_t*) ADDR_SL ) );
+	SET_netCMD_ai ( 0x0 );
+	SET_diagCMD_db( 0x0 );
+	SET_diagCMD_ec( 0x0 );
+	SET_diagCMD_ea( 0x0 );
 	
-	memcpy(&lary[4], &RFmodul, sizeof(device_t));
+	deviceMemcpy( &lary[4], TRUE );
 	
-	uint16_t crc_val = calc_crc(lary, sizeof(device_t)+4);
-	memcpy(&lary[size-2], &crc_val, 2);
+	uint16_t crc_val = calc_crc( lary, size + 4 );
+	memcpy( &lary[size + 6] , &crc_val, 2);
 	
-	eeprom_write_block(lary, (void*) START_POS, size);
+	eeprom_write_block(lary, (void*) START_POS, size + 8 );
 }
 
 /*
@@ -91,27 +83,17 @@ void SET_defaultInEEPROM(void)
  */
 void GET_allFromEEPROM(void)
 {
-	size_t size;
-	size  = sizeof(device_t) + 8;
-	size += 32 - (size % 32);
+	uint8_t size = (uint8_t) GET_device_tSize();
+		
+	eeprom_read_block(lary, (void*) START_POS, size + 8);				// (1)
+	uint16_t calcCrc = calc_crc(lary, size + 4 );						// (2)
+	uint16_t readCrc = (uint16_t) lary[size + 7] << 8 | lary[size + 6];
 	
-	/*
-	 * WARNING:
-	 * returns a pointer to the beginning of the allocated space. 
-	 * If the allocation causes stack overflow, program behaviour is
-	 * undefined.
-	 */
-	uint8_t *lary = (uint8_t*) alloca(size);
+	if ( readCrc != calcCrc )	 SET_defaultInEEPROM();					// (3)
+	else						 deviceMemcpy( &lary[4], FALSE );
 	
-	memset(lary, 0xFF, size);	
-	eeprom_read_block(lary, (void*) START_POS, size);				// (1)
-	uint16_t calcCrc = calc_crc(lary, sizeof(device_t)+4 );			// (2)
-	uint16_t readCrc = (uint16_t) lary[size-1] << 8 | lary[size-2];
-	
-	if ( readCrc != calcCrc )	 SET_defaultInEEPROM();				// (3)
-	else						 memcpy( &RFmodul, &lary[4], sizeof(device_t) );
-	
-	SET_atAP_tmp(RFmodul.serintCMD_ap);		
+	if ( 0x10 > GET_atcopCMD_ct() ) SET_atcopCMD_ct ( 0x64 );
+	SET_atAP_tmp( GET_serintCMD_ap() );		
 }
 
 /*
@@ -128,33 +110,27 @@ void GET_allFromEEPROM(void)
  */
 void SET_userValInEEPROM(void)
 {
-	size_t size;
-	size  = sizeof(device_t) + 8;
-	size += 32 - (size % 32);
+	uint8_t size = (uint8_t) GET_device_tSize();
 	
-	/*
-	 * WARNING:
-	 * returns a pointer to the beginning of the allocated space. 
-	 * If the allocation causes stack overflow, program behaviour is
-	 * undefined.
-	 */
-	uint8_t *lary = (uint8_t*) alloca(size);
-	
-	memset(lary, 0xFF, size);
 	lary[0] = 0x80;
 	lary[1] = 0xDE;
 	lary[2] = 0x02;
-	lary[3] = (uint8_t) sizeof(device_t);
+	lary[3] = size;
 
-	uint8_t tmp = RFmodul.serintCMD_ap;
-	RFmodul.serintCMD_ap = GET_atAP_tmp();
-	memcpy( &lary[4], &RFmodul, sizeof(device_t) );
-	RFmodul.serintCMD_ap = tmp;
+	uint8_t  tmp  = GET_serintCMD_ap();
+	uint16_t tmp2 = GET_atcopCMD_ct();
 	
-	uint16_t crc_val = calc_crc(lary, sizeof(device_t)+4);
-	memcpy( &lary[size-2], &crc_val, 2);
+	SET_serintCMD_ap( GET_atAP_tmp() );
+	SET_atcopCMD_ct ( GET_atCT_tmp() );
 	
-	eeprom_write_block( lary, (void*) START_POS, size);
+	deviceMemcpy( &lary[4], TRUE );
+	SET_serintCMD_ap( tmp  );
+	SET_atcopCMD_ct ( tmp2 );
+	
+	uint16_t crc_val = calc_crc(lary, size + 4 );
+	memcpy( &lary[size + 6], &crc_val, 2);
+	
+	eeprom_write_block( lary, (void*) START_POS, size + 8 );
 }
 
 // === helper functions ===================================

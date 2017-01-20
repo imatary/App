@@ -4,8 +4,8 @@
  * Created: 26.10.2016 09:07:14
  *  Author: TOE
  */ 
+#include <inttypes.h>
 
-#include <stdlib.h>
 #include "../ATcommands/header/rfmodul.h"
 #include "../ATcommands/header/enum_status.h"
 #include "stackrelated.h"
@@ -62,8 +62,7 @@ void UART_print_data(uint8_t size, uint64_t val)
 		case 1 : UART_printf("%"PRIX8"\r",  (uint8_t)  val & 0xFF ); break;
 		case 2 : UART_printf("%"PRIX16"\r", (uint16_t) val & 0xFFFF ); break;
 		case 4 : UART_printf("%"PRIX32"\r", (uint32_t) val & 0xFFFFFFFF ); break;
-		case 8 : if ( (val >> 32) > 0) UART_printf("%"PRIX32"",   val >> 32);
-									   UART_printf("%"PRIX32"\r", val & 0xFFFFFFFF); break; // the compiler don't like the PRIX64 command
+		case 8 : UART_printf("%"PRIX64"\r", val ); break;
 		default: break;
 	}
 }

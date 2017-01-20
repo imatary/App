@@ -9,6 +9,9 @@
 #ifndef STACKRELATED_H_
 #define STACKRELATED_H_
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "../ATcommands/header/_global.h"
 #include "../ATcommands/header/enum_status.h"
 #include "../ATcommands/header/apiframe.h"
@@ -71,9 +74,9 @@ static uint8_t	(*TRX_init)			(void);
  * TRX_receive();		function to receive data over the air
  * TRX_get_TXfail();	returns the send failures (ACK failures)
  */
-uint8_t		TRX_baseInit(void);
-void		TRX_send(uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen);
-at_status_t TRX_receive(void);
+uint8_t		TRX_baseInit  (void);
+void		TRX_send      (bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen);
+at_status_t TRX_receive   (bufType_n bufType);
 uint8_t		TRX_get_TXfail(void);
 
 #endif /* STACKRELATED_H_ */

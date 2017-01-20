@@ -9,20 +9,12 @@
 #ifndef ATLOCAL_H_
 #define ATLOCAL_H_
 
+#include <inttypes.h>
 #include "_global.h"
-#include "enum_status.h"	// at_status_t
-#include "apiframe.h"
+#include "circularBuffer.h"
 
 // === prototypes ==========================================
-/*
- * Main function which is called  by three plus types,
- * start of a new loop
- */
-void	AT_localMode(void);
 
-/*
- * Functions to read param, execute instructions or write to memory
- */
-at_status_t CMD_readOrExec(uint32_t *th, uint8_t apFrame);
-at_status_t CMD_write(size_t *len, uint8_t apFrame);
+void AT_parser( uint8_t inchar, bufType_n bufType );
+
 #endif /* ATLOCAL_H_ */

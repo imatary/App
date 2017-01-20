@@ -109,7 +109,7 @@ typedef enum
 	AT_SB,					// STOP BITS
 	
 	// special device commands
-	DE_FV					// AT FIRMWARE VERSION
+	DE_FV,					// AT FIRMWARE VERSION
 																		
 }__attribute__((packed)) cmdIDs;										
 																		
