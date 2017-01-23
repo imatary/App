@@ -93,7 +93,9 @@ void GET_allFromEEPROM(void)
 	else						 deviceMemcpy( &lary[4], FALSE );
 	
 	if ( 0x10 > GET_atcopCMD_ct() ) SET_atcopCMD_ct ( 0x64 );
-	SET_atAP_tmp( GET_serintCMD_ap() );		
+	
+	uint8_t tmp = GET_serintCMD_ap();
+	SET_atAP_tmp( &tmp, 1 );		
 }
 
 /*
@@ -117,15 +119,15 @@ void SET_userValInEEPROM(void)
 	lary[2] = 0x02;
 	lary[3] = size;
 
-	uint8_t  tmp  = GET_serintCMD_ap();
-	uint16_t tmp2 = GET_atcopCMD_ct();
+	uint8_t  _tmp  = GET_serintCMD_ap();
+	uint16_t _tmp2 = GET_atcopCMD_ct();
 	
 	SET_serintCMD_ap( GET_atAP_tmp() );
 	SET_atcopCMD_ct ( GET_atCT_tmp() );
 	
 	deviceMemcpy( &lary[4], TRUE );
-	SET_serintCMD_ap( tmp  );
-	SET_atcopCMD_ct ( tmp2 );
+	SET_serintCMD_ap( _tmp  );
+	SET_atcopCMD_ct ( _tmp2 );
 	
 	uint16_t crc_val = calc_crc(lary, size + 4 );
 	memcpy( &lary[size + 6], &crc_val, 2);

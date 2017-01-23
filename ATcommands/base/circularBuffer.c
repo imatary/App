@@ -9,7 +9,6 @@
  */ 
 // === includes ===========================================
 #include <stdlib.h>
-#include <string.h>
 #include "../header/circularBuffer.h"	// struct, prototypes, defines
 
 // === structures =========================================
@@ -42,13 +41,15 @@ static deBuffer_t buffer[] = {
  */
 at_status_t deBufferIn(bufType_n bufType, uint8_t inByte)
 {
+	if ( NONE == bufType ) { return BUFFER_IN_FAIL; }
+	
 	uint8_t next = ( (buffer[bufType].write + 1) & DE_BUFFER_MASK );
 
 	if ( buffer[bufType].read == next )
 		 return BUFFER_IN_FAIL; // full
 	
 
-	buffer.data[ buffer[bufType].read ] = inByte;
+	buffer[bufType].data[ buffer[bufType].read ] = inByte;
 
 	//buf->data[buffer[bufType].write & DE_BUFFER_MASK] = inByte; // absolutely secure (related to the author)
 	buffer[bufType].write = next;
@@ -71,6 +72,8 @@ at_status_t deBufferIn(bufType_n bufType, uint8_t inByte)
  */
 at_status_t deBufferOut(bufType_n bufType, uint8_t *pByte)
 {
+	if ( NONE == bufType ) { return BUFFER_OUT_FAIL; }
+		
 	if (buffer[bufType].read == buffer[bufType].write)
 	return BUFFER_OUT_FAIL;
 
@@ -82,22 +85,53 @@ at_status_t deBufferOut(bufType_n bufType, uint8_t *pByte)
 }
 
 // === Helper functions ===================================
- 
 /*
- * BufferNewContent
- * will set the newContent variable to true if the module received some data over the air
+ * Get data of deBuffer
+ * filled the received array pointer with data  of the buffer.
+ * Caution! Buffer direct access.
  *
  * Received:
- *		deBuffer_t	pointer to the buffer
- *		bool_t		FALSE or TRUE
+ *		bufType_n	number of buffer type
+ *		uint8_t		pointer to work buffer which should be filled
+ *		uint16_t	pointer to length which should copied
  *
  * Returns:
  *     nothing
  *
  * last modified: 2016/11/17
  */
-void   SET_deBufferNewContent(bufType_n bufType, bool_t val) { buffer[bufType].newContent = val; }
-bool_t GET_deBufferNewContent(bufType_n bufType)             { return buffer[bufType].newContent; }
+void GET_deBufferData_atReadPosition(bufType_n bufType, uint8_t *workArray, size_t len) 
+{ 
+	if ( NONE == bufType ) { return; }
+	
+	memcpy( workArray, &buffer[bufType].data[ buffer[bufType].read ], len); 
+	deBufferReadReset( bufType, '+', len);
+}
+
+/*
+ * BufferNewContent
+ * will set the newContent variable to true if the module received some data over the air
+ *
+ * Received:
+ *		bufType_n	number of buffer type
+ *		bool_t		FALSE or TRUE	(SET)
+ *
+ * Returns:
+ *     value of .newContent else FALSE (GET)
+ *
+ * last modified: 2016/11/17
+ */
+void   SET_deBufferNewContent(bufType_n bufType, bool_t val) 
+{ 
+	if ( NONE == bufType ) { return; }
+	buffer[bufType].newContent = val; 
+}
+
+bool_t GET_deBufferNewContent(bufType_n bufType)
+{ 
+	if ( NONE == bufType ) { return FALSE; }
+	return buffer[bufType].newContent; 
+}
 
 /*
  * Buffer read pointer reset function,
@@ -117,8 +151,10 @@ bool_t GET_deBufferNewContent(bufType_n bufType)             { return buffer[buf
  *
  * last modified: 2016/11/28
  */
-void deBufferReadReset(bufType_n bufType, char operand , uint8_t len)
+void deBufferReadReset(bufType_n bufType, char operand , size_t len)
 {
+	if ( NONE == bufType ) { return; }
+
 	for (uint8_t i = 0; i < len; i++)
 	{
 		if ( '-' == operand ) 
@@ -160,8 +196,10 @@ void deBufferReadReset(bufType_n bufType, char operand , uint8_t len)
  *
  * last modified: 2016/11/28
  */
-void deBufferWriteReset(bufType_n bufType,char operand ,uint8_t len)
+void deBufferWriteReset(bufType_n bufType,char operand , size_t len)
 {
+	if ( NONE == bufType ) { return; }
+	
 	for (uint8_t i = 0; i < len; i++)
 	{
 		if ( '-' == operand )
@@ -194,112 +232,8 @@ void deBufferWriteReset(bufType_n bufType,char operand ,uint8_t len)
  *
  * last modified: 2017/01/20
  */
-void deBufferReset(bufType_n bufType) { memset( &buffer[bufType_n], 0, sizeof(deBuffer_t) ); }
-	
-/*
- * Validation an write function
- * - received the buffer content and converted content to uint32 hex values
- * if - the command size smaller or equal then unit of the tmp buffer 
- *    - the buffer value greater or equal than min value
- *    - the buffer value smaller or equal than max value
- * write to RFmodul struct
- * 
- * Received:
- *		bufType_n	number of buffer type
- *		uint16_t  	complete string length
- *		CMD			pointer to command in command table
- *		
- * Returns:
- *     OP_SUCCESS			on success
- *	   INVALID_PARAMETER	if parameter is not valid or error has occurred during transforming to hex
- *
- * last modified: 2016/12/02
- */
-at_status_t max_u32val( bufType_n bufType, uint16_t len, CMD *cmd )
-{
-	uint32_t val;
-	char *endptr;
-	
-	if( AT_MODE_ACTIVE == GET_serintCMD_ap )
-	{
-		val = strtoul( (const char*) buffer[bufType].data[ buffer[bufType].read ], &endptr, 16);
-		if ( *endptr != buffer[bufType].data[len-1]) return INVALID_PARAMETER;
-	}
-	else
-	{
-		memcpy( &val, &buffer[bufType].data[ buffer[bufType].read ], cmd->cmdSize);
-	}
-	
-	deBufferReadReset( bufType, '+', len);
-	
-	if ( val >= cmd->min && val <= cmd->max )
-	{
-		cmd->set( &val, len);
-		
-		if ( AT_MODE_ACTIVE == GET_serintCMD_ap() ) { UART_print_status(OP_SUCCESS); }
-		return OP_SUCCESS;
-	}
-	else return INVALID_PARAMETER;
-}
-
-at_status_t max_u64val( bufType_n bufType, uint16_t len, CMD *cmd )
-{
-	uint64_t val;
-	char *endptr;
-	
-	if( AT_MODE_ACTIVE == GET_serintCMD_ap )
-	{
-		val = strtoul( (const char*) buffer[bufType].data[ buffer[bufType].read ], &endptr, 16);
-		if ( *endptr != buffer[bufType].data[len-1]) return INVALID_PARAMETER;
-	}
-	else
-	{
-		memcpy( &val, &buffer[bufType].data[ buffer[bufType].read ], len);
-	}
-	
-	deBufferReadReset( bufType, '+', len);
-	
-	if ( val >= cmd->min && val <= cmd->max )
-	{
-		cmd->set( &val, len);
-		
-		if ( AT_MODE_ACTIVE == GET_serintCMD_ap() ) { UART_print_status(OP_SUCCESS); }
-		return OP_SUCCESS;
-	}
-	else return INVALID_PARAMETER;
-}
-
-
-/* 
- * special handle if
- * - network identifier string command
- * - buffer content <= 20 characters
- */
-at_status_t node_identifier( bufType_n bufType, uint16_t len, CMD *cmd )
-{
-	if ( len <= cmd->max )
-	{
-		cmd->set( &buffer[bufType].data[ buffer[bufType].read ], len);
-		
-		if ( AT_MODE_ACTIVE == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
-		return OP_SUCCESS;
-	}
-	else
-	{
-		return INVALID_PARAMETER;
-	}
-}
-
-at_status_t ky_validator(bufType_n bufType, uint16_t len, CMD *cmd)
-{
-	/* TODO */
-	if (FALSE)
-	{
-		if ( AT_MODE_ACTIVE == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
-		return OP_SUCCESS;
-	}
-	else
-	{
-		return INVALID_PARAMETER;
-	}
+void deBufferReset(bufType_n bufType) 
+{ 
+	if ( NONE == bufType ) { return; }
+	memset( &buffer[bufType], 0, sizeof(deBuffer_t) ); 
 }

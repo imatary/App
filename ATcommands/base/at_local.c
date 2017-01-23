@@ -4,54 +4,177 @@
  * Created: 10.11.2016 13:14:32
  *  Author: TOE
  */
-#include <inttypes.h>							// PRIX8/16/32
-#include <stdlib.h>								// size_t, strtol
+// === includes ===========================================
+#include <inttypes.h>
 #include <string.h>
 
-#include "../header/_global.h"					// boolean values
-#include "../header/atlocal.h"					// prototypes
 #include "../header/rfmodul.h"
-#include "../header/cmd.h"						// CMD
-#include "../header/circularBuffer.h"			// buffer
-#include "../../ATuracoli/stackrelated.h"		// UART_print(f)
-#include "../../ATuracoli/stackrelated_timer.h"	// UART_print(f)
-#include "../../ATuracoli/stackdefines.h"		// defined register addresses
+#include "../header/enum_status.h"
+#include "../header/circularBuffer.h"
+#include "../../ATuracoli/stackrelated.h"
 
+// === prototypes =========================================
+static inline void swap_u32(uint32_t *inVal);
+static inline void swap_u64(uint64_t *inVal);
 
-// === c-File Globals =====================================
-static bool_t noTimeout = TRUE;
-static uint8_t atAP_tmp = 0;
-static uint16_t atCT_tmp = 0;
-
-// === Functions ==========================================
+// === functions ==========================================
 /*
- * Get and set function for temporary AP value.
- * This variable is needed for API mode to write first to eeprom ans secondly apply the changes.
- * - Prototypes are declared in rfmodul.h
- *
+ * Validation an write function
+ * - received the buffer content and converted content to uint32 hex values
+ * if - the command size smaller or equal then unit of the tmp buffer 
+ *    - the buffer value greater or equal than min value
+ *    - the buffer value smaller or equal than max value
+ * write to RFmodul struct
+ * 
  * Received:
- *		uint8_t		parameter value for atAP_tmp (set function)
- *
+ *		bufType_n	number of buffer type
+ *		size_t  	string length
+ *		CMD			pointer to command in command table
+ *		
  * Returns:
- *		uint8_t		parameter value of atAP_tmp (get function)
+ *     OP_SUCCESS			on success
+ *	   INVALID_PARAMETER	if parameter is not valid or error has occurred during transforming to hex
  *
- * last modified: 2017/01/13
+ * last modified: 2016/12/02
  */
-uint8_t GET_atAP_tmp(void)            { return atAP_tmp; }
-void    SET_atAP_tmp(uint8_t APvalue) {	atAP_tmp = APvalue; }
+at_status_t max_u32val( bufType_n bufType, size_t len, CMD *cmd )
+{
+	uint8_t  workArray[9] = {0x0};
+	uint32_t val = 0x0;
+	char *endptr;
+	
+	GET_deBufferData_atReadPosition( bufType, workArray, len);
+	
+	if( AT_MODE_ACTIVE == GET_serintCMD_ap() )
+	{
+		val = strtoul( (const char*) workArray, &endptr, 16);
+		if ( *endptr != workArray[len-1]) return INVALID_PARAMETER;
+	}
+	else
+	{
+		memcpy( &val, workArray, len);
+		if ( val & 0xFF != workArray[len-2] ) swap_u32(&val);
+	}
+	
+	if ( val >= *cmd->min && val <= *cmd->max )
+	{
+		cmd->set( &val, cmd->cmdSize);
+		
+		if ( AT_MODE_ACTIVE == GET_serintCMD_ap() ) { UART_print_status(OP_SUCCESS); }
+		return OP_SUCCESS;
+	}
+	else return INVALID_PARAMETER;
+}
+
+at_status_t max_u64val( bufType_n bufType, size_t len, CMD *cmd )
+{
+	uint8_t  workArray_A[9] = {0x0}; 
+	size_t len_A = (len > 9)? 8 : len;
+	uint64_t val = 0;
+	char *endptr;
+	
+	GET_deBufferData_atReadPosition( bufType, workArray_A, len_A);
+	
+	if( AT_MODE_ACTIVE == GET_serintCMD_ap )
+	{
+		val = (uint64_t) strtoul( (const char*) workArray_A, &endptr, 16) << ( len > 9 )? 32 : 0;
+		if ( *endptr != workArray_A[len-1]) return INVALID_PARAMETER;
+		
+		if ( len > 9 )
+		{
+			uint8_t workArray_B[9] = {0x0};
+			uint16_t len_B = len-8;
+				
+			GET_deBufferData_atReadPosition( bufType, workArray_B, len_B);
+			val |= strtoul( (const char*) workArray_B, &endptr, 16);
+			if ( *endptr != workArray_B[len-1]) return INVALID_PARAMETER;
+		}
+	}
+	else
+	{
+		memcpy( &val, workArray_A, len);
+		if ( val & 0xFF != workArray_A[len-2] ); 
+	}
+	
+	deBufferReadReset( bufType, '+', len);
+	
+	if ( val >= *cmd->min && val <= *cmd->max )
+	{
+		cmd->set( &val, len);
+		
+		if ( AT_MODE_ACTIVE == GET_serintCMD_ap() ) { UART_print_status(OP_SUCCESS); }
+		return OP_SUCCESS;
+	}
+	else return INVALID_PARAMETER;
+}
+
+
+/* 
+ * special handle if
+ * - network identifier string command
+ * - buffer content <= 20 characters
+ */
+at_status_t node_identifier( bufType_n bufType, size_t len, CMD *cmd )
+{
+	if ( len <= *cmd->max )
+	{
+		uint8_t workArray[21] = {0x0};
+			
+		GET_deBufferData_atReadPosition(bufType, workArray, len);
+		cmd->set( workArray, len);
+		
+		if ( AT_MODE_ACTIVE == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
+		return OP_SUCCESS;
+	}
+	else
+	{
+		return INVALID_PARAMETER;
+	}
+}
+
+at_status_t ky_validator(bufType_n bufType, size_t len, CMD *cmd)
+{
+	/* TODO */
+	if (FALSE)
+	{
+		if ( AT_MODE_ACTIVE == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
+		return OP_SUCCESS;
+	}
+	else
+	{
+		return INVALID_PARAMETER;
+	}
+}
 
 /*
- * Get and set function for temporary CT value.
- * This variable is needed for API mode to write first to eeprom ans secondly apply the changes.
- * - Prototypes are declared in rfmodul.h
- *
- * Received:
- *		uint16_t		parameter value for atCT_tmp (set function)
- *
+ * swap helper functions
+ * 
  * Returns:
- *		uint16_t		parameter value of atCT_tmp (get function)
+ *		nothing
  *
- * last modified: 2017/01/17
+ * last modified: 2017/01/23
  */
-uint16_t GET_atCT_tmp(void)             { return atCT_tmp; }
-void     SET_atCT_tmp(uint16_t CTvalue) { atCT_tmp = CTvalue; }
+
+static inline void swap_u32(uint32_t *inVal)
+{
+	uint8_t *bytes = (uint8_t*)inVal;
+	bytes[0] ^= bytes[3];
+	bytes[3] ^= bytes[0];
+	bytes[0] ^= bytes[3];
+	bytes[1] ^= bytes[2];
+	bytes[2] ^= bytes[1];
+	bytes[1] ^= bytes[2];
+}
+
+static inline void swap_u64(uint64_t *inVal)
+{
+	uint8_t *bytes = (uint8_t*)inVal;
+
+	for(char i = 0; i < 4; i++)
+	{
+		bytes[i]   ^= bytes[7-i];
+		bytes[7-i] ^= bytes[i];
+		bytes[i]   ^= bytes[7-i];
+	}
+
+}

@@ -14,6 +14,7 @@
 
 // === includes ===========================================
 #include <inttypes.h>
+#include <string.h>
 
 #include "enum_status.h"
 #include "_global.h"
@@ -25,6 +26,7 @@
 // === typedefs ===========================================
 typedef enum 
 { 
+	NONE = -1,
 	UART, 
 	RX,
 	 
@@ -43,14 +45,13 @@ void   SET_deBufferNewContent(bufType_n bufType, bool_t val);
 at_status_t deBufferIn	(bufType_n bufType, uint8_t inByte);
 at_status_t deBufferOut	(bufType_n bufType, uint8_t *pByte);
 
-at_status_t max_u32val( bufType_n bufType, uint16_t len, CMD *cmd);
-
+void GET_deBufferData_atReadPosition(bufType_n bufType, uint8_t *workArray, size_t len);
 /*
  * careful with this functions
  * to manipulate the buffer can omit a crash or overwrite new data
  */
 void deBufferReset	   (bufType_n bufType);
-void deBufferReadReset (bufType_n bufType, char operand , uint8_t len);
-void deBufferWriteReset(bufType_n bufType, char operand , uint8_t len);
+void deBufferReadReset (bufType_n bufType, char operand , size_t len);
+void deBufferWriteReset(bufType_n bufType, char operand , size_t len);
 
 #endif /* CIRCULARBUFFER_H_ */

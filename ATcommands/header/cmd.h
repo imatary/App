@@ -21,19 +21,19 @@
 #define EXEC	 (0x2)
 
 // === struct and struct table ============================
-typedef struct {
+typedef struct command {
 	const char		*name;
 	const cmdIDs	ID;			// AT ID of enum type cmdIDs
 	const uint8_t	rwxAttrib;	// 8 Bit for rwx or rwx Attrib bit field
 	const uint8_t   cmdSize;
 	const uint64_t	*min;
 	const uint64_t  *max;
-	const void (*set) ( void*, uint8_t );
-	const at_status_t (*valid_and_set) (bufType_n, uint16_t, CMD*);
+	void (*set) ( void*, size_t ); // data, length
+	at_status_t (*valid_and_set) (bufType_n, size_t, struct command*); // buffer type, payload length, command
 }__attribute__((packed)) CMD;
 
-CMD *CMD_findInTable      (uint8_t *cmd);
-at_status_t CMD_readOrExec(uint32_t *th, bufType_n bufType);
-at_status_t CMD_write     (uint16_t *len, bufType_n bufType);
+CMD *CMD_findInTable      (uint8_t  *cmd);
+at_status_t CMD_readOrExec(uint32_t *th,  bufType_n bufType);
+at_status_t CMD_write     (size_t   len,   bufType_n bufType);
 
 #endif /* CMD_H_ */

@@ -32,7 +32,7 @@
 // === Prototypes =========================================
 static at_status_t AP_localDevice(bufType_n bufType);
 static void		   AP_atLocal_response(void);
-
+static void        swap_msg(size_t length);
 
 // === globals ============================================
 static struct api_f frame  = {0,0,0,0,{0},0,{0},0};
@@ -50,14 +50,14 @@ static struct api_f frame  = {0,0,0,0,{0},0,{0},0};
  *
  * last modified: 2017/01/19
  */
-void AP_frameHandle_uart(void)
+void AP_frameHandle_uart(bufType_n bufType)
 {
 	// frame type	1 byte
-	cli(); frame.ret = deBufferOut( UART, &frame.type ); sei();
+	cli(); frame.ret = deBufferOut( bufType, &frame.type ); sei();
 	if (frame.ret == BUFFER_OUT_FAIL) return;
 	
 	// frame id		1 byte
-	cli(); frame.ret = deBufferOut( UART, &frame.id ); sei();
+	cli(); frame.ret = deBufferOut( bufType, &frame.id ); sei();
 	if (frame.ret == BUFFER_OUT_FAIL) return;
 	
 	switch ( frame.type )
@@ -66,11 +66,11 @@ void AP_frameHandle_uart(void)
 			{
 				if ( frame.length == 4)
 				{
-					frame.ret = CMD_readOrExec( NULL, UART );
+					frame.ret = CMD_readOrExec( NULL, bufType );
 				}
 				else
 				{
-					frame.ret = CMD_write( &frame.length, UART );
+					frame.ret = CMD_write( frame.length, bufType );
 					SET_userValInEEPROM();
 					UART_init();
 					TRX_baseInit();
@@ -82,32 +82,32 @@ void AP_frameHandle_uart(void)
 		
 		case AT_COMMAND_Q  : 
 			{
-				if ( frame.length == 4) frame.ret = CMD_readOrExec( NULL, UART );
-				else                    frame.ret = CMD_write( &frame.length, UART );
+				if ( frame.length == 4) frame.ret = CMD_readOrExec( NULL, bufType );
+				else                    frame.ret = CMD_write( frame.length, bufType );
 			}
 			break;
 		
 		case REMOTE_AT_CMD : 
 			{
-				TRX_send( UART, REMOTE_AT_CMD, NULL, 0); 
+				TRX_send( bufType, REMOTE_AT_CMD, NULL, 0); 
 			}
 			break;
 		
 		case DEVICE_AT_CMD :
 			{
-				frame.ret = AP_localDevice( UART );
+				frame.ret = AP_localDevice( bufType );
 			}
 			break;
 		
 		case TX_MSG_64 :
 			{
-				TRX_send( UART, TX_MSG_64, NULL, 0);
+				TRX_send( bufType, TX_MSG_64, NULL, 0);
 			}
 			break;
 		
 		case TX_MSG_16 :
 			{
-				TRX_send( UART, TX_MSG_16, NULL, 0);
+				TRX_send( bufType, TX_MSG_16, NULL, 0);
 			}
 			break;
 				
@@ -120,6 +120,24 @@ void AP_frameHandle_uart(void)
 	}
 	
 	AP_atLocal_response();
+}
+
+/*
+ * Special TRX functons
+ * only used in at_trx.c
+ */
+uint8_t TRX_getFrameID(void) { return frame.id; }
+uint8_t TRX_getFrameRet(void) { return frame.ret * (-1); }
+	
+void    TRX_getFrameATcmd(uint8_t *array, int pos)
+{
+	*(array+pos  ) = frame.cmd[0];
+	*(array+pos+1) = frame.cmd[1];
+}
+
+void TRX_getFrameMsg(uint8_t * array, int pos, size_t len)
+{
+	memcpy(array+pos, frame.msg, len);
 }
 
 /*
@@ -137,15 +155,8 @@ void AP_frameHandle_uart(void)
  *
  * last modified: 2017/01/18
  */
-void AP_setCRC(uint8_t val)
-{
-	frame.crc = val;
-}
-
-void AP_updateCRC(uint8_t val)
-{
-	frame.crc += val;
-}
+void AP_setCRC   (uint8_t val) { frame.crc  = val; }
+void AP_updateCRC(uint8_t val) { frame.crc += val; }
 
 bool_t AP_compareCRC(uint8_t val)
 {	
@@ -191,10 +202,7 @@ void AP_setATcmd(uint8_t *array)
  *
  * last modified: 2016/12/19
  */
-void AP_setRWXopt(uint8_t opt)
-{
-	frame.rwx = opt;
-}
+void AP_setRWXopt(uint8_t opt) { frame.rwx = opt; }
 
 /*
  * AP set frame length
@@ -216,10 +224,7 @@ at_status_t AP_setFrameLength(uint16_t val, bool_t shift)
 	return ( frame.length < 4 )? ERROR : OP_SUCCESS;
 }
 
-uint16_t AP_getFrameLength(void)
-{
-	return frame.length;
-}
+uint16_t AP_getFrameLength(void) { return frame.length; }
 
 /*
  * AP set AT command stored the AT CMD for the response in the frame struct
@@ -234,22 +239,24 @@ uint16_t AP_getFrameLength(void)
  *
  * last modified: 2016/12/19
  */
-void AP_setMSG(void *val, short length, uint8_t swapp)
+void AP_setMSG(void *val, size_t len)
 {
-	frame.msg[length] = 0x0;
+	frame.msg[len] = 0x0;
 	
-	frame.length = length;
- 	memcpy(frame.msg,(uint8_t*) val, length);
+	frame.length = len;
+ 	memcpy(frame.msg,(uint8_t*) val, len);
 	
- 	if ( length > 1 && swapp == 1 )
- 	{
-	 	for (short i = 0; i < frame.length/2; i++, length--)
-	 	{
-		 	frame.msg[i]        ^= frame.msg[length-1];
-		 	frame.msg[length-1] ^= frame.msg[i];
-		 	frame.msg[i]        ^= frame.msg[length-1];
-	 	}
- 	}
+ 	if ( *((uint8_t*) val) != frame.msg[len-1] ) swap_msg(len);
+}
+
+static void swap_msg(size_t length)
+{
+	for (short i = 0; i < frame.length/2; i++, length--)
+	{
+		frame.msg[i]        ^= frame.msg[length-1];
+		frame.msg[length-1] ^= frame.msg[i];
+		frame.msg[i]        ^= frame.msg[length-1];
+	}
 }
 
 /*
@@ -266,7 +273,7 @@ void AP_setMSG(void *val, short length, uint8_t swapp)
  *
  * last modified: 2017/01/04
  */
-void AP_atRemoteFrame(bufType_n bufType, uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen)
+void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen)
 {
 	/* 
 	 * - Frame consist a minimum of 14 Bytes
@@ -290,7 +297,7 @@ void AP_atRemoteFrame(bufType_n bufType, uint16_t length, uint8_t *srcAddr, uint
 
 	length -= 0xA; // length = 2 dummy bytes + 2 bytes AT cmd [+ n-bytes payload]
 
-	if ( length > 0x4 ) { frame.ret = CMD_write( &length, bufType ); } 
+	if ( length > 0x4 ) { frame.ret = CMD_write( length, bufType ); } 
 	else                { frame.ret = CMD_readOrExec( NULL, bufType ); }
 	
 	/*
@@ -305,7 +312,7 @@ void AP_atRemoteFrame(bufType_n bufType, uint16_t length, uint8_t *srcAddr, uint
 		SET_atcopCMD_ct ( GET_atCT_tmp() );
 	}
 
-	TRX_send( NULL, REMOTE_RESPONSE, srcAddr, srcAddrLen );
+	TRX_send( NONE, REMOTE_RESPONSE, srcAddr, srcAddrLen );
 }
 
 /*

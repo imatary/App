@@ -28,7 +28,7 @@ static uint32_t	     th = 0;
 
 // === prototypes =========================================
 static uint32_t AT_GT_timeHandle(uint32_t arg);
-static uint32_t AT_CT_timeHandle(uint32_t arg);
+uint32_t AT_CT_timeHandle(uint32_t arg);
 
 // === functions ==========================================
 
@@ -37,7 +37,7 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	at_status_t ret = 0;
 	uint8_t commandSequenceChar = GET_atcopCMD_cc();
 	uint16_t guartTimes			= GET_atcopCMD_gt();
-	uint16_t ATcmdTimeOut		= GET_atcopCMD_ct() * 0x64;
+	uint16_t ATcmdTimeOut		= deMSEC( GET_atcopCMD_ct() ) * 0x64;
 	
 	/*
 	 * if a CC character received, start timer and count CC character signs 
@@ -72,14 +72,15 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	case AT_MODE :
 		if ( 0 == th ) 
 		{
-			th = deTIMER_start(AT_CT_timeHandle, deMSEC( ATcmdTimeOut ), 0 );
+		UART_puts("TIMER START");
+			th = deTIMER_start(AT_CT_timeHandle,  ATcmdTimeOut , 0 );
 			deBufferReset( bufType );
 		}
 		counter += 1;
 		
 		if( '\r' == inchar ) 
 		{
-			th = deTIMER_restart(th, deMSEC( ATcmdTimeOut ) );
+			th = deTIMER_restart(th, ATcmdTimeOut );
 			state = AT_HANDLE;
 			inchar = '\0';
 		}
@@ -133,7 +134,7 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	else if( AT_HANDLE == state && counter >  5 ) 
 	{
 		state = AT_MODE;
-		ret = CMD_write( &counter, bufType);
+		ret = CMD_write( counter, bufType);
 		counter = 0;
 	}
 	
@@ -178,7 +179,7 @@ static uint32_t AT_GT_timeHandle(uint32_t arg)
 	return 0;
 }
 
-static uint32_t AT_CT_timeHandle(uint32_t arg)
+uint32_t AT_CT_timeHandle(uint32_t arg)
 {
 	state   = STATEM_IDLE;
 	counter = 0;

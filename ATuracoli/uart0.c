@@ -23,7 +23,7 @@ void UART_init(void)
 {
 	mcu_init();
 	uint32_t baud = deHIF_DEFAULT_BAUDRATE;
-	switch( RFmodul.serintCMD_bd )
+	switch( GET_serintCMD_bd() )
 	{
 		case 0x0 : baud =   1200; break;
 		case 0x1 : baud =   2400; break;
@@ -62,7 +62,10 @@ void UART_print_data(uint8_t size, uint64_t val)
 		case 1 : UART_printf("%"PRIX8"\r",  (uint8_t)  val & 0xFF ); break;
 		case 2 : UART_printf("%"PRIX16"\r", (uint16_t) val & 0xFFFF ); break;
 		case 4 : UART_printf("%"PRIX32"\r", (uint32_t) val & 0xFFFFFFFF ); break;
-		case 8 : UART_printf("%"PRIX64"\r", val ); break;
+		case 8 : 
+				 UART_printf("%"PRIX32,            val >> 32 );			// need to be divided in two peaces because PRIX64 has an bug 
+				 UART_printf("%"PRIX32"\r",        val & 0xFFFFFFFF );
+		break;
 		default: break;
 	}
 }

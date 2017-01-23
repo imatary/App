@@ -33,6 +33,15 @@ struct api_f
 
 // === prototypes =========================================
 /*
+ * Special TRX functons
+ * only used in at_trx.c
+ */
+uint8_t TRX_getFrameID(void);
+uint8_t TRX_getFrameRet(void);
+void    TRX_getFrameATcmd(uint8_t *array, int pos);
+void    TRX_getFrameMsg(uint8_t * array, int pos, size_t len);
+
+/*
  * Set-functions
  * setATcmd		writes the command into the frame struct array
  * setRWXopt	writes the READ, WRITE or EXEC flag into the frame struct
@@ -40,7 +49,8 @@ struct api_f
  */
 void AP_setATcmd (uint8_t *array);
 void AP_setRWXopt(uint8_t opt);
-void AP_setMSG   (void *val, short length, uint8_t swapp);
+void AP_setMSG   (void *val, size_t length);
+
 
 /*
  * API frame length functions

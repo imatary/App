@@ -31,7 +31,7 @@
  *				 
  * last modified: 2017/01/04
  */				 
-at_status_t CMD_write(uint16_t *len, bufType_n bufType)
+at_status_t CMD_write(size_t len, bufType_n bufType)
 {	
 	CMD *pCommand  = NULL;
 	uint8_t pCmdString[5] = {'A','T',0,0,0};
@@ -69,11 +69,11 @@ at_status_t CMD_write(uint16_t *len, bufType_n bufType)
 	 */	
 	if (pCommand->rwxAttrib & WRITE )
 	{
-		return pCommand->valid_and_set( bufType, (*len)-4, pCommand );
+		return pCommand->valid_and_set( bufType, len-4, pCommand );
 	}
 	else
 	{
-		deBufferReadReset(bufType, '+', *len+1); // delete parameter and crc sum
+		deBufferReadReset(bufType, '+', len+1); // delete parameter and crc sum
 		return INVALID_COMMAND;
 	}
 }

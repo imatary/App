@@ -13,6 +13,7 @@
 #include "../ATcommands/header/_global.h"
 #include "../ATcommands/header/rfmodul.h"
 #include "../ATcommands/header/circularBuffer.h"
+#include "../ATcommands/header/apiframe.h"
 #include "stackrelated.h"
 #include "stackdefines.h"
 
@@ -231,7 +232,7 @@ int TRX_msgFrame(bufType_n bufType, uint8_t *send)
 	 * destination addr.
 	 * extended or short
 	 */
-	u64tmp = (uint64_t) GET_netCMD_dh << 32 | GET_netCMD_dl();
+	u64tmp = (uint64_t) GET_netCMD_dh() << 32 | GET_netCMD_dl();
 	
 	if ( 0xFFFF < u64tmp || 0x00 <u64tmp )
 	{
@@ -258,7 +259,7 @@ int TRX_msgFrame(bufType_n bufType, uint8_t *send)
 	 * source addr.
 	 * short or extended
 	 */
-	u16tmp = GET_netCMD_my()
+	u16tmp = GET_netCMD_my();
 	if ( 0xFFFE != u16tmp )
 	{
 		for (shift = 0; 9 > shift; shift += 8, pos++ )
@@ -348,7 +349,7 @@ at_status_t TRX_receive(bufType_n bufType)
 			return TRANSMIT_IN_FAIL;
 	}
 	
-	if ( 0x0 == RFmodul.serintCMD_ap )
+	if ( 0x0 == GET_serintCMD_ap() )
 	{
 		
 	} 
@@ -400,8 +401,8 @@ static void TRX_printContent(bufType_n bufType, uint8_t flen, uint8_t dataStart,
 		{
 			cli(); deBufferOut( bufType, &outchar); sei();
 			if ( i >= dataStart ) UART_putc(outchar);
-			}/* end for loop */
-		}
+
+		}/* end for loop */
 	}
 }
 
