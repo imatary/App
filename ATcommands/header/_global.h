@@ -24,6 +24,13 @@
 typedef enum { FALSE, TRUE }__attribute__((packed)) bool_t;
 
 // === variables & structs ================================
+typedef struct
+{
+	uint8_t    state;
+	uint16_t counter;
+	uint32_t   watch;
+	
+} timeStat_t;
 
 // === functions ==========================================
 

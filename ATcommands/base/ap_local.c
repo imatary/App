@@ -29,6 +29,24 @@
 #define RX_MSG_16		(0x81)
 #define REMOTE_RESPONSE (0x97)
 
+// === struct =============================================
+struct api_f 
+{
+	at_status_t ret;		// 1 Byte
+	uint8_t		rwx;		// 1 Byte
+	uint16_t	length;		// 2 Byte
+	uint8_t		type;		// 1 Byte
+	uint8_t		cmd[3];		// 3 Byte
+	uint8_t		id;			// 1 Byte
+	uint8_t		msg[256];	// 256 Byte
+	/*
+	 * create the frame & calc checksum
+	 * 0xFF - (AP type + frame ID [+ target address] [+ options] + main content [+ parameter]) = checksum
+	 *        |<---------------------------------- frame frame->bufLength ------------------->|
+	 */
+	uint8_t  crc;
+}__attribute__((packed));
+
 // === Prototypes =========================================
 static at_status_t AP_localDevice(bufType_n bufType);
 static void		   AP_atLocal_response(void);
