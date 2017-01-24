@@ -10,6 +10,7 @@
 // === includes ===========================================
 #include <stdlib.h>
 #include "../header/circularBuffer.h"	// struct, prototypes, defines
+#include "../../ATuracoli/stackrelated.h"
 
 // === structures =========================================
 typedef struct {
@@ -20,7 +21,7 @@ typedef struct {
 } deBuffer_t;
 
 // === globals ============================================
-static deBuffer_t buffer[] = { 
+static deBuffer_t xbuffer[] = { 
 	{ {0x0}, 0x0, 0x0, FALSE },	// UART
 	{ {0x0}, 0x0, 0x0, FALSE }, // RX
 };
@@ -43,16 +44,13 @@ at_status_t deBufferIn(bufType_n bufType, uint8_t inByte)
 {
 	if ( NONE == bufType ) { return BUFFER_IN_FAIL; }
 	
-	uint8_t next = ( (buffer[bufType].write + 1) & DE_BUFFER_MASK );
+	uint8_t next =  (xbuffer[bufType].write + 1) & DE_BUFFER_MASK;
 
-	if ( buffer[bufType].read == next )
+	if ( xbuffer[bufType].read == next )
 		 return BUFFER_IN_FAIL; // full
 	
-
-	buffer[bufType].data[ buffer[bufType].read ] = inByte;
-
-	//buf->data[buffer[bufType].write & DE_BUFFER_MASK] = inByte; // absolutely secure (related to the author)
-	buffer[bufType].write = next;
+	xbuffer[bufType].data[ xbuffer[bufType].write ] = inByte;
+	xbuffer[bufType].write = next;
 	
 	return OP_SUCCESS;
 }
@@ -73,13 +71,13 @@ at_status_t deBufferIn(bufType_n bufType, uint8_t inByte)
 at_status_t deBufferOut(bufType_n bufType, uint8_t *pByte)
 {
 	if ( NONE == bufType ) { return BUFFER_OUT_FAIL; }
-		
-	if (buffer[bufType].read == buffer[bufType].write)
+	
+	if ( xbuffer[bufType].read == xbuffer[bufType].write)
 	return BUFFER_OUT_FAIL;
 
-	*pByte = buffer[bufType].data[ buffer[bufType].read ];
+	*pByte = xbuffer[bufType].data[ xbuffer[bufType].read ];
 
-	buffer[bufType].read = (buffer[bufType].read+1) & DE_BUFFER_MASK;
+	xbuffer[bufType].read = xbuffer[bufType].read+1 & DE_BUFFER_MASK;
 
 	return OP_SUCCESS;
 }
@@ -87,12 +85,12 @@ at_status_t deBufferOut(bufType_n bufType, uint8_t *pByte)
 // === Helper functions ===================================
 /*
  * Get data of deBuffer
- * filled the received array pointer with data  of the buffer.
+ * filled the received array pointer with data  of the xbuffer.
  * Caution! Buffer direct access.
  *
  * Received:
- *		bufType_n	number of buffer type
- *		uint8_t		pointer to work buffer which should be filled
+ *		bufType_n	number of xbuffer type
+ *		uint8_t		pointer to work xbuffer which should be filled
  *		uint16_t	pointer to length which should copied
  *
  * Returns:
@@ -104,7 +102,7 @@ void GET_deBufferData_atReadPosition(bufType_n bufType, uint8_t *workArray, size
 { 
 	if ( NONE == bufType ) { return; }
 	
-	memcpy( workArray, &buffer[bufType].data[ buffer[bufType].read ], len); 
+	memcpy( workArray, &xbuffer[bufType].data[ xbuffer[bufType].read ], len); 
 	deBufferReadReset( bufType, '+', len);
 }
 
@@ -113,7 +111,7 @@ void GET_deBufferData_atReadPosition(bufType_n bufType, uint8_t *workArray, size
  * will set the newContent variable to true if the module received some data over the air
  *
  * Received:
- *		bufType_n	number of buffer type
+ *		bufType_n	number of xbuffer type
  *		bool_t		FALSE or TRUE	(SET)
  *
  * Returns:
@@ -124,25 +122,25 @@ void GET_deBufferData_atReadPosition(bufType_n bufType, uint8_t *workArray, size
 void   SET_deBufferNewContent(bufType_n bufType, bool_t val) 
 { 
 	if ( NONE == bufType ) { return; }
-	buffer[bufType].newContent = val; 
+	xbuffer[bufType].newContent = val; 
 }
 
 bool_t GET_deBufferNewContent(bufType_n bufType)
 { 
 	if ( NONE == bufType ) { return FALSE; }
-	return buffer[bufType].newContent; 
+	return xbuffer[bufType].newContent; 
 }
 
 /*
  * Buffer read pointer reset function,
  * reset the pointer position of a number of len
  * if the pointer hit the writing pointer, set the read pointer for
- *		'+' operation to buffer[bufType].write     (buffer can not read until new data was written into the buffer)
- *      '-' operation to buffer[bufType].write + 1 (buffer need to be read until new data can written into the buffer)
+ *		'+' operation to xbuffer[bufType].write     (xbuffer can not read until new data was written into the xbuffer)
+ *      '-' operation to xbuffer[bufType].write + 1 (xbuffer need to be read until new data can written into the xbuffer)
  * and return
  *
  * Received:
- *		bufType_n	number of buffer type
+ *		bufType_n	number of xbuffer type
  *		char		'+' or '-' for the direction
  *		uint8_t		the number of elements which should skipped
  *
@@ -159,18 +157,18 @@ void deBufferReadReset(bufType_n bufType, char operand , size_t len)
 	{
 		if ( '-' == operand ) 
 		{
-			buffer[bufType].read = (buffer[bufType].read - 1) & DE_BUFFER_MASK;
+			xbuffer[bufType].read = (xbuffer[bufType].read - 1) & DE_BUFFER_MASK;
 		}
-		if ( '-' == operand && buffer[bufType].read == buffer[bufType].write)
+		if ( '-' == operand && xbuffer[bufType].read == xbuffer[bufType].write)
 		{
-			buffer[bufType].read == buffer[bufType].write+1;
+			xbuffer[bufType].read == xbuffer[bufType].write+1;
 			return;
 		}
 		if ( '+' == operand ) 
 		{
-			buffer[bufType].read = (buffer[bufType].read + 1) & DE_BUFFER_MASK;
+			xbuffer[bufType].read = (xbuffer[bufType].read + 1) & DE_BUFFER_MASK;
 		}
-		if ( '+' == operand && buffer[bufType].read == buffer[bufType].write)
+		if ( '+' == operand && xbuffer[bufType].read == xbuffer[bufType].write)
 		{
 			return;
 		}
@@ -182,12 +180,12 @@ void deBufferReadReset(bufType_n bufType, char operand , size_t len)
  * Buffer write pointer reset function,
  * reset the pointer position of a number of len
  * if the pointer hit the read pointer, set the write pointer for
- *		'+' operation to buffer[bufType].read - 1 (no further writing is posible until the buffer was read)
- *      '-' operation to buffer[bufType].read + 1 (no further reading is posible until new data was written into the buffer)
+ *		'+' operation to xbuffer[bufType].read - 1 (no further writing is posible until the xbuffer was read)
+ *      '-' operation to xbuffer[bufType].read + 1 (no further reading is posible until new data was written into the xbuffer)
  * and return
  *
  * Received:
- *		bufType_n	number of buffer type
+ *		bufType_n	number of xbuffer type
  *		char		'+' or '-' for the direction
  *		uint8_t		the number of elements which should skipped
  *
@@ -204,20 +202,20 @@ void deBufferWriteReset(bufType_n bufType,char operand , size_t len)
 	{
 		if ( '-' == operand )
 		{
-			buffer[bufType].write = (buffer[bufType].write - 1) & DE_BUFFER_MASK;
+			xbuffer[bufType].write = (xbuffer[bufType].write - 1) & DE_BUFFER_MASK;
 		}
-		if ( '-' == operand && buffer[bufType].read == buffer[bufType].write)
+		if ( '-' == operand && xbuffer[bufType].read == xbuffer[bufType].write)
 		{
-			buffer[bufType].read = buffer[bufType].read + 1;
+			xbuffer[bufType].read = xbuffer[bufType].read + 1;
 			return;
 		}
 		if ( '+' == operand )
 		{
-			buffer[bufType].read = (buffer[bufType].read + 1) & DE_BUFFER_MASK;
+			xbuffer[bufType].read = (xbuffer[bufType].read + 1) & DE_BUFFER_MASK;
 		}
-		if ( '+' == operand && buffer[bufType].read == buffer[bufType].write)
+		if ( '+' == operand && xbuffer[bufType].read == xbuffer[bufType].write)
 		{
-			buffer[bufType].read = buffer[bufType].read + 1;
+			xbuffer[bufType].read = xbuffer[bufType].read + 1;
 			return;
 		}
 	}
@@ -225,7 +223,7 @@ void deBufferWriteReset(bufType_n bufType,char operand , size_t len)
 }
 
 /*
- * Reset the whole buffer
+ * Reset the whole xbuffer
  *
  * Returns:
  *     nothing
@@ -235,5 +233,5 @@ void deBufferWriteReset(bufType_n bufType,char operand , size_t len)
 void deBufferReset(bufType_n bufType) 
 { 
 	if ( NONE == bufType ) { return; }
-	memset( &buffer[bufType], 0, sizeof(deBuffer_t) ); 
+	memset( &xbuffer[bufType], 0, sizeof(deBuffer_t) );
 }

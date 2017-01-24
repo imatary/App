@@ -45,7 +45,7 @@ at_status_t max_u32val( bufType_n bufType, size_t len, CMD *cmd )
 	
 	GET_deBufferData_atReadPosition( bufType, workArray, len);
 	
-	if( AT_MODE_ACTIVE == GET_serintCMD_ap() )
+	if( TRANSPARENT_MODE == GET_serintCMD_ap() )
 	{
 		val = strtoul( (const char*) workArray, &endptr, 16);
 		if ( *endptr != workArray[len-1]) return INVALID_PARAMETER;
@@ -56,11 +56,15 @@ at_status_t max_u32val( bufType_n bufType, size_t len, CMD *cmd )
 		if ( val & 0xFF != workArray[len-2] ) swap_u32(&val);
 	}
 	
+	UART_printf("DEBUG val >> %"PRIX32"\r", val); // DEBUG
+	UART_printf("DEBUG min >> %"PRIX32"\r", *cmd->min);
+	UART_printf("DEBUG max >> %"PRIX32"\r", *cmd->max);
+	
 	if ( val >= *cmd->min && val <= *cmd->max )
 	{
 		cmd->set( &val, cmd->cmdSize);
 		
-		if ( AT_MODE_ACTIVE == GET_serintCMD_ap() ) { UART_print_status(OP_SUCCESS); }
+		if ( TRANSPARENT_MODE == GET_serintCMD_ap() ) { UART_print_status(OP_SUCCESS); }
 		return OP_SUCCESS;
 	}
 	else return INVALID_PARAMETER;
@@ -75,7 +79,7 @@ at_status_t max_u64val( bufType_n bufType, size_t len, CMD *cmd )
 	
 	GET_deBufferData_atReadPosition( bufType, workArray_A, len_A);
 	
-	if( AT_MODE_ACTIVE == GET_serintCMD_ap )
+	if( TRANSPARENT_MODE == GET_serintCMD_ap )
 	{
 		val = (uint64_t) strtoul( (const char*) workArray_A, &endptr, 16) << ( len > 9 )? 32 : 0;
 		if ( *endptr != workArray_A[len-1]) return INVALID_PARAMETER;
@@ -102,7 +106,7 @@ at_status_t max_u64val( bufType_n bufType, size_t len, CMD *cmd )
 	{
 		cmd->set( &val, len);
 		
-		if ( AT_MODE_ACTIVE == GET_serintCMD_ap() ) { UART_print_status(OP_SUCCESS); }
+		if ( TRANSPARENT_MODE == GET_serintCMD_ap() ) { UART_print_status(OP_SUCCESS); }
 		return OP_SUCCESS;
 	}
 	else return INVALID_PARAMETER;
@@ -123,7 +127,7 @@ at_status_t node_identifier( bufType_n bufType, size_t len, CMD *cmd )
 		GET_deBufferData_atReadPosition(bufType, workArray, len);
 		cmd->set( workArray, len);
 		
-		if ( AT_MODE_ACTIVE == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
+		if ( TRANSPARENT_MODE == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
 		return OP_SUCCESS;
 	}
 	else
@@ -137,7 +141,7 @@ at_status_t ky_validator(bufType_n bufType, size_t len, CMD *cmd)
 	/* TODO */
 	if (FALSE)
 	{
-		if ( AT_MODE_ACTIVE == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
+		if ( TRANSPARENT_MODE == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
 		return OP_SUCCESS;
 	}
 	else

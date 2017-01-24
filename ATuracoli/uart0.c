@@ -66,7 +66,7 @@ void UART_print_data(uint8_t size, uint64_t val)
 				 UART_printf("%"PRIX32,            val >> 32 );			// need to be divided in two peaces because PRIX64 has an bug 
 				 UART_printf("%"PRIX32"\r",        val & 0xFFFFFFFF );
 		break;
-		default: break;
+		default: UART_printf("%d\r", val); break;
 	}
 }
 

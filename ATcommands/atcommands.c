@@ -7,6 +7,7 @@
  * This file contains the main function (root)
  */ 
 #include <stdio.h>								// EOF
+#include <ctype.h>
 
 #include "header/_global.h"						// bool_t, AT_MODE_ACTIVE values
 #include "header/atlocal.h"						// AT command parser
@@ -19,7 +20,7 @@
 // === functions ==========================================
 void main(void) 
 {
-	int	inchar = 0;
+	int inchar = 0;
 	
 	/*
 	 * (1.) initialize structure and peripheral devices
@@ -47,11 +48,11 @@ void main(void)
 		/*
 		 * UART operation
 		 */
-		inchar = UART_getc();
+		cli(); inchar = UART_getc(); sei();
 		if ( EOF != inchar )
 		{
-			if ( AT_MODE_ACTIVE == GET_serintCMD_ap() )	AT_parser(inchar, UART );
-			else										AP_parser(inchar, UART );				
+			if ( TRANSPARENT_MODE == GET_serintCMD_ap() ) AT_parser( (uint8_t) inchar, UART );
+			else										  AP_parser( (uint8_t) inchar, UART );				
 		}
 
 	} /* end of while loop */ 

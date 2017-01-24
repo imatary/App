@@ -14,7 +14,7 @@
 // === miscellaneous ======================================
 #define DEBUG 0			// debug mode ( 0 = off / 1 = on )
 #define FLASH_ATTR
-#define AT_MODE_ACTIVE 0	// ATAP = 0
+#define TRANSPARENT_MODE 0	// ATAP = 0
 
 // === default values =====================================
 #define AT_VERSION	"0.3.10E7"

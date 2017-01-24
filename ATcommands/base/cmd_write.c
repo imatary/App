@@ -36,7 +36,7 @@ at_status_t CMD_write(size_t len, bufType_n bufType)
 	CMD *pCommand  = NULL;
 	uint8_t pCmdString[5] = {'A','T',0,0,0};
 		
-	if ( AT_MODE_ACTIVE != GET_serintCMD_ap() ) // AP frame
+	if ( TRANSPARENT_MODE != GET_serintCMD_ap() ) // AP frame
 	{ 
 		cli(); deBufferOut( bufType, &pCmdString[2] ); sei();
 		cli(); deBufferOut( bufType, &pCmdString[3] ); sei();

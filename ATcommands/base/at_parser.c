@@ -6,6 +6,7 @@
  */ 
 // === includes ===========================================
 #include <inttypes.h>							// uint8/16/32
+#include <ctype.h>
 
 #include "../header/_global.h"						// bool_t
 #include "../header/rfmodul.h"						// device get and set functions
@@ -22,22 +23,27 @@
 #define TIMER_EXPIRED	0x40
 
 // === globals ============================================
-static uint8_t    state = 0;
-static uint16_t counter = 0;
-static uint32_t	     th = 0;
+static  uint8_t    state = 0;
+static  uint16_t counter = 0;
+static  uint32_t	  th = 0;
+
+static  bufType_n        ubuf = 0;
+static  uint16_t   guartTimes = 0;
+static  uint16_t ATcmdTimeOut = 0;
+static  uint8_t commandSequenceChar;
 
 // === prototypes =========================================
 static uint32_t AT_GT_timeHandle(uint32_t arg);
-uint32_t AT_CT_timeHandle(uint32_t arg);
+static uint32_t AT_CT_timeHandle(uint32_t arg);
 
 // === functions ==========================================
-
 void AT_parser( uint8_t inchar, bufType_n bufType )
 {
 	at_status_t ret = 0;
-	uint8_t commandSequenceChar = GET_atcopCMD_cc();
-	uint16_t guartTimes			= GET_atcopCMD_gt();
-	uint16_t ATcmdTimeOut		= deMSEC( GET_atcopCMD_ct() ) * 0x64;
+	commandSequenceChar = GET_atcopCMD_cc();
+	guartTimes			= GET_atcopCMD_gt();
+	ATcmdTimeOut		= deMSEC( GET_atcopCMD_ct() ) * 0x64;
+	ubuf                = bufType;
 	
 	/*
 	 * if a CC character received, start timer and count CC character signs 
@@ -49,42 +55,42 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	switch(state)
 	{
 	case STATEM_IDLE :
-		if ( inchar == commandSequenceChar )
 		{
-			th = deTIMER_start(AT_GT_timeHandle, deMSEC( guartTimes ), 0 );
-			counter += 1;
-			state = AT_CC_COUNT;
+			if ( inchar == commandSequenceChar )
+			{
+				th = deTIMER_start(AT_GT_timeHandle, deMSEC( guartTimes ), 0 );
+				counter += 1;
+				state = AT_CC_COUNT;
+			}
 		}
 		break;	
 	
 	case AT_CC_COUNT :
-		if ((counter == 1 || counter == 2) && inchar != commandSequenceChar || counter == 3)
 		{
-			th = deTIMER_stop(th);
-			counter = 0;
-			state = STATEM_IDLE;
-		}
-		else
-			th = deTIMER_restart(th, deMSEC( guartTimes ) );
+			if ((counter == 1 || counter == 2) && inchar != commandSequenceChar || counter == 3)
+			{
+				th = deTIMER_stop(th);
+				counter = 0;
+				state = STATEM_IDLE;
+			}
+			else { th = deTIMER_restart(th, deMSEC( guartTimes ) ); }
 			counter += 1;
+		}
 		break;
 		
 	case AT_MODE :
-		if ( 0 == th ) 
 		{
-		UART_puts("TIMER START");
-			th = deTIMER_start(AT_CT_timeHandle,  ATcmdTimeOut , 0 );
-			deBufferReset( bufType );
-		}
-		counter += 1;
-		
-		if( '\r' == inchar ) 
-		{
-			th = deTIMER_restart(th, ATcmdTimeOut );
-			state = AT_HANDLE;
-			inchar = '\0';
+			counter += 1;
+			if( '\r' == inchar ) 
+			{
+				th = deTIMER_restart(th, ATcmdTimeOut );
+				state = AT_HANDLE;
+				inchar = 0;
+			}
 		}
 		break;
+		
+	default : break;
 	}
 	
 	/*
@@ -97,8 +103,8 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	if ( AT_MODE == state && ' ' == inchar && counter < 4 );
 	else
 	{
-		cli(); ret = deBufferIn( bufType, inchar ); sei();
-		if( ret )
+		ret = deBufferIn( bufType, inchar );
+		if(ret != OP_SUCCESS)
 		{
 			UART_print_status(ret);
 			deBufferReset( bufType );
@@ -110,7 +116,7 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	/*
 	 * if counter = 0 and state machine in idle mode send the buffer content 
 	 */					
-	if ( STATEM_IDLE == state && 0 == counter )
+	if ( STATEM_IDLE == state )
 	{ 
 		TRX_send( bufType, 0, NULL, 0);
 	}
@@ -127,8 +133,8 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	}
 	else if( AT_HANDLE == state && counter == 5 )
 	{
-		state = AT_MODE;
 		ret = CMD_readOrExec(&th, bufType);
+		state = AT_MODE;
 		counter = 0;
 	}
 	else if( AT_HANDLE == state && counter >  5 ) 
@@ -167,15 +173,15 @@ static uint32_t AT_GT_timeHandle(uint32_t arg)
 	if ( counter == 3 ) 
 	{
 		UART_print_status(OP_SUCCESS);
+		deBufferReset( ubuf );
 		state = AT_MODE;
+		th = deTIMER_start(AT_CT_timeHandle, deMSEC( ATcmdTimeOut ), 0 );
 	}
 	else
 	{
 		state = STATEM_IDLE;
 	}
 	counter = 0;
-	th      = 0;
-	
 	return 0;
 }
 

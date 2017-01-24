@@ -54,6 +54,7 @@ typedef struct {
 
 static txStatus_t tx_stat = {1,0,0,FALSE};
 static rxStatus_t rx_stat = {0,0,FALSE,FALSE};
+static uint8_t    send[PACKAGE_SIZE] = {0};
 
 // === functions ==========================================
 /* 
@@ -132,15 +133,17 @@ uint8_t TRX_baseInit(void)
 void TRX_send(bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen)
 {
 	tx_stat.senderInfo = senderInfo;
-	uint8_t send[PACKAGE_SIZE] = {0};
-	int pos;
+	int pos = 0;
 
 	send[2] = tx_stat.cnt;	// set frame counter
 	
 	/*
 	 * Handle buffer dependent on AP mode on or off and return pointer position in the array
 	 */	 
-	if ( AT_MODE_ACTIVE == GET_serintCMD_ap() ) { pos = TRX_msgFrame( bufType, send );		}			// AT TX Transmit Request
+	if ( TRANSPARENT_MODE == GET_serintCMD_ap() ) 
+	{
+		pos = TRX_msgFrame( bufType, send );		// AT TX Transmit Request
+	}
 	else
 	{
 		switch(senderInfo)
@@ -154,7 +157,7 @@ void TRX_send(bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t s
 													       
 	if (pos == 0) 
 	{
-		if ( AT_MODE_ACTIVE != GET_serintCMD_ap() ) AP_txStatus(TRANSMIT_OUT_FAIL);
+		if ( TRANSPARENT_MODE != GET_serintCMD_ap() ) AP_txStatus(TRANSMIT_OUT_FAIL);
 		return;
 	}
 
@@ -203,9 +206,9 @@ void TRX_send(bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t s
 int TRX_msgFrame(bufType_n bufType, uint8_t *send)
 {    
 	at_status_t ret;
-	uint16_t u16tmp = 0;
-	uint64_t u64tmp = 0;
-	uint8_t   shift = 0; 
+	static uint16_t u16tmp = 0;
+	static uint64_t u64tmp = 0;
+	static uint8_t   shift = 0; 
 	int         pos = 3;
 	                                       
 	/* Step 1: prepare packed
@@ -225,7 +228,7 @@ int TRX_msgFrame(bufType_n bufType, uint8_t *send)
 	
 	for (shift = 0; 9 > shift; shift += 8, pos++ )
 	{
-		*(send+pos) = (uint8_t) u16tmp >> shift;
+		*(send+pos) = u16tmp >> shift;
 	}					
 	
 	/*
@@ -238,7 +241,7 @@ int TRX_msgFrame(bufType_n bufType, uint8_t *send)
 	{
 		for (shift = 0; 25 > shift; shift += 8, pos++ )
 		{
-			*(send+pos) = (uint8_t) u64tmp >>  shift;
+			*(send+pos) = u64tmp >>  shift;
 		}
 				
 		*(send+1) |= 0x0C; // MAC header second byte (bit 2/3)
@@ -249,7 +252,7 @@ int TRX_msgFrame(bufType_n bufType, uint8_t *send)
 		
 		for (shift = 0; 9 > shift; shift += 8, pos++ )
 		{
-			*(send+pos) = (uint8_t) u16tmp >> shift;
+			*(send+pos) = u16tmp >> shift;
 		}				
 		
 		*(send+1) |= 0x08; // MAC header second byte (bit 2/3)
@@ -264,7 +267,7 @@ int TRX_msgFrame(bufType_n bufType, uint8_t *send)
 	{
 		for (shift = 0; 9 > shift; shift += 8, pos++ )
 		{
-			*(send+pos) = (uint8_t) u16tmp >> shift;
+			*(send+pos) = u16tmp >> shift;
 		}
 
 		*(send+1) |= 0x80; // MAC header second byte (bit 6/7)
@@ -275,7 +278,7 @@ int TRX_msgFrame(bufType_n bufType, uint8_t *send)
 		
 		for (shift = 0; 25 > shift; shift += 8, pos++ )
 		{
-			*(send+pos) = (uint8_t) u64tmp >>  shift;
+			*(send+pos) = u64tmp >>  shift;
 		}
 		
 		*(send+1) |= 0xC0; // MAC header second byte (bit 6/7)
@@ -289,14 +292,20 @@ int TRX_msgFrame(bufType_n bufType, uint8_t *send)
 		pos += 2;
 	}
 	
+	int dataStart = pos;
+	
 	do
 	{
-		cli(); ret = deBufferOut( bufType, send + pos ); sei();
+		ret = deBufferOut( bufType, send + pos );
 		pos +=1;
 
 	} while ( BUFFER_OUT_FAIL != ret && pos < PACKAGE_SIZE-1 );
-
-	return pos-1;
+	
+	/*
+	 *	if no data has been read, return 0
+	 */
+	if ( dataStart == pos+1 ) return 0;
+	else                      return pos-1;
 }
 
 /*
@@ -311,11 +320,11 @@ int TRX_msgFrame(bufType_n bufType, uint8_t *send)
  */
 at_status_t TRX_receive(bufType_n bufType)
 {
-	uint8_t flen		= 0;	// total length of the frame which is stored in the buffer
-	uint8_t outchar		= 0;	// received the data of the buffer (byte by byte)
-	uint8_t dataStart	= 0;	// start position of data payload
-	uint8_t srcAddrLen  = 0;	// source address length
-	uint16_t macHeader	= 0;	// received the frame type for frame handling
+	static uint8_t flen		= 0;	// total length of the frame which is stored in the buffer
+	static uint8_t outchar		= 0;	// received the data of the buffer (byte by byte)
+	static uint8_t dataStart	= 0;	// start position of data payload
+	static uint8_t srcAddrLen  = 0;	// source address length
+	static uint16_t macHeader	= 0;	// received the frame type for frame handling
 	
 	rx_stat.done = FALSE;
 	SET_deBufferNewContent( bufType, FALSE);

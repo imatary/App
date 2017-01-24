@@ -154,23 +154,23 @@ int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send)
 	 */
 	if ( 0x0 < GET_netCMD_my() )
 	{
-		*(send+pos)   = (uint8_t) (GET_netCMD_my() & 0xff);
-		*(send+pos+1) = (uint8_t) (GET_netCMD_my() >> 8);						// src. short address
+		*(send+pos)   = (GET_netCMD_my() & 0xff);
+		*(send+pos+1) = (GET_netCMD_my() >> 8);						// src. short address
 		
 		*(send+1) |= 0x80;														// MAC header second byte
 		pos += 2;
 	}
 	else
 	{
-		*(send+pos)   = (uint8_t) (GET_netCMD_sl() >>  0);
-		*(send+pos+1) = (uint8_t) (GET_netCMD_sl() >>  8);
-		*(send+pos+2) = (uint8_t) (GET_netCMD_sl() >> 16);
-		*(send+pos+3) = (uint8_t) (GET_netCMD_sl() >> 24);					// src. ext. addr. low
+		*(send+pos)   = (GET_netCMD_sl() >>  0);
+		*(send+pos+1) = (GET_netCMD_sl() >>  8);
+		*(send+pos+2) = (GET_netCMD_sl() >> 16);
+		*(send+pos+3) = (GET_netCMD_sl() >> 24);					// src. ext. addr. low
 
-		*(send+pos+4) = (uint8_t) (GET_netCMD_sh() >>  0);
-		*(send+pos+5) = (uint8_t) (GET_netCMD_sh() >>  8);
-		*(send+pos+6) = (uint8_t) (GET_netCMD_sh() >> 16);
-		*(send+pos+7) = (uint8_t) (GET_netCMD_sh() >> 24);					// src. ext. addr. high
+		*(send+pos+4) = (GET_netCMD_sh() >>  0);
+		*(send+pos+5) = (GET_netCMD_sh() >>  8);
+		*(send+pos+6) = (GET_netCMD_sh() >> 16);
+		*(send+pos+7) = (GET_netCMD_sh() >> 24);					// src. ext. addr. high
 		
 		*(send+1) |= 0xC0;														// MAC header second byte
 		pos += 8;
@@ -238,8 +238,8 @@ int TRX_atRemote_response(bufType_n bufType, uint8_t *send, uint8_t *srcAddr, ui
 	if ( 0x0  == GET_netCMD_mm() || 0x2 == GET_netCMD_mm() )  *(send) |= 0x20; // ACK on
 															  *(send) |= 0x40; // PAN Compression on
 	
-	*(send+ 3) = (uint8_t) (GET_netCMD_id() & 0xff);
-	*(send+ 4) = (uint8_t) (GET_netCMD_id() >>  8);								// destination PAN_ID
+	*(send+ 3) = (GET_netCMD_id() & 0xff);
+	*(send+ 4) = (GET_netCMD_id() >>  8);								// destination PAN_ID
 	pos = 5;
 	/*
 	 * dest. addr.
@@ -255,23 +255,23 @@ int TRX_atRemote_response(bufType_n bufType, uint8_t *send, uint8_t *srcAddr, ui
 	 */
 	if ( 0x0 < GET_netCMD_my() )
 	{
-		*(send+pos)	  = (uint8_t) (GET_netCMD_my() & 0xff);
-		*(send+pos+1) = (uint8_t) (GET_netCMD_my() >> 8);						// src. short address
+		*(send+pos)	  = (GET_netCMD_my() & 0xff);
+		*(send+pos+1) = (GET_netCMD_my() >> 8);						// src. short address
 		
 		*(send+1) |= 0x80;														// MAC header second byte
 		pos += 2;
 	}
 	else
 	{
-		*(send+pos)   = (uint8_t) (GET_netCMD_sl() >>  0);
-		*(send+pos+1) = (uint8_t) (GET_netCMD_sl() >>  8);
-		*(send+pos+2) = (uint8_t) (GET_netCMD_sl() >> 16);
-		*(send+pos+3) = (uint8_t) (GET_netCMD_sl() >> 24);						// src. ext. addr. low
+		*(send+pos)   = (GET_netCMD_sl() >>  0);
+		*(send+pos+1) = (GET_netCMD_sl() >>  8);
+		*(send+pos+2) = (GET_netCMD_sl() >> 16);
+		*(send+pos+3) = (GET_netCMD_sl() >> 24);						// src. ext. addr. low
 		
-		*(send+pos+4) = (uint8_t) (GET_netCMD_sh() >>  0);
-		*(send+pos+5) = (uint8_t) (GET_netCMD_sh() >>  8);
-		*(send+pos+6) = (uint8_t) (GET_netCMD_sh() >> 16);
-		*(send+pos+7) = (uint8_t) (GET_netCMD_sh() >> 24);						// src. ext. addr. high
+		*(send+pos+4) = (GET_netCMD_sh() >>  0);
+		*(send+pos+5) = (GET_netCMD_sh() >>  8);
+		*(send+pos+6) = (GET_netCMD_sh() >> 16);
+		*(send+pos+7) = (GET_netCMD_sh() >> 24);						// src. ext. addr. high
 		
 		*(send+1) |= 0xC0;														// MAC header second byte
 		pos += 8;
@@ -289,18 +289,18 @@ int TRX_atRemote_response(bufType_n bufType, uint8_t *send, uint8_t *srcAddr, ui
 	 */
 	*(send+pos) = TRX_getFrameID();														// AP Frame ID
 	
-	*(send+pos+1) = (uint8_t) (GET_netCMD_sh() >> 24);
-	*(send+pos+2) = (uint8_t) (GET_netCMD_sh() >> 16);
-	*(send+pos+3) = (uint8_t) (GET_netCMD_sh() >>  8);
-	*(send+pos+4) = (uint8_t) (GET_netCMD_sh() >>  0);							// src. ext. addr. high
+	*(send+pos+1) = (GET_netCMD_sh() >> 24);
+	*(send+pos+2) = (GET_netCMD_sh() >> 16);
+	*(send+pos+3) = (GET_netCMD_sh() >>  8);
+	*(send+pos+4) = (GET_netCMD_sh() >>  0);							// src. ext. addr. high
 	
-	*(send+pos+5) = (uint8_t) (GET_netCMD_sl() >> 24);
-	*(send+pos+6) = (uint8_t) (GET_netCMD_sl() >> 16);
-	*(send+pos+7) = (uint8_t) (GET_netCMD_sl() >>  8);
-	*(send+pos+8) = (uint8_t) (GET_netCMD_sl() >>  0);							// src. ext. addr. low
+	*(send+pos+5) = (GET_netCMD_sl() >> 24);
+	*(send+pos+6) = (GET_netCMD_sl() >> 16);
+	*(send+pos+7) = (GET_netCMD_sl() >>  8);
+	*(send+pos+8) = (GET_netCMD_sl() >>  0);							// src. ext. addr. low
 	
-	*(send+pos+9)  = (uint8_t) (GET_netCMD_my() >> 8);
-	*(send+pos+10) = (uint8_t) (GET_netCMD_my() & 0xFF);						// src. short address
+	*(send+pos+9)  = (GET_netCMD_my() >> 8);
+	*(send+pos+10) = (GET_netCMD_my() & 0xFF);						// src. short address
 	
 	TRX_getFrameATcmd(send,pos+11);												// + 2 pos for AT command
 	*(send+pos+13) = TRX_getFrameRet();											// command status
@@ -395,8 +395,8 @@ int TRX_transmit64Frame(bufType_n bufType, uint8_t *send)
 		*(send+3) = 0xFF;
 		*(send+4) = 0xFF;														// source PAN_ID
 		
-		*(send+pos)   = (uint8_t) GET_netCMD_id() & 0xff;
-		*(send+pos+1) = (uint8_t) GET_netCMD_id() >> 8;							// destination PAN_ID
+		*(send+pos)   = GET_netCMD_id() & 0xff;
+		*(send+pos+1) = GET_netCMD_id() >> 8;							// destination PAN_ID
 		
 		pos += 2;
 	}
@@ -404,32 +404,32 @@ int TRX_transmit64Frame(bufType_n bufType, uint8_t *send)
 	{
 		*(send) |= 0x40;														// PAN Compression on
 
-		*(send+ 3) = (uint8_t) GET_netCMD_id() & 0xff;
-		*(send+ 4) = (uint8_t) GET_netCMD_id() >> 8;							// destination PAN_ID = source PAN_ID
+		*(send+ 3) = GET_netCMD_id() & 0xff;
+		*(send+ 4) = GET_netCMD_id() >> 8;							// destination PAN_ID = source PAN_ID
 	}
 		
 	/*
 	 * src. address
 	 */
-	if ( 0xFFFE != (uint8_t) GET_netCMD_my() )
+	if ( 0xFFFE != GET_netCMD_my() )
 	{
-		*(send+pos)   = (uint8_t) GET_netCMD_my() & 0xff;
-		*(send+pos+1) = (uint8_t) GET_netCMD_my() >> 8;							// src. short address
+		*(send+pos)   = GET_netCMD_my() & 0xff;
+		*(send+pos+1) = GET_netCMD_my() >> 8;							// src. short address
 		
 		*(send+1) |= 0x80;														// MAC header second byte
 		pos += 2;
 	}
 	else
 	{
-		*(send+pos)   = (uint8_t) (GET_netCMD_sl() >>  0);
-		*(send+pos+1) = (uint8_t) (GET_netCMD_sl() >>  8);
-		*(send+pos+2) = (uint8_t) (GET_netCMD_sl() >> 16);
-		*(send+pos+3) = (uint8_t) (GET_netCMD_sl() >> 24);						// src. ext. addr. low
+		*(send+pos)   = (GET_netCMD_sl() >>  0);
+		*(send+pos+1) = (GET_netCMD_sl() >>  8);
+		*(send+pos+2) = (GET_netCMD_sl() >> 16);
+		*(send+pos+3) = (GET_netCMD_sl() >> 24);						// src. ext. addr. low
 		
-		*(send+pos+4) = (uint8_t) (GET_netCMD_sh() >>  0);
-		*(send+pos+5) = (uint8_t) (GET_netCMD_sh() >>  8);
-		*(send+pos+6) = (uint8_t) (GET_netCMD_sh() >> 16);
-		*(send+pos+7) = (uint8_t) (GET_netCMD_sh() >> 24);						// src. ext. addr. high
+		*(send+pos+4) = (GET_netCMD_sh() >>  0);
+		*(send+pos+5) = (GET_netCMD_sh() >>  8);
+		*(send+pos+6) = (GET_netCMD_sh() >> 16);
+		*(send+pos+7) = (GET_netCMD_sh() >> 24);						// src. ext. addr. high
 		
 		*(send+1) |= 0xC0;														// MAC header second byte
 		pos += 8;
@@ -513,8 +513,8 @@ int TRX_transmit16Frame(bufType_n bufType, uint8_t *send)
 		*(send+3) = 0xFF;
 		*(send+4) = 0xFF;														// source PAN_ID
 		
-		*(send+ 7) = (uint8_t) (GET_netCMD_id() & 0xff);
-		*(send+ 8) = (uint8_t) (GET_netCMD_id() >>  8);						// destination PAN_ID
+		*(send+ 7) = (GET_netCMD_id() & 0xff);
+		*(send+ 8) = (GET_netCMD_id() >>  8);						// destination PAN_ID
 		
 		pos += 4;
 	}
@@ -522,8 +522,8 @@ int TRX_transmit16Frame(bufType_n bufType, uint8_t *send)
 	{
 		*(send) |= 0x40; // PAN Compression on
 
-		*(send+ 3) = (uint8_t) (GET_netCMD_id() & 0xff);
-		*(send+ 4) = (uint8_t) (GET_netCMD_id() >>  8);						// destination PAN_ID = source PAN_ID
+		*(send+ 3) = (GET_netCMD_id() & 0xff);
+		*(send+ 4) = (GET_netCMD_id() >>  8);						// destination PAN_ID = source PAN_ID
 		
 		pos += 2;
 	}
@@ -534,23 +534,23 @@ int TRX_transmit16Frame(bufType_n bufType, uint8_t *send)
 	 */
 	if ( 0xFFFE != GET_netCMD_my() )
 	{
-		*(send+pos)   = (uint8_t) (GET_netCMD_my() & 0xff);
-		*(send+pos+1) = (uint8_t) (GET_netCMD_my() >> 8);						// src. short address
+		*(send+pos)   = (GET_netCMD_my() & 0xff);
+		*(send+pos+1) = (GET_netCMD_my() >> 8);						// src. short address
 		
 		*(send+1) |= 0x80;														// MAC header second byte
 		pos += 2;
 	}
 	else
 	{
-		*(send+pos)   = (uint8_t) (GET_netCMD_sl() >>  0);
-		*(send+pos+1) = (uint8_t) (GET_netCMD_sl() >>  8);
-		*(send+pos+2) = (uint8_t) (GET_netCMD_sl() >> 16);
-		*(send+pos+3) = (uint8_t) (GET_netCMD_sl() >> 24);					// src. ext. addr. low
+		*(send+pos)   = (GET_netCMD_sl() >>  0);
+		*(send+pos+1) = (GET_netCMD_sl() >>  8);
+		*(send+pos+2) = (GET_netCMD_sl() >> 16);
+		*(send+pos+3) = (GET_netCMD_sl() >> 24);					// src. ext. addr. low
 
-		*(send+pos+4) = (uint8_t) (GET_netCMD_sh() >>  0);
-		*(send+pos+5) = (uint8_t) (GET_netCMD_sh() >>  8);
-		*(send+pos+6) = (uint8_t) (GET_netCMD_sh() >> 16);
-		*(send+pos+7) = (uint8_t) (GET_netCMD_sh() >> 24);					// src. ext. addr. high
+		*(send+pos+4) = (GET_netCMD_sh() >>  0);
+		*(send+pos+5) = (GET_netCMD_sh() >>  8);
+		*(send+pos+6) = (GET_netCMD_sh() >> 16);
+		*(send+pos+7) = (GET_netCMD_sh() >> 24);					// src. ext. addr. high
 		
 		*(send+1) |= 0xC0;														// MAC header second byte
 		pos += 8;
