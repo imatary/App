@@ -14,6 +14,24 @@
 #include "../header/circularBuffer.h"			// buffer
 #include "../../ATuracoli/stackrelated_timer.h"	// timer
 
+// === defines ============================================
+#define AP_TIMEOUT	 0x25
+#define STATEM_IDLE	 0x00
+#define AP_LENGTH_1	 0x01
+#define AP_LENGTH_2	 0x02
+#define AP_GET_DATA	 0x03
+#define AP_CHECK_CRC 0x04
+#define AP_HANDLE	 0x05
+
+// === globals ============================================
+static uint8_t    state = 0;
+static uint16_t counter = 0;
+static uint32_t	     th = 0;
+static bufType_n   ubuf = 0;
+
+// === prototypes =========================================
+static uint32_t AP_expired_timeHandle(uint32_t arg);
+
 // === functions ==========================================
 
 /*
@@ -31,43 +49,45 @@
  *
  * last modified: 2017/01/18
  */
-void AP_parser( uint8_t inchar, bufType_n bufType, timeStat_t *th )
+void AP_parser( uint8_t inchar, bufType_n bufType )
 {
 	uint8_t ret;
 	
-	switch ( th->state )
+	ubuf = bufType;
+	
+	switch ( state )
 	{
 	case STATEM_IDLE :
 		{
 			if ( 0x7E == inchar )
 			{
-				th->watch = deTIMER_start(AP_expired_timeHandle, deMSEC( AP_TIMEOUT ), 0 );
+				th = deTIMER_start(AP_expired_timeHandle, deMSEC( AP_TIMEOUT ), 0 );
 				AP_setFrameLength( 0x0, FALSE);
-				th->state = AP_LENGTH_1;
+				state = AP_LENGTH_1;
 			}
 		}
 		break;
 		
 	case AP_LENGTH_1 :
 		{
-			th->watch = deTIMER_restart(th->watch, deMSEC( AP_TIMEOUT ) );
+			th = deTIMER_restart(th, deMSEC( AP_TIMEOUT ) );
 			AP_setFrameLength( (uint16_t) inchar << 8, TRUE );
-			th->state = AP_LENGTH_2;
+			state = AP_LENGTH_2;
 		}
 		break;
 		
 	case AP_LENGTH_2 :
 		{
-			th->watch = deTIMER_restart(th->watch, deMSEC( AP_TIMEOUT ) );
+			th = deTIMER_restart(th, deMSEC( AP_TIMEOUT ) );
 			ret = AP_setFrameLength( (uint16_t) inchar & 0xFF, TRUE );
-			if ( ret )	th->state = STATEM_IDLE;
-			else		th->state = AP_GET_DATA;
+			if ( ret )	state = STATEM_IDLE;
+			else		state = AP_GET_DATA;
 		}
 		break;
 		
 	case AP_GET_DATA :
 		{
-			th->watch = deTIMER_restart(th->watch, deMSEC( AP_TIMEOUT ) );
+			th = deTIMER_restart(th, deMSEC( AP_TIMEOUT ) );
 			
 			/*
 			 * push the character into the buffer
@@ -77,33 +97,56 @@ void AP_parser( uint8_t inchar, bufType_n bufType, timeStat_t *th )
 			cli(); ret = deBufferIn( bufType, inchar ); sei();
 			if( ret ) 
 			{ 
-				deBufferReadReset( bufType, '+', th->counter);
+				deBufferReadReset( bufType, '+', counter);
 				ret = 0;
 			}
 			
-			if ( 0 == th->counter ) AP_setCRC( inchar );
-			else                    AP_updateCRC( inchar );
+			if ( 0 == counter ) AP_setCRC( inchar );
+			else                AP_updateCRC( inchar );
 			
-			th->counter += 1;
+			counter += 1;
 			
-			if ( th->counter == AP_getFrameLength() ) th->state = AP_HANDLE;
+			if ( counter == AP_getFrameLength() ) state = AP_HANDLE;
 		}
 		break;
 		
 	case AP_HANDLE :
 		{
-			th->watch = deTIMER_stop(th->watch);
+			th = deTIMER_stop(th);
 			
 			if ( TRUE == AP_compareCRC( inchar ) )
 			{
 				AP_frameHandle_uart( bufType );
 			}
-			th->counter = 0;
-			th->state   = STATEM_IDLE;
+			counter = 0;
+			state   = STATEM_IDLE;
 		}
 		break;
 						
 	default: /* do nothing */ break;
 		
 	}/* end state machine */	
+}
+
+
+/*
+ * Time handler for state machine
+ * - if no other sign received and the timer is expired reset Buffer and state machine
+ * 
+ * Received:
+ *		uint32_t arg	this argument can be used in this function
+ *
+ * Returns:
+ *		FALSE	to stop the timer
+ *
+ * last modified: 2017/01/18
+ */
+static uint32_t AP_expired_timeHandle(uint32_t arg)
+{
+	deBufferReadReset(ubuf, '+', counter);
+	state   = STATEM_IDLE;
+	th      = 0;
+	counter = 0;
+
+	return 0;
 }

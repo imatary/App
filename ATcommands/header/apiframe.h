@@ -10,24 +10,30 @@
 #define APIFRAME_H_
 
 #include <inttypes.h>		// uint8_t
-#include "_global.h"
 #include "enum_status.h"	// at_status_t
 #include "cmd.h"			// CMD
 
-// === defines ============================================
-#define AP_TIMEOUT	 0x25
-#define STATEM_IDLE	 0x00
-#define AP_LENGTH_1	 0x01
-#define AP_LENGTH_2	 0x02
-#define AP_GET_DATA	 0x03
-#define AP_CHECK_CRC 0x04
-#define AP_HANDLE	 0x05
+// === object =============================================
+struct api_f 
+{
+	at_status_t ret;		// 1 Byte
+	uint8_t		rwx;		// 1 Byte
+	uint16_t	length;		// 2 Byte
+	uint8_t		type;		// 1 Byte
+	uint8_t		cmd[3];		// 3 Byte
+	uint8_t		id;			// 1 Byte
+	uint8_t		msg[256];	// 256 Byte
+	/*
+	 * create the frame & calc checksum
+	 * 0xFF - (AP type + frame ID [+ target address] [+ options] + main content [+ parameter]) = checksum
+	 *        |<---------------------------------- frame frame->bufLength ------------------->|
+	 */
+	uint8_t  crc;
+}__attribute__((packed));
 
 // === prototypes =========================================
-uint32_t AP_expired_timeHandle(uint32_t arg);
-
 /*
- * Special TRX functions
+ * Special TRX functons
  * only used in at_trx.c
  */
 uint8_t TRX_getFrameID(void);
@@ -72,7 +78,7 @@ bool_t AP_compareCRC(uint8_t val);
  * - create an API remote response frame if another devices responded to a remote frame
  * - create receiver message frame if data received without option parameter or the option parameter was set to 0
  */
-void AP_parser					( uint8_t inchar, bufType_n bufType, timeStat_t *th );
+void AP_parser					( uint8_t inchar, bufType_n bufType );
 void AP_frameHandle_uart		( bufType_n bufType );
 void AP_atRemoteFrame_localExec	( bufType_n bufType, uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen);
 void AP_atRemote_response		( bufType_n bufType, uint16_t length);
