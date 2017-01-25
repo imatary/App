@@ -9,29 +9,20 @@
 #ifndef APIFRAME_H_
 #define APIFRAME_H_
 
+// === includes ===========================================
 #include <inttypes.h>		// uint8_t
-#include "enum_status.h"	// at_status_t
-#include "cmd.h"			// CMD
+#include <stddef.h>
 
-// === object =============================================
-struct api_f 
-{
-	at_status_t ret;		// 1 Byte
-	uint8_t		rwx;		// 1 Byte
-	uint16_t	length;		// 2 Byte
-	uint8_t		type;		// 1 Byte
-	uint8_t		cmd[3];		// 3 Byte
-	uint8_t		id;			// 1 Byte
-	uint8_t		msg[256];	// 256 Byte
-	/*
-	 * create the frame & calc checksum
-	 * 0xFF - (AP type + frame ID [+ target address] [+ options] + main content [+ parameter]) = checksum
-	 *        |<---------------------------------- frame frame->bufLength ------------------->|
-	 */
-	uint8_t  crc;
-}__attribute__((packed));
+#include "_global.h"
+#include "enum_status.h"	// at_status_t
+#include "circularBuffer.h"
 
 // === prototypes =========================================
+/*
+ * frame struct access function
+ */
+
+
 /*
  * Special TRX functons
  * only used in at_trx.c

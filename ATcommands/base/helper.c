@@ -1,5 +1,5 @@
 /*
- * at_local.c
+ * helper.c
  *
  * Created: 10.11.2016 13:14:32
  *  Author: TOE
@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "../header/rfmodul.h"
+#include "../header/cmd.h"
 #include "../header/enum_status.h"
 #include "../header/circularBuffer.h"
 #include "../../ATuracoli/stackrelated.h"
@@ -37,15 +38,12 @@ static inline void swap_u64(uint64_t *inVal);
  *
  * last modified: 2016/12/02
  */
-at_status_t max_u32val( bufType_n bufType, size_t len, CMD *cmd )
+at_status_t max_u32val( size_t len, const uint8_t *workArray, const CMD *cmd, const device_mode devMode )
 {
-	uint8_t  workArray[9] = {0x0};
 	uint32_t val = 0x0;
 	char *endptr;
 	
-	GET_deBufferData_atReadPosition( bufType, workArray, len);
-	
-	if( TRANSPARENT_MODE == GET_serintCMD_ap() )
+	if( devMode == GET_serintCMD_ap() )
 	{
 		val = strtoul( (const char*) workArray, &endptr, 16);
 		if ( *endptr != workArray[len-1]) return INVALID_PARAMETER;
@@ -53,26 +51,21 @@ at_status_t max_u32val( bufType_n bufType, size_t len, CMD *cmd )
 	else
 	{
 		memcpy( &val, workArray, len);
-		if ( val & 0xFF != workArray[len-2] ) swap_u32(&val);
+		swap_u32(&val);
 	}
 	
-	UART_printf("DEBUG val >> %"PRIX32"\r", val); // DEBUG
-	UART_printf("DEBUG min >> %"PRIX32"\r", *cmd->min);
-	UART_printf("DEBUG max >> %"PRIX32"\r", *cmd->max);
-	
-	if ( val >= *cmd->min && val <= *cmd->max )
+	if ( val >= cmd->min && val <= cmd->max )
 	{
-		cmd->set( &val, cmd->cmdSize);
-		
-		if ( TRANSPARENT_MODE == GET_serintCMD_ap() ) { UART_print_status(OP_SUCCESS); }
+		cmd->mySet( &val, cmd->cmdSize);
 		return OP_SUCCESS;
 	}
 	else return INVALID_PARAMETER;
 }
 
-at_status_t max_u64val( bufType_n bufType, size_t len, CMD *cmd )
+
+at_status_t max_u64val( size_t len, const uint8_t *workArray, const CMD *cmd, const device_mode devMode )
 {
-	uint8_t  workArray_A[9] = {0x0}; 
+/*	uint8_t  workArray_A[9] = {0x0}; 
 	size_t len_A = (len > 9)? 8 : len;
 	uint64_t val = 0;
 	char *endptr;
@@ -104,12 +97,12 @@ at_status_t max_u64val( bufType_n bufType, size_t len, CMD *cmd )
 	
 	if ( val >= *cmd->min && val <= *cmd->max )
 	{
-		cmd->set( &val, len);
+		cmd->mySet( &val, cmd->cmdSize);
 		
-		if ( TRANSPARENT_MODE == GET_serintCMD_ap() ) { UART_print_status(OP_SUCCESS); }
+		if ( devMode == GET_serintCMD_ap() ) { UART_print_status(OP_SUCCESS); }
 		return OP_SUCCESS;
 	}
-	else return INVALID_PARAMETER;
+	else return INVALID_PARAMETER;*/
 }
 
 
@@ -118,16 +111,13 @@ at_status_t max_u64val( bufType_n bufType, size_t len, CMD *cmd )
  * - network identifier string command
  * - buffer content <= 20 characters
  */
-at_status_t node_identifier( bufType_n bufType, size_t len, CMD *cmd )
+at_status_t node_identifier( size_t len, const uint8_t *workArray, const CMD *cmd, const device_mode devMode )
 {
-	if ( len <= *cmd->max )
+	if ( len <= cmd->max )
 	{
-		uint8_t workArray[21] = {0x0};
-			
-		GET_deBufferData_atReadPosition(bufType, workArray, len);
-		cmd->set( workArray, len);
+		cmd->mySet( workArray, len);
 		
-		if ( TRANSPARENT_MODE == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
+		if ( devMode == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
 		return OP_SUCCESS;
 	}
 	else
@@ -136,12 +126,12 @@ at_status_t node_identifier( bufType_n bufType, size_t len, CMD *cmd )
 	}
 }
 
-at_status_t ky_validator(bufType_n bufType, size_t len, CMD *cmd)
+at_status_t ky_validator( bufType_n bufType, size_t len, CMD *cmd, const device_t devMode )
 {
 	/* TODO */
 	if (FALSE)
 	{
-		if ( TRANSPARENT_MODE == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
+		if ( devMode == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
 		return OP_SUCCESS;
 	}
 	else

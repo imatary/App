@@ -9,23 +9,18 @@
 #ifndef _GLOBAL_H_
 #define _GLOBAL_H_
 
-// === std. includes ======================================
-
 // === miscellaneous ======================================
 #define DEBUG 0			// debug mode ( 0 = off / 1 = on )
 #define FLASH_ATTR
-#define TRANSPARENT_MODE 0	// ATAP = 0
 
 // === default values =====================================
 #define AT_VERSION	"0.3.10E7"
 #define MAXBYTES	(100)
 
-// === conditions =========================================
+// === typedef =========================================
 typedef enum { FALSE, TRUE }__attribute__((packed)) bool_t;
+typedef enum { TRANSPARENT_MODE, AP_MODE, AP_ESCAPE_MODE }__attribute__((packed)) device_mode;
 
-// === variables & structs ================================
-
-// === functions ==========================================
 
 
 #endif /* _GLOBAL_H_ */

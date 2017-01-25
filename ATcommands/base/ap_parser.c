@@ -15,7 +15,7 @@
 #include "../../ATuracoli/stackrelated_timer.h"	// timer
 
 // === defines ============================================
-#define AP_TIMEOUT	 0x25
+#define AP_TIMEOUT	 0x15
 #define STATEM_IDLE	 0x00
 #define AP_LENGTH_1	 0x01
 #define AP_LENGTH_2	 0x02
@@ -94,8 +94,8 @@ void AP_parser( uint8_t inchar, bufType_n bufType )
 			 * neither interrupts allowed
 			 * if an buffer error occurred, reset the buffer
 			 */
-			cli(); ret = deBufferIn( bufType, inchar ); sei();
-			if( ret ) 
+			ret = deBufferIn( bufType, inchar );
+			if( BUFFER_IN_FAIL == ret ) 
 			{ 
 				deBufferReadReset( bufType, '+', counter);
 				ret = 0;

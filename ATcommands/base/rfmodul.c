@@ -5,6 +5,7 @@
  *  Author: TOE
  */ 
 #include <string.h>
+#include <stddef.h>
 #include <avr/eeprom.h>
 
 #include "../header/_global.h"			// RFmodul struct
@@ -12,7 +13,7 @@
 #include "../header/rfmodul.h"			// prototypes
 
 // === struct =============================================
-typedef struct  {
+typedef struct dev {
 	uint8_t	 netCMD_ni[21];     // max 20* 0xFF                                        
 	uint8_t  secCMD_ky[16];	    // max FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF (32 characters)
 	uint8_t  serintCMD_ro;      // max 0xFF                                            
@@ -85,9 +86,7 @@ typedef struct  {
 	bool_t   ioserCMD_iu;		// max 0x1                                             
 	bool_t	 netCMD_ce;			// max 0x1                                             
 	bool_t   netCMD_no;			// max 0x1                                             
-	bool_t   secCMD_ee;			// max 0x1 
-	
-	uint8_t  fixValue;                                            
+	bool_t   secCMD_ee;			// max 0x1                                             
 	// --------------------------------------------------------------------------------- //
 	//													   Total:      142               //
 }__attribute__((packed)) device_t;
@@ -217,14 +216,14 @@ void SET_ioserCMD_it (void *val, size_t len) { memcpy(&RFmodul.ioserCMD_it , val
 void SET_ioserCMD_ic (void *val, size_t len) { memcpy(&RFmodul.ioserCMD_ic , val, len); }
 void SET_ioserCMD_pt (void *val, size_t len) { memcpy(&RFmodul.ioserCMD_pt , val, len); }
 void SET_ioserCMD_rp (void *val, size_t len) { memcpy(&RFmodul.ioserCMD_rp , val, len); }
-void SET_iolpCMD_T0  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T0  , val, len); }
-void SET_iolpCMD_T1  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T1  , val, len); }
-void SET_iolpCMD_T2  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T2  , val, len); }
-void SET_iolpCMD_T3  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T3  , val, len); }
-void SET_iolpCMD_T4  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T4  , val, len); }
-void SET_iolpCMD_T5  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T5  , val, len); }
-void SET_iolpCMD_T6  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T6  , val, len); }
-void SET_iolpCMD_T7  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T7  , val, len); }
+void SET_iolpCMD_t0  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T0  , val, len); }
+void SET_iolpCMD_t1  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T1  , val, len); }
+void SET_iolpCMD_t2  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T2  , val, len); }
+void SET_iolpCMD_t3  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T3  , val, len); }
+void SET_iolpCMD_t4  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T4  , val, len); }
+void SET_iolpCMD_t5  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T5  , val, len); }
+void SET_iolpCMD_t6  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T6  , val, len); }
+void SET_iolpCMD_t7  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_T7  , val, len); }
 void SET_diagCMD_vr  (void *val, size_t len) { memcpy(&RFmodul.diagCMD_vr  , val, len); }
 void SET_diagCMD_hv  (void *val, size_t len) { memcpy(&RFmodul.diagCMD_hv  , val, len); }
 void SET_sleepmCMD_st(void *val, size_t len) { memcpy(&RFmodul.sleepmCMD_st, val, len); }
@@ -281,78 +280,82 @@ void SET_netCMD_ai   (uint8_t  val) { RFmodul.netCMD_ai    = val; }
  *
  * Last modified: 2016/01/19
  */
-size_t   GET_device_tSize(void) { return device_tSize; }
-uint8_t	 *GET_netCMD_ni  (void) { return RFmodul.netCMD_ni; }
-uint8_t  *GET_secCMD_ky  (void) { return RFmodul.secCMD_ky; }
-uint8_t  GET_serintCMD_ro(void) { return RFmodul.serintCMD_ro; }
-uint8_t  GET_atcopCMD_cc (void) { return RFmodul.atcopCMD_cc; }
-uint64_t GET_iolpCMD_ia  (void) { return RFmodul.iolpCMD_ia; }
-uint16_t GET_netCMD_id   (void) { return RFmodul.netCMD_id; }
-uint16_t GET_netCMD_my   (void) { return RFmodul.netCMD_my; }
-uint8_t  GET_netCMD_nt   (void) { return RFmodul.netCMD_nt; }
-uint16_t GET_netCMD_sc   (void) { return RFmodul.netCMD_sc; }
-uint32_t GET_netCMD_dh   (void) { return RFmodul.netCMD_dh; }
-uint32_t GET_netCMD_dl   (void) { return RFmodul.netCMD_dl; }
-uint32_t GET_netCMD_sh   (void) { return RFmodul.netCMD_sh; }
-uint32_t GET_netCMD_sl   (void) { return RFmodul.netCMD_sl; }
-uint16_t GET_ioserCMD_ir (void) { return RFmodul.ioserCMD_ir; }
-uint8_t  GET_ioserCMD_pr (void) { return RFmodul.ioserCMD_pr; }
-uint8_t  GET_ioserCMD_it (void) { return RFmodul.ioserCMD_it; }
-uint8_t  GET_ioserCMD_ic (void) { return RFmodul.ioserCMD_ic; }
-uint8_t  GET_ioserCMD_pt (void) { return RFmodul.ioserCMD_pt; }
-uint8_t  GET_ioserCMD_rp (void) { return RFmodul.ioserCMD_rp; }
-uint8_t  GET_iolpCMD_T0  (void) { return RFmodul.iolpCMD_T0; }
-uint8_t  GET_iolpCMD_T1  (void) { return RFmodul.iolpCMD_T1; }
-uint8_t  GET_iolpCMD_T2  (void) { return RFmodul.iolpCMD_T2; }
-uint8_t  GET_iolpCMD_T3  (void) { return RFmodul.iolpCMD_T3; }
-uint8_t  GET_iolpCMD_T4  (void) { return RFmodul.iolpCMD_T4; }
-uint8_t  GET_iolpCMD_T5  (void) { return RFmodul.iolpCMD_T5; }
-uint8_t  GET_iolpCMD_T6  (void) { return RFmodul.iolpCMD_T6; }
-uint8_t  GET_iolpCMD_T7  (void) { return RFmodul.iolpCMD_T7; }
-uint16_t GET_diagCMD_vr  (void) { return RFmodul.diagCMD_vr; }
-uint16_t GET_diagCMD_hv  (void) { return RFmodul.diagCMD_hv; }
-uint16_t GET_diagCMD_ec  (void) { return RFmodul.diagCMD_ec; }
-uint16_t GET_diagCMD_ea  (void) { return RFmodul.diagCMD_ea; }
-uint32_t GET_diagCMD_dd  (void) { return RFmodul.diagCMD_dd; }
-uint8_t  GET_diagCMD_db  (void) { return RFmodul.diagCMD_db; }
-uint16_t GET_sleepmCMD_st(void) { return RFmodul.sleepmCMD_st; }
-uint16_t GET_sleepmCMD_sp(void) { return RFmodul.sleepmCMD_sp; }
-uint16_t GET_sleepmCMD_dp(void) { return RFmodul.sleepmCMD_dp; }
-uint16_t GET_atcopCMD_ct (void) { return RFmodul.atcopCMD_ct; }
-uint16_t GET_atCT_tmp    (void) { return atCT_tmp; }
-uint16_t GET_atcopCMD_gt (void) { return RFmodul.atcopCMD_gt; }
-uint8_t  GET_rfiCMD_ca   (void) { return RFmodul.rfiCMD_ca; }
-uint8_t  GET_netCMD_ch   (void) { return RFmodul.netCMD_ch; }
-uint8_t  GET_netCMD_ai   (void) { return RFmodul.netCMD_ai = RFmodul.netCMD_a1 & RFmodul.netCMD_a2; }
-uint8_t  GET_netCMD_a1   (void) { return RFmodul.netCMD_a1; }
-uint8_t  GET_netCMD_a2   (void) { return RFmodul.netCMD_a2; }
-uint8_t	 GET_netCMD_mm   (void) { return RFmodul.netCMD_mm; }
-uint8_t  GET_ioserCMD_d8 (void) { return RFmodul.ioserCMD_d8; }
-uint8_t  GET_ioserCMD_d7 (void) { return RFmodul.ioserCMD_d7; }
-uint8_t  GET_ioserCMD_d6 (void) { return RFmodul.ioserCMD_d6; }
-uint8_t  GET_ioserCMD_d5 (void) { return RFmodul.ioserCMD_d5; }
-uint8_t  GET_ioserCMD_d4 (void) { return RFmodul.ioserCMD_d4; }
-uint8_t  GET_ioserCMD_d3 (void) { return RFmodul.ioserCMD_d3; }
-uint8_t  GET_ioserCMD_d2 (void) { return RFmodul.ioserCMD_d2; }
-uint8_t  GET_ioserCMD_d1 (void) { return RFmodul.ioserCMD_d1; }
-uint8_t  GET_ioserCMD_d0 (void) { return RFmodul.ioserCMD_d0; }
-uint8_t  GET_serintCMD_bd(void) { return RFmodul.serintCMD_bd; }
-uint8_t  GET_serintCMD_nb(void) { return RFmodul.serintCMD_nb; }
-uint8_t  GET_sleepmCMD_so(void) { return RFmodul.sleepmCMD_so; }
-uint8_t  GET_sleepmCMD_sm(void) { return RFmodul.sleepmCMD_sm; }
-uint8_t  GET_rfiCMD_pl   (void) { return RFmodul.rfiCMD_pl; }
-uint8_t  GET_netCMD_sd   (void) { return RFmodul.netCMD_sd; }
-uint8_t  GET_netCMD_rr   (void) { return RFmodul.netCMD_rr; }
-uint8_t  GET_netCMD_rn   (void) { return RFmodul.netCMD_rn; }
-uint8_t  GET_ioserCMD_p0 (void) { return RFmodul.ioserCMD_p0; }
-uint8_t  GET_ioserCMD_p1 (void) { return RFmodul.ioserCMD_p1; }
-uint8_t  GET_serintCMD_ap(void) { return RFmodul.serintCMD_ap; }
-uint8_t  GET_atAP_tmp    (void) { return atAP_tmp; }	
-bool_t   GET_ioserCMD_iu (void) { return RFmodul.ioserCMD_iu; }
-bool_t	 GET_netCMD_ce   (void) { return RFmodul.netCMD_ce; }
-bool_t   GET_netCMD_no   (void) { return RFmodul.netCMD_no; }
-bool_t   GET_secCMD_ee   (void) { return RFmodul.secCMD_ee; }
 
+size_t GET_device_tSize(void) { return device_tSize; }
+	
+size_t GET_offsetof_ni(void) { return offsetof( device_t, netCMD_ni    ); }
+size_t GET_offsetof_ky(void) { return offsetof( device_t, secCMD_ky    ); }
+size_t GET_offsetof_ro(void) { return offsetof( device_t, serintCMD_ro ); }
+size_t GET_offsetof_cc(void) { return offsetof( device_t, atcopCMD_cc  ); }
+size_t GET_offsetof_ia(void) { return offsetof( device_t, iolpCMD_ia   ); }
+size_t GET_offsetof_id(void) { return offsetof( device_t, netCMD_id    ); }
+size_t GET_offsetof_my(void) { return offsetof( device_t, netCMD_my    ); }
+size_t GET_offsetof_nt(void) { return offsetof( device_t, netCMD_nt    ); }
+size_t GET_offsetof_sc(void) { return offsetof( device_t, netCMD_sc    ); }
+size_t GET_offsetof_dh(void) { return offsetof( device_t, netCMD_dh    ); }
+size_t GET_offsetof_dl(void) { return offsetof( device_t, netCMD_dl    ); }
+size_t GET_offsetof_sh(void) { return offsetof( device_t, netCMD_sh    ); }
+size_t GET_offsetof_sl(void) { return offsetof( device_t, netCMD_sl    ); }
+size_t GET_offsetof_ir(void) { return offsetof( device_t, ioserCMD_ir  ); }
+size_t GET_offsetof_pr(void) { return offsetof( device_t, ioserCMD_pr  ); }
+size_t GET_offsetof_it(void) { return offsetof( device_t, ioserCMD_it  ); }
+size_t GET_offsetof_ic(void) { return offsetof( device_t, ioserCMD_ic  ); }
+size_t GET_offsetof_pt(void) { return offsetof( device_t, ioserCMD_pt  ); }
+size_t GET_offsetof_rp(void) { return offsetof( device_t, ioserCMD_rp  ); }
+size_t GET_offsetof_t0(void) { return offsetof( device_t, iolpCMD_T0   ); }
+size_t GET_offsetof_t1(void) { return offsetof( device_t, iolpCMD_T1   ); }
+size_t GET_offsetof_t2(void) { return offsetof( device_t, iolpCMD_T2   ); }
+size_t GET_offsetof_t3(void) { return offsetof( device_t, iolpCMD_T3   ); }
+size_t GET_offsetof_t4(void) { return offsetof( device_t, iolpCMD_T4   ); }
+size_t GET_offsetof_t5(void) { return offsetof( device_t, iolpCMD_T5   ); }
+size_t GET_offsetof_t6(void) { return offsetof( device_t, iolpCMD_T6   ); }
+size_t GET_offsetof_t7(void) { return offsetof( device_t, iolpCMD_T7   ); }
+size_t GET_offsetof_vr(void) { return offsetof( device_t, diagCMD_vr   ); }
+size_t GET_offsetof_hv(void) { return offsetof( device_t, diagCMD_hv   ); }
+size_t GET_offsetof_ec(void) { return offsetof( device_t, diagCMD_ec   ); }
+size_t GET_offsetof_ea(void) { return offsetof( device_t, diagCMD_ea   ); }
+size_t GET_offsetof_dd(void) { return offsetof( device_t, diagCMD_dd   ); }
+size_t GET_offsetof_db(void) { return offsetof( device_t, diagCMD_db   ); }
+size_t GET_offsetof_st(void) { return offsetof( device_t, sleepmCMD_st ); }
+size_t GET_offsetof_sp(void) { return offsetof( device_t, sleepmCMD_sp ); }
+size_t GET_offsetof_dp(void) { return offsetof( device_t, sleepmCMD_dp ); }
+size_t GET_offsetof_ct(void) { return offsetof( device_t, atcopCMD_ct  ); }
+size_t GET_offsetof_gt(void) { return offsetof( device_t, atcopCMD_gt  ); }
+size_t GET_offsetof_ca(void) { return offsetof( device_t, rfiCMD_ca    ); }
+size_t GET_offsetof_ch(void) { return offsetof( device_t, netCMD_ch    ); }
+size_t GET_offsetof_ai(void) { return offsetof( device_t, netCMD_ai    ); }
+size_t GET_offsetof_a1(void) { return offsetof( device_t, netCMD_a1    ); }
+size_t GET_offsetof_a2(void) { return offsetof( device_t, netCMD_a2    ); }
+size_t GET_offsetof_mm(void) { return offsetof( device_t, netCMD_mm    ); }
+size_t GET_offsetof_d8(void) { return offsetof( device_t, ioserCMD_d8  ); }
+size_t GET_offsetof_d7(void) { return offsetof( device_t, ioserCMD_d7  ); }
+size_t GET_offsetof_d6(void) { return offsetof( device_t, ioserCMD_d6  ); }
+size_t GET_offsetof_d5(void) { return offsetof( device_t, ioserCMD_d5  ); }
+size_t GET_offsetof_d4(void) { return offsetof( device_t, ioserCMD_d4  ); }
+size_t GET_offsetof_d3(void) { return offsetof( device_t, ioserCMD_d3  ); }
+size_t GET_offsetof_d2(void) { return offsetof( device_t, ioserCMD_d2  ); }
+size_t GET_offsetof_d1(void) { return offsetof( device_t, ioserCMD_d1  ); }
+size_t GET_offsetof_d0(void) { return offsetof( device_t, ioserCMD_d0  ); }
+size_t GET_offsetof_bd(void) { return offsetof( device_t, serintCMD_bd ); }
+size_t GET_offsetof_nb(void) { return offsetof( device_t, serintCMD_nb ); }
+size_t GET_offsetof_so(void) { return offsetof( device_t, sleepmCMD_so ); }
+size_t GET_offsetof_sm(void) { return offsetof( device_t, sleepmCMD_sm ); }
+size_t GET_offsetof_pl(void) { return offsetof( device_t, rfiCMD_pl    ); }
+size_t GET_offsetof_sd(void) { return offsetof( device_t, netCMD_sd    ); }
+size_t GET_offsetof_rr(void) { return offsetof( device_t, netCMD_rr    ); }
+size_t GET_offsetof_rn(void) { return offsetof( device_t, netCMD_rn    ); }
+size_t GET_offsetof_p0(void) { return offsetof( device_t, ioserCMD_p0  ); }
+size_t GET_offsetof_p1(void) { return offsetof( device_t, ioserCMD_p1  ); }
+size_t GET_offsetof_ap(void) { return offsetof( device_t, serintCMD_ap ); }
+size_t GET_offsetof_iu(void) { return offsetof( device_t, ioserCMD_iu  ); }
+size_t GET_offsetof_ce(void) { return offsetof( device_t, netCMD_ce    ); }
+size_t GET_offsetof_no(void) { return offsetof( device_t, netCMD_no    ); }
+size_t GET_offsetof_ee(void) { return offsetof( device_t, secCMD_ee    ); }
+
+// TODO -> insert get ai = RFmodul.netCMD_a1 & RFmodul.netCMD_a2;
+
+uint8_t  GET_atAP_tmp(void) { return atAP_tmp; }
+uint16_t GET_atCT_tmp(void) { return atCT_tmp; }
 // === general functions ==================================
 void deviceMemcpy(uint8_t *arrayStart, bool_t from_device_t)
 {

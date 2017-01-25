@@ -140,7 +140,7 @@ void TRX_send(bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t s
 	/*
 	 * Handle buffer dependent on AP mode on or off and return pointer position in the array
 	 */	 
-	if ( TRANSPARENT_MODE == GET_serintCMD_ap() ) 
+	if ( devMode == GET_serintCMD_ap() ) 
 	{
 		pos = TRX_msgFrame( bufType, send );		// AT TX Transmit Request
 	}

@@ -1,5 +1,5 @@
 /*
- * atcommands.c
+ * at_api_main.c
  *
  * Created: 11.10.2016 07:52:53
  *  Author: TOE
@@ -10,8 +10,8 @@
 #include <ctype.h>
 
 #include "header/_global.h"						// bool_t, AT_MODE_ACTIVE values
-#include "header/atlocal.h"						// AT command parser
-#include "header/apiframe.h"					// API command parser
+#include "header/at_commans.h"					// AT command parser
+#include "header/ap_frames.h"					// API command parser
 #include "header/rfmodul.h"						// GET_serintCMD_ap
 #include "header/circularBuffer.h"				// buffer & buffer init
 #include "../ATuracoli/stackrelated.h"			// trx init, uart init

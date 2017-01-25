@@ -23,23 +23,26 @@
 #define TIMER_EXPIRED	0x40
 
 // === globals ============================================
-static  uint8_t    state = 0;
-static  uint16_t counter = 0;
-static  uint32_t	  th = 0;
+static uint8_t    state = 0;
+static uint16_t counter = 0;
+static uint32_t	     th = 0;
+static uint32_t send_th = 0;
 
-static  bufType_n        ubuf = 0;
-static  uint16_t   guartTimes = 0;
-static  uint16_t ATcmdTimeOut = 0;
-static  uint8_t commandSequenceChar;
+static bufType_n        ubuf = 0;
+static uint16_t   guartTimes = 0;
+static uint16_t ATcmdTimeOut = 0;
+static uint8_t commandSequenceChar;
 
 // === prototypes =========================================
-static uint32_t AT_GT_timeHandle(uint32_t arg);
-static uint32_t AT_CT_timeHandle(uint32_t arg);
+static uint32_t AT_guardTime_timeHandle(uint32_t arg);
+static uint32_t AT_commandTime_timeHandle(uint32_t arg);
+static uint32_t AT_sendTX_timeHandle(uint32_t arg);
 
 // === functions ==========================================
+
 void AT_parser( uint8_t inchar, bufType_n bufType )
 {
-	at_status_t ret = 0;
+	static at_status_t ret = 0;
 	commandSequenceChar = GET_atcopCMD_cc();
 	guartTimes			= GET_atcopCMD_gt();
 	ATcmdTimeOut		= deMSEC( GET_atcopCMD_ct() ) * 0x64;
@@ -58,7 +61,7 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 		{
 			if ( inchar == commandSequenceChar )
 			{
-				th = deTIMER_start(AT_GT_timeHandle, deMSEC( guartTimes ), 0 );
+				th = deTIMER_start(AT_guardTime_timeHandle, deMSEC( guartTimes ), 0 );
 				counter += 1;
 				state = AT_CC_COUNT;
 			}
@@ -104,7 +107,7 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	else
 	{
 		ret = deBufferIn( bufType, inchar );
-		if(ret != OP_SUCCESS)
+		if( OP_SUCCESS != ret )
 		{
 			UART_print_status(ret);
 			deBufferReset( bufType );
@@ -118,7 +121,14 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	 */					
 	if ( STATEM_IDLE == state )
 	{ 
-		TRX_send( bufType, 0, NULL, 0);
+		if ( 0 == send_th )
+		{
+			send_th = deTIMER_start(AT_sendTX_timeHandle, deMSEC(0x10), 0);
+		} 
+		else
+		{
+			send_th = deTIMER_restart( send_th, deMSEC(0x10) );
+		}
 	}
 	
 	/*
@@ -127,24 +137,35 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	 * - if command length equal 4 signs and carriage return cal read/exec function
 	 * - if command length greater then 4 signs and carriage return cal write function
 	 */
-	if ( AT_HANDLE == state && counter <  5 )
+	if ( AT_HANDLE == state && 5 > counter )
 	{
 		ret = INVALID_COMMAND;
 	}
-	else if( AT_HANDLE == state && counter == 5 )
+	else if ( AT_HANDLE == state && 4 < counter )
 	{
-		ret = CMD_readOrExec(&th, bufType);
+		static CMD *pCommand  = NULL;
+		ret	= CMD_getCommand( bufType, pCommand );
+		
+		if      ( INVALID_COMMAND == ret ) /* do nothing */;
+		else if ( 5 == counter && EXEC == pCommand->rwxAttrib )
+		{
+			ret = CMD_exec( &th, pCommand->ID );
+		} 
+		else if ( 5 == counter && READ == pCommand->rwxAttrib )
+		{
+			deBufferReadReset( bufType, '+', 1); // remove the '\0' from the buffer if in AT cmd mode
+			ret = CMD_read( pCommand );
+		}
+		else
+		{
+			ret = CMD_write( counter, bufType, pCommand );
+		}
+		
 		state = AT_MODE;
-		counter = 0;
-	}
-	else if( AT_HANDLE == state && counter >  5 ) 
-	{
-		state = AT_MODE;
-		ret = CMD_write( counter, bufType);
 		counter = 0;
 	}
 	
-	if (ret)
+	if ( OP_SUCCESS != ret )
 	{
 		UART_print_status(ret);
 		deBufferReset( bufType );
@@ -168,14 +189,14 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
  *
  * last modified: 2017/01/18
  */
-static uint32_t AT_GT_timeHandle(uint32_t arg)
+static uint32_t AT_guardTime_timeHandle(uint32_t arg)
 {
 	if ( counter == 3 ) 
 	{
 		UART_print_status(OP_SUCCESS);
 		deBufferReset( ubuf );
 		state = AT_MODE;
-		th = deTIMER_start(AT_CT_timeHandle, deMSEC( ATcmdTimeOut ), 0 );
+		th = deTIMER_start(AT_commandTime_timeHandle, deMSEC( ATcmdTimeOut ), 0 );
 	}
 	else
 	{
@@ -185,12 +206,19 @@ static uint32_t AT_GT_timeHandle(uint32_t arg)
 	return 0;
 }
 
-uint32_t AT_CT_timeHandle(uint32_t arg)
+uint32_t AT_commandTime_timeHandle(uint32_t arg)
 {
 	state   = STATEM_IDLE;
 	counter = 0;
 	th      = 0;
 	UART_print_status(QUIT_CMD_MODE);
 	
+	return 0;
+}
+
+uint32_t AT_sendTX_timeHandle(uint32_t arg)
+{
+	TRX_send( ubuf, 0, NULL, 0);
+	send_th = 0;
 	return 0;
 }
