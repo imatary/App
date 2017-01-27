@@ -3,7 +3,7 @@
  *
  * Created: 18.01.2017 13:08:52
  *  Author: TOE
- */ 
+ */
 // === includes ===========================================
 #include <inttypes.h>
 #include <stddef.h>
@@ -36,9 +36,9 @@ static uint32_t AP_expired_timeHandle(uint32_t arg);
 
 /*
  * Parser function (state machine)
- * reads the received character and switched the states 
+ * reads the received character and switched the states
  * - if calculated CRC equal with received CRC, handle the frame
- * - if the timer expired or the frame not valid, reset the state machine 
+ * - if the timer expired or the frame not valid, reset the state machine
  *
  * Received:
  *		uint8_t		received character from UART
@@ -47,14 +47,14 @@ static uint32_t AP_expired_timeHandle(uint32_t arg);
  * Returns:
  *		nothing
  *
- * last modified: 2017/01/18
+ * last modified: 2017/01/26
  */
 void AP_parser( uint8_t inchar, bufType_n bufType )
 {
 	uint8_t ret;
-	
+
 	ubuf = bufType;
-	
+
 	switch ( state )
 	{
 	case STATEM_IDLE :
@@ -62,59 +62,56 @@ void AP_parser( uint8_t inchar, bufType_n bufType )
 			if ( 0x7E == inchar )
 			{
 				th = deTIMER_start(AP_expired_timeHandle, deMSEC( AP_TIMEOUT ), 0 );
-				AP_setFrameLength( 0x0, FALSE);
 				state = AP_LENGTH_1;
 			}
 		}
 		break;
-		
+
 	case AP_LENGTH_1 :
 		{
 			th = deTIMER_restart(th, deMSEC( AP_TIMEOUT ) );
-			AP_setFrameLength( (uint16_t) inchar << 8, TRUE );
+			SET_apFrameLength( (uint16_t) inchar << 8, FALSE ); // init new value
 			state = AP_LENGTH_2;
 		}
 		break;
-		
+
 	case AP_LENGTH_2 :
 		{
 			th = deTIMER_restart(th, deMSEC( AP_TIMEOUT ) );
-			ret = AP_setFrameLength( (uint16_t) inchar & 0xFF, TRUE );
-			if ( ret )	state = STATEM_IDLE;
-			else		state = AP_GET_DATA;
+			SET_apFrameLength( (uint16_t) inchar & 0xFF, TRUE ); // update value
 		}
 		break;
-		
+
 	case AP_GET_DATA :
 		{
 			th = deTIMER_restart(th, deMSEC( AP_TIMEOUT ) );
-			
+
 			/*
 			 * push the character into the buffer
 			 * neither interrupts allowed
 			 * if an buffer error occurred, reset the buffer
 			 */
 			ret = deBufferIn( bufType, inchar );
-			if( BUFFER_IN_FAIL == ret ) 
-			{ 
+			if( BUFFER_IN_FAIL == ret )
+			{
 				deBufferReadReset( bufType, '+', counter);
 				ret = 0;
 			}
-			
-			if ( 0 == counter ) AP_setCRC( inchar );
-			else                AP_updateCRC( inchar );
-			
+
+			if ( 0 == counter ) SET_apFrameCRC( inchar, FALSE ); // init new value
+			else                SET_apFrameCRC( inchar, TRUE  ); // update value
+
 			counter += 1;
-			
-			if ( counter == AP_getFrameLength() ) state = AP_HANDLE;
+
+			if ( counter == GET_apFrameLength() ) state = AP_HANDLE;
 		}
 		break;
-		
+
 	case AP_HANDLE :
 		{
 			th = deTIMER_stop(th);
-			
-			if ( TRUE == AP_compareCRC( inchar ) )
+
+			if ( OP_SUCCESS == COMPARE_apFrameCRC( inchar ) )
 			{
 				AP_frameHandle_uart( bufType );
 			}
@@ -122,17 +119,17 @@ void AP_parser( uint8_t inchar, bufType_n bufType )
 			state   = STATEM_IDLE;
 		}
 		break;
-						
+
 	default: /* do nothing */ break;
-		
-	}/* end state machine */	
+
+	}/* end state machine */
 }
 
 
 /*
  * Time handler for state machine
  * - if no other sign received and the timer is expired reset Buffer and state machine
- * 
+ *
  * Received:
  *		uint32_t arg	this argument can be used in this function
  *

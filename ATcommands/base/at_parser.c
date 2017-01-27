@@ -3,7 +3,7 @@
  *
  * Created: 18.01.2017 13:08:21
  *  Author: TOE
- */ 
+ */
 // === includes ===========================================
 #include <inttypes.h>							// uint8/16/32
 #include <ctype.h>
@@ -47,10 +47,10 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	guartTimes			= GET_atcopCMD_gt();
 	ATcmdTimeOut		= deMSEC( GET_atcopCMD_ct() ) * 0x64;
 	ubuf                = bufType;
-	
+
 	/*
-	 * if a CC character received, start timer and count CC character signs 
-	 * if the user hit three times the CC character button, he needs to wait 
+	 * if a CC character received, start timer and count CC character signs
+	 * if the user hit three times the CC character button, he needs to wait
 	 * until the timer has expired to switch into local command mode
 	 *
 	 * else kill the timer and reset the counter
@@ -66,8 +66,8 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 				state = AT_CC_COUNT;
 			}
 		}
-		break;	
-	
+		break;
+
 	case AT_CC_COUNT :
 		{
 			if ((counter == 1 || counter == 2) && inchar != commandSequenceChar || counter == 3)
@@ -80,11 +80,11 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 			counter += 1;
 		}
 		break;
-		
+
 	case AT_MODE :
 		{
 			counter += 1;
-			if( '\r' == inchar ) 
+			if( '\r' == inchar )
 			{
 				th = deTIMER_restart(th, ATcmdTimeOut );
 				state = AT_HANDLE;
@@ -92,15 +92,15 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 			}
 		}
 		break;
-		
+
 	default : break;
 	}
-	
+
 	/*
 	 * push the character into the buffer
 	 * neither interrupts allowed
 	 *
-	 * if state machine in AT mode and within the first 5 characters a space character, 
+	 * if state machine in AT mode and within the first 5 characters a space character,
 	 * don't store it into the buffer and don't count,
 	 */
 	if ( AT_MODE == state && ' ' == inchar && counter < 4 );
@@ -114,23 +114,23 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 			ret = 0;
 		}
 	}
-	
-								
+
+
 	/*
-	 * if counter = 0 and state machine in idle mode send the buffer content 
-	 */					
+	 * if counter = 0 and state machine in idle mode send the buffer content
+	 */
 	if ( STATEM_IDLE == state )
-	{ 
+	{
 		if ( 0 == send_th )
 		{
 			send_th = deTIMER_start(AT_sendTX_timeHandle, deMSEC(0x10), 0);
-		} 
+		}
 		else
 		{
 			send_th = deTIMER_restart( send_th, deMSEC(0x10) );
 		}
 	}
-	
+
 	/*
 	 * if counter greater than 0 and state machine in AT handle mode
 	 * - delete buffer if command length less then 4 signs and carriage return
@@ -145,12 +145,12 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	{
 		static CMD *pCommand  = NULL;
 		ret	= CMD_getCommand( bufType, pCommand );
-		
+
 		if      ( INVALID_COMMAND == ret ) /* do nothing */;
 		else if ( 5 == counter && EXEC == pCommand->rwxAttrib )
 		{
 			ret = CMD_exec( &th, pCommand->ID );
-		} 
+		}
 		else if ( 5 == counter && READ == pCommand->rwxAttrib )
 		{
 			deBufferReadReset( bufType, '+', 1); // remove the '\0' from the buffer if in AT cmd mode
@@ -160,11 +160,11 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 		{
 			ret = CMD_write( counter, bufType, pCommand );
 		}
-		
+
 		state = AT_MODE;
 		counter = 0;
 	}
-	
+
 	if ( OP_SUCCESS != ret )
 	{
 		UART_print_status(ret);
@@ -172,15 +172,47 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 		ret = 0;
 		counter = 0;
 	}
-	
+
 }
+
+/*
+ * Get command
+ * - reads a string from buffer
+ * - searched for the command in the command table
+ * - store it into pCommand pointer
+ *
+ * Received:
+ *		bufType_n	number of buffer type
+ *		CMD			pointer for address in command table
+ *
+ * Returns:
+ *     OP_SUCCESS		on success
+ *	   INVALID_COMMAND	if command is not in command table
+ *
+ * last modified: 2017/01/26
+ */
+at_status_t AT_getCommand( bufType_n bufType, CMD *pCommand )
+{
+	static uint8_t cmdString[5];
+
+	for (int i = 0; i < 4 ; i++)
+	{
+		deBufferOut( bufType, &cmdString[i] );
+		if ( 'a' <= cmdString[i] && 'z' >= cmdString[i] ) cmdString[i] -= 0x20;
+	}
+
+	pCommand = CMD_findInTable(cmdString);
+	return ( NO_AT_CMD == pCommand->ID || NULL == pCommand )? INVALID_COMMAND : OP_SUCCESS;
+}
+
+
 
 /*
  * Time handler for state machine
  * - if 3x CC type is received set state machine to AT handle
  *   else reset counter and state machine
  * - if the GT timer expired reset state machine (quit At mode) and counter
- * 
+ *
  * Received:
  *		uint32_t arg	this argument can be used in this function
  *
@@ -191,7 +223,7 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
  */
 static uint32_t AT_guardTime_timeHandle(uint32_t arg)
 {
-	if ( counter == 3 ) 
+	if ( counter == 3 )
 	{
 		UART_print_status(OP_SUCCESS);
 		deBufferReset( ubuf );
@@ -212,7 +244,7 @@ uint32_t AT_commandTime_timeHandle(uint32_t arg)
 	counter = 0;
 	th      = 0;
 	UART_print_status(QUIT_CMD_MODE);
-	
+
 	return 0;
 }
 

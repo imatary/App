@@ -3,7 +3,7 @@
  *
  * Created: 11.10.2016 10:02:34
  *  Author: TOE
- */ 
+ */
 
 
 #ifndef ENUM_ERROR_H_
@@ -19,8 +19,8 @@
 typedef enum
 {
 	/* ADD NEW CODES ON TOP! */
-	
-	TIMER_START_FAIL	= -15,				
+
+	TIMER_START_FAIL	= -15,
 	TRX_INIT_ERROR		= -14,
 	BUFFER_IN_FAIL		= -13,
 	BUFFER_OUT_FAIL		= -12,

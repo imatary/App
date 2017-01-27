@@ -6,6 +6,7 @@
  */ 
 #include <inttypes.h>
 
+#include "../ATcommands/header/_global.h"
 #include "../ATcommands/header/rfmodul.h"
 #include "../ATcommands/header/enum_status.h"
 #include "stackrelated.h"
@@ -22,7 +23,7 @@
 void UART_init(void)
 {
 	mcu_init();
-	uint32_t baud = deHIF_DEFAULT_BAUDRATE;
+	uint32_t baud;
 	switch( GET_serintCMD_bd() )
 	{
 		case 0x0 : baud =   1200; break;
@@ -33,7 +34,7 @@ void UART_init(void)
 		case 0x5 : baud =  38400; break;
 		case 0x6 : baud =  57600; break;
 		case 0x7 : baud = 115200; break;
-		default : baud = deHIF_DEFAULT_BAUDRATE; break;
+		default  : baud = deHIF_DEFAULT_BAUDRATE; break;
 	}
 	hif_init(baud);
 	
@@ -42,50 +43,7 @@ void UART_init(void)
 	UART_puts	= hif_puts;
 }
 
-/*
- * UART_print_data()
- * print uint8/16/32 to the uart
- * 
- * Received:
- *		uint8_t		real size of the receiving object
- *		uint64_t	pointer to data
- *
- * Returns:
- *		nothing
- *
- * last modified: 2017/01/04
- */
-void UART_print_data(uint8_t size, uint64_t val)
-{
-	switch(size)
-	{
-		case 1 : UART_printf("%"PRIX8"\r",  (uint8_t)  val & 0xFF ); break;
-		case 2 : UART_printf("%"PRIX16"\r", (uint16_t) val & 0xFFFF ); break;
-		case 4 : UART_printf("%"PRIX32"\r", (uint32_t) val & 0xFFFFFFFF ); break;
-		case 8 : 
-				 UART_printf("%"PRIX32,            val >> 32 );			// need to be divided in two peaces because PRIX64 has an bug 
-				 UART_printf("%"PRIX32"\r",        val & 0xFFFFFFFF );
-		break;
-		default: UART_printf("%d\r", val); break;
-	}
-}
 
-/*
- * UART_print_decimal()
- * print a decimal number to the uart
- * 
- * Received:
- *		at_status_t	value with the return information, which error occurred
- *
- * Returns:
- *		nothing
- *
- * last modified: 2017/01/04
- */
-void UART_print_decimal(uint8_t number)
-{
-	UART_printf("%d\r", number);
-}
 
 /*
  * UART_print_status()

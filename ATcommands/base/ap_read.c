@@ -1,7 +1,7 @@
 /*
- * cmd_read.c
+ * ap_read.c
  *
- * Created: 18.01.2017 13:07:13
+ * Created: 26.01.2017 11:33:07
  *  Author: TOE
  */
 // === includes ===========================================
@@ -9,12 +9,12 @@
 
 #include "../header/_global.h"
 #include "../header/cmd.h"						// AT command search parser
-#include "../header/rfmodul.h"					// get device value
+#include "../header/apiframe.h"					// AP set functions
+#include "../header/rfmodul.h"					// RFmodul struct
 #include "../../ATuracoli/stackrelated.h"		// uart functions
 
 // === globals ============================================
 static uint8_t workArray[21];
-static uint32_t u32val;
 
 // === functions ==========================================
 /*
@@ -27,50 +27,35 @@ static uint32_t u32val;
  *		OP_SUCCESS			if command successful accomplished
  *		ERROR				if one of these commands SS, R?, SB
  *
- * last modified: 2017/01/25
+ * last modified: 2017/01/26
  */
 at_status_t CMD_read( CMD *cmd )
 {
+	uint16_t length;
+
+	SET_apFrameRWXopt(READ);
+
 	switch( cmd->ID )
 	{
-		case AT_IA :
-			{
-				uint64_t value;
-				GET_deviceValue( value, cmd );
-				UART_printf("%"PRIX32,      value >> 32 );			// need to be divided in two peaces because PRIX64 has an bug
-				UART_printf("%"PRIX32"\r",  value & 0xFFFFFFFF );
-			}
-		break;
+
 
 		case AT_pC :
 			{
-				UART_printf("%X\r", 0x1 );
+				workArray[0] = 0x1;
+				SET_apFrameMsg ( workArray, 1, AT_pC );
 			}
-		break;
+			break;
 
 		case AT_SS :
 		case AT_Rq :
 		case AT_SB : return ERROR;
 
-		case AT_NI :
-			{
-				GET_deviceValue( workArray, cmd );
-				UART_printf("%s\r", workArray );
-			}
-		break;
-
-		case DE_FV :
-			{
-				UART_printf("%s\r", AT_VERSION);
-			}
-		break;
-
 		default :
 			{
-				GET_deviceValue( u32val, cmd );
-				UART_printf("%"PRIX32"\r", u32val );
+				 length = GET_deviceValue( workArray, cmd );
+				 SET_apFrameMsg ( workArray, length, cmd->ID );
 			}
-		break;
+			break;
 	}
 
 	if ( AT_AP )
@@ -85,3 +70,4 @@ at_status_t CMD_read( CMD *cmd )
 
 	return OP_SUCCESS;
 }
+

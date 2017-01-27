@@ -6,7 +6,7 @@
  *
  * File related to the sample code of mikrocontroller.net
  * http://www.mikrocontroller.net/articles/FIFO
- */ 
+ */
 // === includes ===========================================
 #include <stdlib.h>
 #include "../header/circularBuffer.h"	// struct, prototypes, defines
@@ -21,9 +21,10 @@ typedef struct {
 } deBuffer_t;
 
 // === globals ============================================
-static deBuffer_t xbuffer[] = { 
+static deBuffer_t xbuffer[] = {
 	{ {0x0}, 0x0, 0x0, FALSE },	// UART
 	{ {0x0}, 0x0, 0x0, FALSE }, // RX
+	{ {0x0}, 0x0, 0x0, FALSE }, // RX work buffer
 };
 
 // === functions ==========================================
@@ -43,15 +44,15 @@ static deBuffer_t xbuffer[] = {
 at_status_t deBufferIn(bufType_n bufType, uint8_t inByte)
 {
 	if ( NONE == bufType ) { return BUFFER_IN_FAIL; }
-	
+
 	uint8_t next =  (xbuffer[bufType].write + 1) & DE_BUFFER_MASK;
 
 	if ( xbuffer[bufType].read == next )
 		 return BUFFER_IN_FAIL; // full
-	
+
 	xbuffer[bufType].data[ xbuffer[bufType].write ] = inByte;
 	xbuffer[bufType].write = next;
-	
+
 	return OP_SUCCESS;
 }
 
@@ -71,7 +72,7 @@ at_status_t deBufferIn(bufType_n bufType, uint8_t inByte)
 at_status_t deBufferOut(bufType_n bufType, uint8_t *pByte)
 {
 	if ( NONE == bufType ) { return BUFFER_OUT_FAIL; }
-	
+
 	if ( xbuffer[bufType].read == xbuffer[bufType].write)
 	return BUFFER_OUT_FAIL;
 
@@ -98,11 +99,11 @@ at_status_t deBufferOut(bufType_n bufType, uint8_t *pByte)
  *
  * last modified: 2016/11/17
  */
-void GET_deBufferData_atReadPosition(bufType_n bufType, uint8_t *workArray, size_t len) 
-{ 
-	if ( NONE == bufType ) { return; }
-	
-	memcpy( workArray, &xbuffer[bufType].data[ xbuffer[bufType].read ], len); 
+void READ_deBufferData_atReadPosition(bufType_n bufType, uint8_t *workArray, size_t len)
+{
+	if ( NONE == bufType || NULL == workArray ) { return; }
+
+	memcpy( workArray, &xbuffer[bufType].data[ xbuffer[bufType].read ], len);
 	deBufferReadReset( bufType, '+', len);
 }
 
@@ -119,16 +120,16 @@ void GET_deBufferData_atReadPosition(bufType_n bufType, uint8_t *workArray, size
  *
  * last modified: 2016/11/17
  */
-void   SET_deBufferNewContent(bufType_n bufType, bool_t val) 
-{ 
+void   SET_deBufferNewContent(bufType_n bufType, bool_t val)
+{
 	if ( NONE == bufType ) { return; }
-	xbuffer[bufType].newContent = val; 
+	xbuffer[bufType].newContent = val;
 }
 
 bool_t GET_deBufferNewContent(bufType_n bufType)
-{ 
+{
 	if ( NONE == bufType ) { return FALSE; }
-	return xbuffer[bufType].newContent; 
+	return xbuffer[bufType].newContent;
 }
 
 /*
@@ -155,7 +156,7 @@ void deBufferReadReset(bufType_n bufType, char operand , size_t len)
 
 	for (uint8_t i = 0; i < len; i++)
 	{
-		if ( '-' == operand ) 
+		if ( '-' == operand )
 		{
 			xbuffer[bufType].read = (xbuffer[bufType].read - 1) & DE_BUFFER_MASK;
 		}
@@ -164,7 +165,7 @@ void deBufferReadReset(bufType_n bufType, char operand , size_t len)
 			xbuffer[bufType].read == xbuffer[bufType].write+1;
 			return;
 		}
-		if ( '+' == operand ) 
+		if ( '+' == operand )
 		{
 			xbuffer[bufType].read = (xbuffer[bufType].read + 1) & DE_BUFFER_MASK;
 		}
@@ -173,7 +174,7 @@ void deBufferReadReset(bufType_n bufType, char operand , size_t len)
 			return;
 		}
 	}
-	
+
 }
 
 /*
@@ -197,7 +198,7 @@ void deBufferReadReset(bufType_n bufType, char operand , size_t len)
 void deBufferWriteReset(bufType_n bufType,char operand , size_t len)
 {
 	if ( NONE == bufType ) { return; }
-	
+
 	for (uint8_t i = 0; i < len; i++)
 	{
 		if ( '-' == operand )
@@ -219,7 +220,7 @@ void deBufferWriteReset(bufType_n bufType,char operand , size_t len)
 			return;
 		}
 	}
-	
+
 }
 
 /*
@@ -230,8 +231,34 @@ void deBufferWriteReset(bufType_n bufType,char operand , size_t len)
  *
  * last modified: 2017/01/20
  */
-void deBufferReset(bufType_n bufType) 
-{ 
+void deBufferReset(bufType_n bufType)
+{
 	if ( NONE == bufType ) { return; }
 	memset( &xbuffer[bufType], 0, sizeof(deBuffer_t) );
 }
+
+/*
+ * Copy deBuffer data
+ * copied data of size len from read position of src buffer
+ * to write position of an other buffer
+ * and reset read position of src buffer
+ *
+ * Received:
+ *		buftype_n	buffer type for target buffer
+ *		buftype_n	buffer type for source buffer
+ *		size_t		length which should copied
+ *
+ * Returns:
+ *		nothing
+ *
+ * last modified: 2017/01/27
+ */
+ void CPY_deBufferData( bufType_n dest, bufType_n src, size_t len)
+ {
+	 deBuffer_t *source = &xbuffer[src];
+	 deBuffer_t *destination = &xbuffer[dest];
+
+	 memcpy( destination->data[ destination->write ], source->data[ source->read ], len )
+
+	 deBufferReadReset(src, '+', len);
+ }

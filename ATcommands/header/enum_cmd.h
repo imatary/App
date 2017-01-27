@@ -3,7 +3,7 @@
  *
  * Created: 26.10.2016 13:11:43
  *  Author: TOE
- */ 
+ */
 
 
 #ifndef ENUM_CMD_H_
@@ -44,19 +44,19 @@ typedef enum
 	// RF interface
 	AT_PL,					// POWER LEVEL
 	AT_CA,					// CCA TRESHOLD
-	// sleep modes										
+	// sleep modes
 	AT_SM,					// SLEEP MODE
 	AT_ST,					// TIME BEFORE SLEEP
 	AT_SP,					// CYCLIC SLEEP PERIOD
 	AT_DP,					// DISASSOCIATED SP
 	AT_SO,					// SLEEP OPTION
 	AT_SS,					// SLEEP STATUS
-	// serial interfacing								
+	// serial interfacing
 	AT_AP,					// AP ENABLE
-	AT_BD,					// INTERFACE DATA RATE	
+	AT_BD,					// INTERFACE DATA RATE
 	AT_NB,					// PARITY
 	AT_RO,					// PACKETIZATION TIMEOUT
-	// IO settings			
+	// IO settings
 	AT_D8,					// DI8 CONFIGURATION
 	AT_D7,					// DIO7 CONFIGURATION
 	AT_D6,					// DIO6 CONFIGURATION
@@ -75,7 +75,7 @@ typedef enum
 	AT_P1,					// PWM1 CONFIGURATION
 	AT_PT,					// PWM OUTPUT TIMEOUT
 	AT_RP,					// RSSI PWM TIMER
-	// IO line passing		 
+	// IO line passing
 	AT_IA,					// IO INPUT ADDRESS
 	AT_T0,					// D0 OUTPUT TIMEOUT
 	AT_T1,					// D1 OUTPUT TIMEOUT
@@ -85,7 +85,7 @@ typedef enum
 	AT_T5,					// D5 OUTPUT TIMEOUT
 	AT_T6,					// D6 OUTPUT TIMEOUT
 	AT_T7,					// D7 OUTPUT TIMEOUT
-	// diagnostics			 							
+	// diagnostics
 	AT_VR,					// FIRMWARE VERS
 	AT_HV,					// HARDWARE VERS
 	AT_DB,					// RECEIVED SIGNAL STRENGTH
@@ -93,7 +93,7 @@ typedef enum
 	AT_EA,					// ACK FAILURES
 	AT_DD,					// DEVICE TYPE IDENTIFIER
 	AT_pV,					// PERCENT VOLTAGE
-	// AT command options							
+	// AT command options
 	AT_CT,					// AT CMD TIMEOUT
 	AT_GT,					// GUART TIMES
 	AT_CC,					// COMMAND SEQUENCE CHAR
@@ -107,10 +107,10 @@ typedef enum
 	AT_pC,					// %C
 	// no assignment
 	AT_SB,					// STOP BITS
-	
+
 	// special device commands
 	DE_FV,					// AT FIRMWARE VERSION
-																		
-}__attribute__((packed)) cmdIDs;										
-																		
+
+}__attribute__((packed)) cmdIDs;
+
 #endif /* ENUM_CMD_H_ */

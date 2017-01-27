@@ -3,7 +3,8 @@
  *
  * Created: 25.11.2016 14:37:35
  *  Author: TOE
- */ 
+ */
+// === includes ===========================================
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
@@ -29,14 +30,19 @@
 #define RX_MSG_16		(0x81)
 #define REMOTE_RESPONSE (0x97)
 
-// === Prototypes =========================================
-static at_status_t AP_localDevice(bufType_n bufType);
-static void		   AP_atLocal_response(void);
-static void        swap_msg(size_t length);
+// === globals ============================================
+static uint8_t outchar[256];
+static at_status_t ret;
+static CMD *pCommand  = NULL;
 
+// === Prototypes =========================================
+static at_status_t AP_getCommand( bufType_n bufType, CMD *pCommand )
+static void		   AP_atLocal_response(void);
+
+static at_status_t AP_localDevice(bufType_n bufType);
 // === functions (local handling shared) ==================
 /*
- * AP_frameHandle_uart 
+ * AP_frameHandle_uart
  * is called when the AP mode is active and the standard delimiter was recognized
  *
  * Received:
@@ -45,90 +51,139 @@ static void        swap_msg(size_t length);
  * Returns:
  *		nothing
  *
- * last modified: 2017/01/19
+ * last modified: 2017/01/26
  */
 void AP_frameHandle_uart(bufType_n bufType)
 {
+	if ( 4 > GET_apFrameLength() )
+	{
+		deBufferReadReset(bufType, '+', GET_apFrameLength() )
+		return;
+	}
+
 	// frame type	1 byte
-	cli(); frame.ret = deBufferOut( bufType, &frame.type ); sei();
-	if (frame.ret == BUFFER_OUT_FAIL) return;
-	
+	ret = deBufferOut( bufType, &outchar[0] );
+	if ( BUFFER_OUT_FAIL == ret )
+	{
+		deBufferReset( bufType );
+		return;
+	}
+
 	// frame id		1 byte
-	cli(); frame.ret = deBufferOut( bufType, &frame.id ); sei();
-	if (frame.ret == BUFFER_OUT_FAIL) return;
-	
-	switch ( frame.type )
+	ret = deBufferOut( bufType, &outchar[0] );
+	if ( BUFFER_OUT_FAIL == ret )
+	{
+		deBufferReset( bufType );
+		return;
+	}
+
+	switch ( GET_apFrameType() )
 	{
 		case AT_COMMAND    :
 		case AT_COMMAND_Q  :
 			{
-				static CMD *pCommand  = NULL;
-				frame.ret	= CMD_getCommand( bufType, pCommand );
-				if ( INVALID_COMMAND == frame.ret ) 
+				ret	= AP_getCommand( bufType, pCommand );
+				if ( INVALID_COMMAND == ret )
 				{
-					AP_atLocal_response(); 
+					SET_apFrameRet(INVALID_COMMAND);
+					AP_atLocal_response();
 					return;
 				}
-				
-				if ( 4 == frame.length && EXEC == pCommand->rwxAttrib )
+
+				if ( 4 == GET_apFrameLength() && EXEC == pCommand->rwxAttrib )
 				{
-					frame.ret = CMD_exec( NULL, pCommand->ID );
+					ret = AP_exec( pCommand->ID );
 				}
-				else if ( 4 == frame.length && READ == pCommand->rwxAttrib )
+				else if ( 4 == GET_apFrameLength() && READ == pCommand->rwxAttrib )
 				{
-					
-					frame.ret = CMD_read( pCommand );
+					ret = AP_read( pCommand );
 				}
 				else
 				{
-					frame.rwx = WRITE;
-					frame.ret = CMD_write( frame.length, bufType, pCommand );
-					if ( AT_COMMAND == frame.type )
+					ret = AP_write( bufType, pCommand );
+					if ( OP_SUCCESS == ret && AT_COMMAND == GET_apFrameType() )
 					{
 						SET_userValInEEPROM();
-						UART_init();
-						TRX_baseInit();
-						SET_serintCMD_ap( GET_atAP_tmp() );
-						SET_atcopCMD_ct ( GET_atCT_tmp() );
+
+						if ( DIRTYB_BD & dirtyBits ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
+						if ( DIRTYB_CH & dirtyBits ||\
+						     DIRTYB_ID & dirtyBits ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
 					}
 				}
+				SET_apFrameRet(ret);
+				AP_atLocal_response();
+				pCommand = NULL;
 			}
 			break;
-		
-		case REMOTE_AT_CMD : 
+
+		case REMOTE_AT_CMD :
 			{
-				TRX_send( bufType, REMOTE_AT_CMD, NULL, 0); 
+				TRX_send( bufType, REMOTE_AT_CMD, NULL, 0);
 			}
 			break;
-		
+
 		case DEVICE_AT_CMD :
 			{
-				frame.ret = AP_localDevice( bufType );
+				ret = AP_localDevice( bufType );
+				SET_apFrameRet(ret);
+				AP_atLocal_response();
 			}
 			break;
-		
+
 		case TX_MSG_64 :
 			{
 				TRX_send( bufType, TX_MSG_64, NULL, 0);
 			}
 			break;
-		
+
 		case TX_MSG_16 :
 			{
 				TRX_send( bufType, TX_MSG_16, NULL, 0);
 			}
 			break;
-				
-		default : 
+
+		default :
 			{
-				frame.ret = INVALID_COMMAND;
+				SET_apFrameRet(INVALID_COMMAND);
+				AP_atLocal_response();
 			}
 			break;
-			
 	}
-	
-	AP_atLocal_response();
 }
+
+
+
+/*
+ * Get command
+ * - reads a string from buffer
+ * - searched for the command in the command table
+ * - store it into pCommand pointer
+ *
+ * Received:
+ *		bufType_n	number of buffer type
+ *		CMD			pointer for address in command table
+ *
+ * Returns:
+ *     OP_SUCCESS		on success
+ *	   INVALID_COMMAND	if command is not in command table
+ *
+ * last modified: 2017/01/26
+ */
+static at_status_t AP_getCommand( bufType_n bufType, CMD *pCommand )
+{
+	outchar[0] = 'A';
+	outchar[1] = 'T';
+	deBufferOut( bufType, &outchar[2] );
+	deBufferOut( bufType, &outchar[3] );
+	if ( 'a' <= outchar[2] && 'z' >= outchar[2] ) outchar[2] -= 0x20;
+	if ( 'a' <= outchar[3] && 'z' >= outchar[3] ) outchar[3] -= 0x20;
+	SET_apFrameATcmd( &outchar[2] );
+	SET_apFrameCRC( outchar[2] + outchar[3] );
+
+	pCommand = CMD_findInTable(outchar);
+	return ( NO_AT_CMD == pCommand->ID || NULL == pCommand )? INVALID_COMMAND : OP_SUCCESS;
+}
+
 
 
 /*
@@ -136,18 +191,18 @@ void AP_frameHandle_uart(bufType_n bufType)
  * reads from RX buffer, prepared the response frame struct and send response
  *
  * Received:
+ *		uint8_t		pointer to the workArray
  *		uint16_t	length of the received AP Frame
- *		uint8_t		pointer to the srcAddrAndOtion array
  *		uint8_t		length of src. addr.
  *
  * Returns:
  *		nothing
  *
- * last modified: 2017/01/04
+ * last modified: 2017/01/27
  */
-void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen)
+void AP_atRemoteFrame_localExec(uint8_t *workArray, uint16_t length, uint8_t srcAddrLen)
 {
-	/* 
+	/*
 	 * - Frame consist a minimum of 14 Bytes
 	 * - read AP Frame ID (1 byte)
 	 * - read dest. addr. (10 bytes) (not important) but need to be deleted
@@ -156,54 +211,54 @@ void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t *src
 	 * - delete crc checksum
 	 * - call rx | w function
 	 * - if remote option is 0x2 reinitialize module config
-	 * - call response function 
+	 * - call response function
 	 */
-	uint8_t outchar; 
-
 	for ( uint16_t i = 0; i < 0xC; i++ )
 	{
-		cli(); deBufferOut( bufType, &outchar ); sei();
-		if		( 0x0 == i ) { frame.id = outchar; }
-		else if ( 0xB == i ) { frame.type = outchar; } // the frame type variable will be used for option
+		deBufferOut( bufType, &outchar );
+		if		( 0x0 == i ) { SET_apFrameID( outchar ); }
+		else if ( 0xB == i ) { SET_apFrameType( outchar ); } // the frame type variable will be used for option
 	}
-	
+
 	length -= 0xA; // length = 2 dummy bytes + 2 bytes AT cmd [+ n-bytes payload]
-	
-	static CMD *pCommand  = NULL;
-	frame.ret	= CMD_getCommand( bufType, pCommand );
-	if ( INVALID_COMMAND == frame.ret )
+
+	ret	= AP_getCommand( bufType, pCommand );
+	if ( INVALID_COMMAND == ret )
 	{
+		SET_apFrameRet(ret);
 		TRX_send( NONE, REMOTE_RESPONSE, srcAddr, srcAddrLen );
 		return;
 	}
-	
-	if ( 4 == frame.length && EXEC == pCommand->rwxAttrib )
+
+	if ( 4 == GET_apFrameLength() && EXEC == pCommand->rwxAttrib )
 	{
-		frame.ret = AP_exec( NULL, pCommand->ID );
+		ret = AP_exec( pCommand->ID );
 	}
-	else if ( 4 == frame.length && READ == pCommand->rwxAttrib )
+	else if ( 4 == GET_apFrameLength() && READ == pCommand->rwxAttrib )
 	{
-		frame.ret = AP_read( pCommand );
+		ret = AP_read( pCommand );
 	}
 	else
 	{
-		frame.ret = AP_write( frame.length, bufType, pCommand );
+		ret = AP_write( bufType, pCommand );
 	}
-	
+	SET_apFrameRet(ret);
+
 	/*
 	 * if the apply option and some parameter are received, reconfigure the device
 	 */
-	if ( 0x2 == frame.type && WRITE == frame.rwx )
+	if ( OP_SUCCESS == ret && 0x2 == GET_apFrameType() && WRITE == GET_apFrameRWXopt() )
 	{
-		SET_userValInEEPROM();
-		UART_init();
-		TRX_baseInit();
-		SET_serintCMD_ap( GET_atAP_tmp() );
-		SET_atcopCMD_ct ( GET_atCT_tmp() );
+		if ( DIRTYB_BD & dirtyBits ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
+		if ( DIRTYB_CH & dirtyBits ||\
+		     DIRTYB_ID & dirtyBits ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
 	}
 
 	TRX_send( NONE, REMOTE_RESPONSE, srcAddr, srcAddrLen );
+	pCommand = NULL;
 }
+
+
 
 /*
  * Specific device commands (AP)
@@ -219,34 +274,35 @@ void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t *src
  *		ERROR				calculated crc does not match with received crc
  *		INVALID_COMMAND		command is not in the table
  *		INVALID_PARAMETER	parameter is not in a valid range
- *		
- * last modified: 2017/01/19
+ *
+ * last modified: 2017/01/26
  */
 static at_status_t AP_localDevice(bufType_n bufType)
-{	
+{
 	// AT command 2 bytes
-	uint8_t pCmdString[5] = {'D','E',0,0,0};
+	outchar[0] = 'D';
+	outchar[1] = 'E';
+	deBufferOut( bufType, &outchar[2] )
+	deBufferOut( bufType, &outchar[3] )
+	if ( 'a' <= outchar[2] && 'z' >= outchar[2] ) outchar[2] -= 0x20;
+	if ( 'a' <= outchar[3] && 'z' >= outchar[3] ) outchar[3] -= 0x20;
+	SET_apFrameATcmd( &outchar[2] );
+	SET_apFrameCRC( outchar[2] + outchar[3] );
 
-	cli(); deBufferOut( bufType, &pCmdString[2] ); sei();
-	cli(); deBufferOut( bufType, &pCmdString[3] ); sei();
-	
-	frame.cmd[0] = pCmdString[2];
-	frame.cmd[1] = pCmdString[3];
-	
-	// search for CMD in table
-	CMD *workPointer = CMD_findInTable(pCmdString);
-	
+	pCommand = CMD_findInTable(outchar);
+	if ( NO_AT_CMD == pCommand->ID || NULL == pCommand ) return INVALID_COMMAND;
+
 	/*
 	 * handle CMD
 	 *
 	 * frame length
 	 * EXEC is allowed
 	 */
-	if ( frame.length == 4 && workPointer->rwxAttrib & EXEC )
+	if ( 4 == GET_apFrameLength() && EXEC == pCommand->rwxAttrib )
 	{
-		frame.rwx = EXEC;
-		
-		switch( workPointer->rwxAttrib )
+		SET_apFrameRWXopt(EXEC);
+
+		switch( pCommand->rwxAttrib )
 		{
 			/* no exec functions right now */
 			default: return INVALID_COMMAND;
@@ -256,45 +312,44 @@ static at_status_t AP_localDevice(bufType_n bufType)
 	 * frame length
 	 * READ is allowed
 	 */
-	else if ( frame.length == 4 && workPointer->rwxAttrib & READ )
+	else if ( 4 == GET_apFrameLength() && pCommand->rwxAttrib & READ )
 	{
-		frame.rwx = READ;
-	
-		switch ( workPointer->ID )
+		SET_apFrameRWXopt(READ);
+
+		switch ( pCommand->ID )
 		{
 /* FV */	case DE_FV :
-					frame.length = 1;
-					memcpy( frame.msg, AT_VERSION, strlen(AT_VERSION)+1 );
+					SET_apFrameLength( 1, FALSE );
+					uint8_t *val = AT_VERSION;
+					SET_apFrameMsg( val, strlen(AT_VERSION)+1, DE_FV);
 				break;
-				
-			default: 
+
+			default:
 				return INVALID_COMMAND;
 		}
 	}
-	/* 
-	 * WRITE is allowed, store the value of the string into RFmodel struct and register 
+	/*
+	 * WRITE is allowed, store the value of the string into RFmodel struct and register
 	 * frame length
 	 * string length of input
 	 * writing to RFmodul struct [and to EEPROM] is allowed
 	 */
-	else if ( frame.length > 4 && workPointer->rwxAttrib & WRITE )
+	else if ( 4 < GET_apFrameLength() && WRITE == pCommand->rwxAttrib )
 	{
-		size_t cmdSize = frame.length - 4;
-		frame.rwx = WRITE;
-		
-		switch( workPointer->ID )
+		size_t cmdSize = GET_apFrameLength() - 4;
+		SET_apFrameRWXopt(WRITE);
+
+		switch( pCommand->ID )
 		{
 			/* no write functions right now */
 			default :  return INVALID_COMMAND;
 		}
 	}
-	else
-	{
-		return INVALID_COMMAND;
-	}
+
 	return OP_SUCCESS;
-	
 }
+
+
 
 /*
  * RX Receive Packet Frame
@@ -307,95 +362,108 @@ static at_status_t AP_localDevice(bufType_n bufType)
  * Returns:
  *     nothing
  *
- * last modified: 2017/01/03
+ * last modified: 2017/01/26
  */
 void AP_rxReceive( bufType_n bufType, uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen )
 {
-	uint8_t  outchar;
 	uint16_t frLength = length + 3 + srcAddrLen;			// +2 (frame type) +1 (RSSI) +1 (Option) + src addr length
-	
+
 	UART_putc( STD_DELIMITER );								// start delimiter
 	UART_putc( (uint8_t) (frLength >> 8) );					// frame length
 	UART_putc( (uint8_t) (frLength & 0xFF) );
 	if ( srcAddrLen == 8 )									// frame type
 	{
 		UART_putc( 0x80 );
-		frame.crc = 0x80;
-	} 
+		SET_apFrameCRC( 0x80, FALSE );
+	}
 	else
 	{
 		UART_putc( 0x81 );
-		frame.crc = 0x81;
+		SET_apFrameCRC( 0x81, FALSE );
 	}
 
 	for ( short i = srcAddrLen-1; i >= 0 ; i-- )			// Addr.
 	{
 		UART_putc( *(srcAddr+i) );
-		frame.crc += *(srcAddr+i);
+		SET_apFrameCRC( *(srcAddr+i), TRUE );
 	}
-	
+
 	uint8_t x = TRX_readReg(PHY_RSSI) & 0x1F;
-	UART_putc( x );	
-	frame.crc += x;
-	
+	UART_putc( x );
+	SET_apFrameCRC( x, TRUE );
+
 	UART_putc( *(srcAddr+srcAddrLen+1) );					// Option
-	frame.crc +=     *(srcAddr+srcAddrLen+1);
-				
+	SET_apFrameCRC( *(srcAddr+srcAddrLen+1), TRUE);
+
 	for (uint16_t i; i < length; i++ )
 	{
-		cli(); deBufferOut( bufType, &outchar ); sei();
+		deBufferOut( bufType, &outchar );
 		UART_putc( outchar );
-		frame.crc += outchar;
+		SET_apFrameCRC( outchar, TRUE);
 	}
 
-	UART_putc( 0xFF - frame.crc );							// checksum
-
+	UART_putc( GET_apFrameCRC() );							// checksum
 }
+
+
 
 /*
  * AP AT local response
- * generated the output AP frame with the return value of the specific function in AP_frameHandle_uart function
- * if the specific device value of return to uart (DERU) true, it will be printed a detailed message
- * else the the frame will be written to the uart
- *
- * Received:
- *		api_f	the AP information frame struct
+ * generated the output AP frame with the return value
+ * of the specific function in AP_frameHandle_uart function
  *
  * Returns:
  *		nothing
  *
- * last modified: 2016/11/30
+ * last modified: 2017/01/26
  */
 static void AP_atLocal_response(void)
 {
-	if ( READ == frame.rwx && 0 == frame.ret ) frame.length += 5;
-	else									   frame.length  = 5;
-		
-	UART_putc( STD_DELIMITER );						// start delimiter
-	UART_putc( (uint8_t) (frame.length >> 8) );		// frame length
-	UART_putc( (uint8_t) (frame.length & 0xFF) );
-	UART_putc( 0x88 );								// frame type
-	UART_putc( frame.id );
-	UART_putc( frame.cmd[0] );						// AT cmd
-	UART_putc( frame.cmd[1] );
-	UART_putc( frame.ret * (-1) );					// cmd option (successful/ not successful etc.)
-		
-	//			 Type +  Frame ID +  AT Command                   +   Return Value      //
-	frame.crc = 0x88 + frame.id + frame.cmd[0] + frame.cmd[1] + (frame.ret * (-1));
-	
-	if ( READ == frame.rwx )
+	/*
+	 * if the read option set and the return value OP_SUCCESS
+	 * add 5 to length for frame type, id, command and return value
+	 *
+	 * else set frame length to 5
+	 */
+	uint16_t length = GET_apFrameLength();
+	if ( READ       == GET_apFrameRWXopt() &&\
+	     OP_SUCCESS == GET_apFrameRet() )      length += 5;
+	else									   length  = 5;
+
+	UART_putc( STD_DELIMITER );					// start delimiter
+	UART_putc( (uint8_t) (length >> 8) );		// frame length
+	UART_putc( (uint8_t) (length & 0xFF) );
+	UART_putc( 0x88 );							// frame type
+	UART_putc( GET_apFrameID() );
+
+	GET_apFrameATcmd(outchar, 0);
+	UART_putc( outchar[0] );					// AT cmd
+	UART_putc( outchar[1] );
+	UART_putc( GET_apFrameRet() * (-1) );	    // cmd option (successful/ not successful etc.)
+
+	//			  Type +  Frame ID       +  AT Command             +   Return Value              //
+	uint8_t crc = 0x88 + GET_apFrameID() + outchar[0] + outchar[1] + ( GET_apFrameRet() * (-1) );
+
+	if ( READ       == GET_apFrameRWXopt() &&\
+	     OP_SUCCESS == GET_apFrameRet() )
 	{
-		frame.length -= 5;
-		for (uint8_t x = 0; x < frame.length; x++)
+		length -= 5;
+		GET_apFrameMsg(outchar, 0, length);
+		for (uint8_t x = 0; x < length; x++)
 		{
-			UART_putc( frame.msg[x] );
-			frame.crc += frame.msg[x];
+			UART_putc( outchar[x] );
+			crc += outchar[x];
 		}
 	}
-	UART_putc( 0xFF - frame.crc);					// checksum
+	UART_putc( 0xFF - crc);					// checksum
 }
 
+
+
 /*
+ * The tx status frame
+ * generated the output AP frame with the status return value
+ * of the transmit 16/64 frame
  *
  * received:
  *		uint8_t		transmit status value
@@ -403,7 +471,7 @@ static void AP_atLocal_response(void)
  * Returns:
  *		nothing
  *
- * last modified: 2017/01/09
+ * last modified: 2017/01/26
  */
 void AP_txStatus(at_status_t status)
 {
@@ -411,21 +479,23 @@ void AP_txStatus(at_status_t status)
 	UART_putc( 0x0 );								// frame length
 	UART_putc( 0x3 );
 	UART_putc( 0x89 );
-	UART_putc( frame.id );
-	
-	frame.crc = 0x89 + frame.id;
-	
+	UART_putc( GET_apFrameID() );
+
+	uint8_t crc = 0x89 + GET_apFrameID();
+
 	switch (status)
 	{
-		case OP_SUCCESS			: UART_putc( 0x00 ); frame.crc += 0x00; break;	// success
-		case TRANSMIT_OUT_FAIL	: UART_putc( 0x01 ); frame.crc += 0x01; break;	// No acknowledgment received
-		
+		case OP_SUCCESS			: UART_putc( 0x00 ); crc += 0x00; break;	// success
+		case TRANSMIT_OUT_FAIL	: UART_putc( 0x01 ); crc += 0x01; break;	// No acknowledgment received
+
 		/* TODO other cases need to be added */
-		default					: UART_putc( 0x85 ); frame.crc += 0x85; break;	// Unknown ERROR
+		default					: UART_putc( 0x85 ); crc += 0x85; break;	// Unknown ERROR
 	}
-	
-	UART_putc(0xFF - frame.crc);
+
+	UART_putc(0xFF - crc);
 }
+
+
 
 /*
  * AT Remote Response Frame (read frame)
@@ -437,25 +507,25 @@ void AP_txStatus(at_status_t status)
  * Returns:
  *		nothing
  *
- * last modified: 2016/12/14
+ * last modified: 2017/01/26
  */
 void AP_atRemote_response(bufType_n bufType, uint16_t length)
 {
 	uint8_t  outchar;
 	uint16_t frLength = length + 1;							// +1 for frame type
-	
+
 	UART_putc( STD_DELIMITER );								// start delimiter
 	UART_putc( (uint8_t) (frLength >> 8) );					// frame length
 	UART_putc( (uint8_t) (frLength & 0xFF) );
 	UART_putc( 0x97 );										// frame type
-	frame.crc = 0x97;
-	
+	uint8_t crc = 0x97;
+
 	for (uint16_t i = 0; i < length; i++)
 	{
-		cli(); deBufferOut( bufType, &outchar ); sei();
+		deBufferOut( bufType, &outchar );
 		UART_putc( outchar );
-		frame.crc += outchar;
+		crc += outchar;
 	}
-	UART_putc(0xFF - frame.crc);							// checksum
+	UART_putc(0xFF - crc);							// checksum
 
 }

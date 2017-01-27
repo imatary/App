@@ -3,9 +3,13 @@
  *
  * Created: 25.01.2017 16:41:48
  *  Author: TOE
- */ 
-// === object =============================================
-struct api_f 
+ */
+// === includes ===========================================
+#include <inttypes.h>		// uint8/16_t
+#include <stddef.h>			// size_t
+
+// === struct =============================================
+struct api_f
 {
 	at_status_t ret;		// 1 Byte
 	uint8_t		rwx;		// 1 Byte
@@ -20,89 +24,151 @@ struct api_f
 	 *        |<---------------------------------- frame frame->bufLength ------------------->|
 	 */
 	uint8_t  crc;
-	
+
 }__attribute__((packed));
 
 // === globals ============================================
 static struct api_f frame  = {0,0,0,0,{0},0,{0},0};
-	
+
+// === prototypes ==========================================
+static void SWAP_apFrameMsg(size_t length);
+
 // === functions ===========================================
 /*
- *
- */
-void        SET_apFrameRet(at_status_t ret) { frame.ret = ret * (-1); }
-at_status_t GET_apFrameRet(void)            { return frame.ret; }
-
-
-/*
- * AP set AT read, write or execute value into frame struct for response 
+ * Set and get frame return value. (Command Status)
  *
  * Received:
- *		uint8_t value of READ, WRITE or EXEC
+ *		at_status_t		received return value
  *
  * Returns:
- *	   nothing
+ *		at_status_t		stored return value
  *
- * last modified: 2016/12/19
+ * last modified: 2017/01/26
  */
-void SET_apFrameRWXopt(uint8_t opt) { frame.rwx = opt; }
-uint8_t GET_apFrameRWXopt(void) { return frame.rwx; }	
-	
-	
-/*
- *
- */
-void    SET_apFrameID(uint8_t id) { frame.id = id; }
-uint8_t GET_apFrameID(void)       { return frame.id; }
+void SET_apFrameRet(at_status_t ret)
+{
+	frame.ret = ret;
+}
+
+at_status_t GET_apFrameRet(void)
+{
+	return frame.ret;
+}
 
 
-
-	
 
 /*
- * The AP CRC functions
- * - set CRC (start) value
- * - update CRC value
- * - compared calculated CRC value with the received CRC
+ * Set and get frame read, write and execute option value.
  *
  * Received:
- *		uint8_t		received UART value
+ *		uint8_t		received value depending on read write execute function
+ *					and error (will be set as EXEC) return value
+ *
+ * Returns:
+ *	   uint8_t		stored return value
+ *
+ * last modified: 2017/01/26
+ */
+void SET_apFrameRWXopt(uint8_t rwx)
+{
+	frame.rwx = rwx;
+}
+
+uint8_t GET_apFrameRWXopt(void)
+{
+	return frame.rwx;
+}
+
+
+
+/*
+ * Set and get frame id.
+ * The frame id is not equal to frame type,
+ * the frame id is a frame counter.
+ *
+ * Received:
+ *		uint8_t		received id value
  *
  * Returned:
- *		TRUE		if calculated crc equal to user crc			(AP_compareCRC)
- *		FALSE		if calculated crc is not equal to user crc	(AP_compareCRC)
+ *		uint8_t		stored id value
  *
- * last modified: 2017/01/18
+ * last modified: 2017/01/26
  */
-void AP_setCRC   (uint8_t val) { frame.crc  = val; }
-void AP_updateCRC(uint8_t val) { frame.crc += val; }
+void SET_apFrameID(uint8_t id)
+{
+	frame.id = id;
+}
 
-bool_t AP_compareCRC(uint8_t val)
-{	
-	if ( (0xFF - frame.crc) == val )
+uint8_t GET_apFrameID(void)
+{
+	return frame.id;
+}
+
+
+
+/*
+ * Set and compare the calculated frame crc.
+ * The set function can used to store initial value
+ * or to update the stored value.
+ *
+ * The compare function compared
+ * the calculated CRC value with the received CRC
+ *
+ * Received:
+ *		uint8_t		received value for set/ update	(SET_apFrameCRC)
+ *		uint8_t		received user crc				(COMPARE_apFrameCRC)
+ *		bool_t		boolean value, if its TRUE the stored value will be updated
+ *
+ * Returned:
+ *		uint8_t				calculated crc sum
+ *		OP_SUCCESS			if calculated crc equal to user crc			(COMPARE_apFrameCRC)
+ *		INVALID_COMMAND		if calculated crc is not equal to user crc	(COMPARE_apFrameCRC)
+ *
+ * last modified: 2017/01/26
+ */
+void SET_apFrameCRC(uint8_t crc, bool_t update)
+{
+	if ( TRUE == update )
 	{
-		return TRUE;
+		frame.crc  += crc;
 	}
-	else 
+	else
 	{
-		frame.rwx = EXEC;
-		frame.ret = ERROR;
-		return FALSE;
+		frame.crc = crc;
+	}
+}
+
+uint8_t GET_apFrameCRC(void)
+{
+	return 0xFF - frame.crc;
+}
+
+at_status_t COMPARE_apFrameCRC(uint8_t userCrc)
+{
+	if ( (0xFF - frame.crc) == userCrc )
+	{
+		return OP_SUCCESS;
+	}
+	else
+	{
+		return INVALID_COMMAND;
 	}
 }
 
 
 
 /*
- * AP set AT command stored the AT CMD into frame struct for response 
+ * Set and get AT command letters.
  *
  * Received:
- *		uint8_t pointer to the array which hold the AT command line
+ *		uint8_t		pointer to the array which hold the AT command line		(SET_apFrameATcmd)
+ *		uint8_t		pointer which shall receive the AT command letters		(GET_apFrameATcmd)
+ *		int			position of the array which shall receive the letters	(GET_apFrameATcmd)
  *
  * Returns:
  *	   nothing
  *
- * last modified: 2016/12/19
+ * last modified: 2017/01/26
  */
 void SET_apFrameATcmd(uint8_t *array)
 {
@@ -110,66 +176,102 @@ void SET_apFrameATcmd(uint8_t *array)
 	memcpy( frame.cmd, array,2);
 }
 
-void GET_apFrameATcmd(uint8_t *array, int pos)  { memcpy( array+pos, frame.cmd, 2);   }
+void GET_apFrameATcmd(uint8_t *array, int pos)
+{
+	memcpy( array+pos, frame.cmd, 2);
+}
 
 
 
 /*
- * AP set frame length
+ * Set and get frame length.
+ * The set function can set set a new value or
+ * update the current value with left shifting.
  *
  * Received:
- *		uint8_t value of READ, WRITE or EXEC
+ *		uint16_t	length value
+ *		bool_t		boolean value whether the length shall updated with or operator
  *
  * Returns:
- *	   OP_SUCCESS	if frame length greater then 3
- *	   ERROR		if frame length is below 4
+ *		uint16_t	stored length value				(GET_apFrameLength)
  *
- * last modified: 2016/01/17
+ * last modified: 2017/01/26
  */
-at_status_t AP_setFrameLength(uint16_t val, bool_t shift)
+void SET_apFrameLength(uint16_t length, bool_t or)
 {
-	if ( TRUE == shift) { frame.length |= val; }
-	else				{ frame.length  = val; }
-
-	return ( frame.length < 4 )? ERROR : OP_SUCCESS;
-}
-
-uint16_t AP_getFrameLength(void) { return frame.length; }
-
-
-
-/*
- * AP set AT command stored the AT CMD for the response in the frame struct
- *
- * Received:
- *		void	pointer to the variable which hold the parameter value
- *		short	size of the parameter
- *		uint8_t boolean value whether the message array should be swapped or not
- *
- * Returns:
- *	   nothing
- *
- * last modified: 2016/12/19
- */
-void AP_setMSG(void *val, size_t len)
-{
-	frame.msg[len] = 0x0;
-	
-	frame.length = len;
- 	memcpy(frame.msg,(uint8_t*) val, len);
-	
-	// swap only if not NI command
- 	if ( *((uint8_t*) val) != frame.msg[len-1] ) swap_msg(len);
-}
-
-static void swap_msg(size_t length)
-{
-	for (short i = 0; i < frame.length/2; i++, length--)
+	if ( TRUE == or )
 	{
-		frame.msg[i]        ^= frame.msg[length-1];
-		frame.msg[length-1] ^= frame.msg[i];
-		frame.msg[i]        ^= frame.msg[length-1];
+		frame.length |= length;
+	}
+	else
+	{
+		frame.length  = length;
 	}
 }
 
-void GET_apFrameMsg(uint8_t *array, int pos, size_t len) {	memcpy( array+pos, frame.msg, len); }
+uint16_t GET_apFrameLength(void)
+{
+	return frame.length;
+}
+
+
+
+/*
+ * Set, get and swap message payload
+ *
+ * Received:
+ *		void		pointer to the variable which hold the parameter value	(SET_apFrameMsg)
+ *		size_t		size of the parameter
+ *		cmdIDs		if known the command ID									(SET_apFrameMsg)
+ *		uint8_t		pointer which shall receive the AT command letters		(GET_apFrameMsg)
+ *		int			position of the array which shall receive the letters	(GET_apFrameMsg)
+ *
+ * Returns:
+ *		nothing
+ *
+ * last modified: 2016/12/19
+ */
+void SET_apFrameMsg(void *val, size_t len, const cmdIDs id)
+{
+	frame.msg[len] = 0x0;
+ 	memcpy( frame.msg, (uint8_t*) val, len);
+
+	// swap only if not NI command
+ 	if ( AT_NI != id && 1 < len ) SWAP_apFrameMsg(len);
+}
+
+static void SWAP_apFrameMsg(size_t length)
+{
+	for (short i = 0; i < length/2; i++)
+	{
+		frame.msg[i]          ^= frame.msg[length-1-i];
+		frame.msg[length-1-i] ^= frame.msg[i];
+		frame.msg[i]          ^= frame.msg[length-1-i];
+	}
+}
+
+void GET_apFrameMsg(uint8_t *array, int pos, size_t len)
+{
+	memcpy( array+pos, frame.msg, len);
+}
+
+/*
+ * Set and get frame type
+ *
+ * received:
+ *		uint8_t		received type value
+ *
+ * Returns:
+ *		uint8_t		stored type value
+ *
+ * last modified: 2017/01/26
+ */
+void SET_apFrameType(uint8_t type)
+{
+	frame.type = type;
+}
+
+uint8_t GET_apFrameType(void)
+{
+	return frame.type;
+}

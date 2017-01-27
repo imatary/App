@@ -6,7 +6,7 @@
  *
  * File related to the sample code of mikrocontroller.net
  * http://www.mikrocontroller.net/articles/FIFO
- */ 
+ */
 
 
 #ifndef CIRCULARBUFFER_H_
@@ -24,12 +24,13 @@
 #define DE_BUFFER_MASK (DE_BUFFER_SIZE-1)	// do not forget the brackets
 
 // === typedefs ===========================================
-typedef enum 
-{ 
+typedef enum
+{
 	NONE = -1,
-	UART, 
+	UART,
 	RX,
-	 
+	RX_WORK_BUF,
+
 }__attribute__((packed)) bufType_n;
 
 /*
@@ -45,7 +46,8 @@ void   SET_deBufferNewContent(bufType_n bufType, bool_t val);
 at_status_t deBufferIn	(bufType_n bufType, uint8_t inByte);
 at_status_t deBufferOut	(bufType_n bufType, uint8_t *pByte);
 
-void GET_deBufferData_atReadPosition(bufType_n bufType, uint8_t *workArray, size_t len);
+void READ_deBufferData_atReadPosition(bufType_n bufType, uint8_t *workArray, size_t len);
+void CPY_deBufferData( bufType_n dest, bufType_n src, size_t len);
 /*
  * careful with this functions
  * to manipulate the buffer can omit a crash or overwrite new data

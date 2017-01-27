@@ -3,7 +3,7 @@
  *
  * Created: 25.01.2017 16:07:06
  *  Author: TOE
- */ 
+ */
 
 
 #ifndef HELPER_H_

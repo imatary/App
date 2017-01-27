@@ -3,7 +3,7 @@
  *
  * Created: 15.11.2016 11:33:30
  *  Author: TOE
- */ 
+ */
 
 
 #ifndef ATLOCAL_H_

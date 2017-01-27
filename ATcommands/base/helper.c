@@ -22,16 +22,16 @@ static inline void swap_u64(uint64_t *inVal);
 /*
  * Validation an write function
  * - received the buffer content and converted content to uint32 hex values
- * if - the command size smaller or equal then unit of the tmp buffer 
+ * if - the command size smaller or equal then unit of the tmp buffer
  *    - the buffer value greater or equal than min value
  *    - the buffer value smaller or equal than max value
  * write to RFmodul struct
- * 
+ *
  * Received:
  *		bufType_n	number of buffer type
  *		size_t  	string length
  *		CMD			pointer to command in command table
- *		
+ *
  * Returns:
  *     OP_SUCCESS			on success
  *	   INVALID_PARAMETER	if parameter is not valid or error has occurred during transforming to hex
@@ -42,7 +42,7 @@ at_status_t max_u32val( size_t len, const uint8_t *workArray, const CMD *cmd, co
 {
 	uint32_t val = 0x0;
 	char *endptr;
-	
+
 	if( devMode == GET_serintCMD_ap() )
 	{
 		val = strtoul( (const char*) workArray, &endptr, 16);
@@ -53,7 +53,7 @@ at_status_t max_u32val( size_t len, const uint8_t *workArray, const CMD *cmd, co
 		memcpy( &val, workArray, len);
 		swap_u32(&val);
 	}
-	
+
 	if ( val >= cmd->min && val <= cmd->max )
 	{
 		cmd->mySet( &val, cmd->cmdSize);
@@ -65,23 +65,23 @@ at_status_t max_u32val( size_t len, const uint8_t *workArray, const CMD *cmd, co
 
 at_status_t max_u64val( size_t len, const uint8_t *workArray, const CMD *cmd, const device_mode devMode )
 {
-/*	uint8_t  workArray_A[9] = {0x0}; 
+/*	uint8_t  workArray_A[9] = {0x0};
 	size_t len_A = (len > 9)? 8 : len;
 	uint64_t val = 0;
 	char *endptr;
-	
+
 	GET_deBufferData_atReadPosition( bufType, workArray_A, len_A);
-	
+
 	if( TRANSPARENT_MODE == GET_serintCMD_ap )
 	{
 		val = (uint64_t) strtoul( (const char*) workArray_A, &endptr, 16) << ( len > 9 )? 32 : 0;
 		if ( *endptr != workArray_A[len-1]) return INVALID_PARAMETER;
-		
+
 		if ( len > 9 )
 		{
 			uint8_t workArray_B[9] = {0x0};
 			uint16_t len_B = len-8;
-				
+
 			GET_deBufferData_atReadPosition( bufType, workArray_B, len_B);
 			val |= strtoul( (const char*) workArray_B, &endptr, 16);
 			if ( *endptr != workArray_B[len-1]) return INVALID_PARAMETER;
@@ -90,15 +90,15 @@ at_status_t max_u64val( size_t len, const uint8_t *workArray, const CMD *cmd, co
 	else
 	{
 		memcpy( &val, workArray_A, len);
-		if ( val & 0xFF != workArray_A[len-2] ); 
+		if ( val & 0xFF != workArray_A[len-2] );
 	}
-	
+
 	deBufferReadReset( bufType, '+', len);
-	
+
 	if ( val >= *cmd->min && val <= *cmd->max )
 	{
 		cmd->mySet( &val, cmd->cmdSize);
-		
+
 		if ( devMode == GET_serintCMD_ap() ) { UART_print_status(OP_SUCCESS); }
 		return OP_SUCCESS;
 	}
@@ -106,7 +106,7 @@ at_status_t max_u64val( size_t len, const uint8_t *workArray, const CMD *cmd, co
 }
 
 
-/* 
+/*
  * special handle if
  * - network identifier string command
  * - buffer content <= 20 characters
@@ -116,7 +116,7 @@ at_status_t node_identifier( size_t len, const uint8_t *workArray, const CMD *cm
 	if ( len <= cmd->max )
 	{
 		cmd->mySet( workArray, len);
-		
+
 		if ( devMode == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
 		return OP_SUCCESS;
 	}
@@ -142,7 +142,7 @@ at_status_t ky_validator( bufType_n bufType, size_t len, CMD *cmd, const device_
 
 /*
  * swap helper functions
- * 
+ *
  * Returns:
  *		nothing
  *

@@ -14,7 +14,7 @@
 #include "../header/cmd.h"
 #include "../header/atlocal.h"
 #include "../header/rfmodul.h"
-#include "../../ATuracoli/stackrelated.h" 
+#include "../../ATuracoli/stackrelated.h"
 
 // === min / max values ===================================
 #define  U8__SIZE 1
@@ -27,7 +27,7 @@
 // === command table ======================================
 static const CMD StdCmdTable[] =
 {
-	/* name ,  ID  ,  addr at offset  ,  rwx option       , max size , min ,     max   , set functions   , validation    , print function */     
+	/* name ,  ID  ,  addr at offset  ,  rwx option       , max size , min ,     max   , set functions   , validation    , print function */
 	/* AT */
 	{ "AT%C", AT_pC,        NO_OFFSET , READ              ,  U8__SIZE,													   }, // %
 	{ "AT%V", AT_pV,        NO_OFFSET , READ              ,  0,														       },			// TODO ZigBee
@@ -37,9 +37,9 @@ static const CMD StdCmdTable[] =
 	{ "ATAC", AT_AC,        NO_OFFSET ,			      EXEC,  0,				      		 						           },
 	{ "ATAI", AT_AI, GET_offsetof_ai(), READ              ,  U8__SIZE,		      		 								   },
 	{ "ATAP", AT_AP, GET_offsetof_ap(), READ | WRITE      ,  U8__SIZE, 0x00,       0x02, SET_atAP_tmp    , max_u32val      },
-																	         	   
+
 	{ "ATBD", AT_BD, GET_offsetof_bd(), READ | WRITE      ,  U8__SIZE, 0x00,       0x07, SET_serintCMD_bd, max_u32val      }, // B
-																	         	   
+
 	{ "ATCA", AT_CA, GET_offsetof_ca(), READ | WRITE      ,  U8__SIZE, 0x24,       0x50, SET_rfiCMD_ca   ,                 }, // C
 	{ "ATCC", AT_CC, GET_offsetof_cc(), READ | WRITE      ,  U8__SIZE, 0x00,       0x00, SET_atcopCMD_cc , max_u32val      },
 	{ "ATCE", AT_CE, GET_offsetof_ce(), READ | WRITE      ,  U8__SIZE, 0x00,       0x01, SET_netCMD_ce   , max_u32val      },
@@ -152,59 +152,53 @@ CMD *CMD_findInTable(uint8_t *cmd)
 	int middle;
 	int left = 0;
 	int val  = 0;
-	
+
 	while( left <= right )
 	{
 		middle = left + ( ( right - left) /2 );
 		val = strncmp( (const char*) cmd, (pStdCmdTable+middle)->name, 4 );
-		
-		if      ( 0 == val )   return (CMD*) (pStdCmdTable+middle);		
+
+		if      ( 0 == val )   return (CMD*) (pStdCmdTable+middle);
 		else if ( 0 > val )    right = middle - 1;
 		else /* ( 0 < val ) */ left  = middle + 1;
-		
+
 	}
 	return NO_AT_CMD;
 }
 
+
+
 /*
- * Get command 
- * - reads a string from buffer
- * - searched for the command in the command table
- * - store it into pCommand pointer
- * 
- * Received:
- *		bufType_n	number of buffer type
- *		CMD			pointer for address in command table
- *		
- * Returns:
- *     OP_SUCCESS			on success
- *	   INVALID_PARAMETER	if parameter is not valid or error has occurred during transforming to hex
+ * Binary search function to find command in table
+ * halved the table every time, runtime ~ O( log(n) )
  *
- * last modified: 2017/01/25
+ * IMPORTANT! : table needs to be sorted alphabetically
+ *
+ * Received:
+ *		cmdIDs		command id which is requested
+ *
+ * Returns:
+ *		CMD			pointer to command position in the command table
+ *		NO_AT_CMD	if there not a command available
+ *
+ * last modified: 2016/12/19
  */
-at_status_t CMD_getCommand( bufType_n bufType, CMD *pCommand, const device_mode devMode )
+CMD *CMD_findInTableByID(cmdIDs id)
 {
-	static uint8_t cmdString[5];
-	 
-	if ( devMode != GET_serintCMD_ap() ) // AP frame
+	int right  = ( sizeof(StdCmdTable)/sizeof(CMD) ) - 1; // count of elements in CMD table - 1
+	int middle;
+	int left = 0;
+	int val  = 0;
+
+	while( left <= right )
 	{
-		cmdString[0] = 'A';
-		cmdString[1] = 'T';
-		deBufferOut( bufType, &cmdString[2] );
-		deBufferOut( bufType, &cmdString[3] );
-		if ( 'a' <= cmdString[2] && 'z' >= cmdString[2] ) cmdString[2] -= 0x20;
-		if ( 'a' <= cmdString[3] && 'z' >= cmdString[3] ) cmdString[3] -= 0x20;
-		AP_setATcmd(cmdString);
+		middle = left + ( ( right - left) /2 );
+		val = memcmp( &id, (pStdCmdTable+middle)->ID, sizeof(cmdIDs) );
+
+		if      ( 0 == val )   return (CMD*) (pStdCmdTable+middle);
+		else if ( 0 > val )    right = middle - 1;
+		else /* ( 0 < val ) */ left  = middle + 1;
+
 	}
-	else // AT CMD
-	{
-		for (int i = 0; i < 4 ; i++)
-		{
-			deBufferOut( bufType, &cmdString[i] );
-			if ( 'a' <= cmdString[i] && 'z' >= cmdString[i] ) cmdString[i] -= 0x20;
-		}
-	}
-	
-	pCommand = CMD_findInTable(cmdString);
-	return ( NO_AT_CMD == pCommand->ID || NULL == pCommand )? INVALID_COMMAND : OP_SUCCESS;
+	return NO_AT_CMD;
 }

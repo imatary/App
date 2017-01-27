@@ -3,7 +3,7 @@
  *
  * Created: 25.01.2017 16:18:56
  *  Author: TOE
- */ 
+ */
 // === includes ===========================================
 #include <stddef.h>				// size_t
 
@@ -24,16 +24,18 @@
  *		OP_SUCCESS			if command successful accomplished
  *		INVALID_PARAMETER	if the delivered parameter is not valid
  *		ERROR				if no command was delivered
- *				 
+ *
  * last modified: 2017/01/25
- */				 
-at_status_t AP_write(size_t len, bufType_n bufType, const CMD *cmd )
-{	
+ */
+at_status_t AP_write( bufType_n bufType, const CMD *cmd )
+{
 	if ( NULL == cmd ) return ERROR;
-	
-	static uint8_t  workArray[21];
-	
-	GET_deBufferData_atReadPosition( bufType, workArray, len);
-	
-	return cmd->valid(len, cmd, AP_MODE);
+
+	SET_apFrameRWXopt(WRITE);
+
+	static uint8_t  workArray[MAX_PARAMETER_LENGHT];
+
+	READ_deBufferData_atReadPosition( bufType, workArray, GET_apFrameLength() );
+
+	return cmd->valid( GET_apFrameLength(), cmd, AP_MODE);
 }
