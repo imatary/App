@@ -21,6 +21,14 @@ typedef struct {
 } deBuffer_t;
 
 // === globals ============================================
+/*
+ * three buffer are initialized to allow parallel work without conflicts
+ * one Buffer for UART op
+ * one Buffer for RX op
+ * one Buffer for RX handling
+ *
+ * remember all buffer have the size of BUFFER_SIZE
+ */
 static deBuffer_t xbuffer[] = {
 	{ {0x0}, 0x0, 0x0, FALSE },	// UART
 	{ {0x0}, 0x0, 0x0, FALSE }, // RX
@@ -174,7 +182,6 @@ void deBufferReadReset(bufType_n bufType, char operand , size_t len)
 			return;
 		}
 	}
-
 }
 
 /*
@@ -253,12 +260,32 @@ void deBufferReset(bufType_n bufType)
  *
  * last modified: 2017/01/27
  */
- void CPY_deBufferData( bufType_n dest, bufType_n src, size_t len)
- {
+void CPY_deBufferData( bufType_n dest, bufType_n src, size_t len)
+{
 	 deBuffer_t *source = &xbuffer[src];
 	 deBuffer_t *destination = &xbuffer[dest];
 
-	 memcpy( destination->data[ destination->write ], source->data[ source->read ], len )
+	 memcpy( &destination->data[ destination->write ], &source->data[ source->read ], len );
 
 	 deBufferReadReset(src, '+', len);
- }
+}
+
+/*
+ * Get Byte At  returned
+ * the stored byte at position pos.
+ * Read pointer will not moved after reading.
+ *
+ * Received:
+ *		buftype_n	buffer type for target buffer
+ *		uint8_t		array position
+ *
+ *	Returned:
+ *		uint8_t		byte at position pos
+ *
+ * last modified: 2017/01/30
+ */
+uint8_t GET_deBufferByteAt( bufType_n bufType, uint8_t pos)
+{
+	pos +=  xbuffer[ bufType ].read;
+	return xbuffer[ bufType ].data[ pos ];
+}

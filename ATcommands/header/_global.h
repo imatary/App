@@ -9,6 +9,8 @@
 #ifndef _GLOBAL_H_
 #define _GLOBAL_H_
 
+#include <inttypes.h>
+
 // === miscellaneous ======================================
 #define DEBUG 0			// debug mode ( 0 = off / 1 = on )
 #define FLASH_ATTR
@@ -31,7 +33,7 @@ typedef enum { FALSE, TRUE }__attribute__((packed)) bool_t;
 typedef enum { TRANSPARENT_MODE, AP_MODE, AP_ESCAPE_MODE }__attribute__((packed)) device_mode;
 
 // === shared globals =====================================
-uint8_t dirtyBits = 0;
+extern uint8_t dirtyBits;
 
 
 #endif /* _GLOBAL_H_ */

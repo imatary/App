@@ -13,7 +13,7 @@
 #include "../../ATuracoli/stackrelated.h"		// uart functions
 
 // === globals ============================================
-static uint8_t workArray[21];
+static uint8_t workArray[MAX_PARAMETER_LENGHT];
 static uint32_t u32val;
 
 // === functions ==========================================
@@ -29,14 +29,14 @@ static uint32_t u32val;
  *
  * last modified: 2017/01/25
  */
-at_status_t CMD_read( CMD *cmd )
+at_status_t AT_read( CMD *cmd )
 {
 	switch( cmd->ID )
 	{
 		case AT_IA :
 			{
 				uint64_t value;
-				GET_deviceValue( value, cmd );
+				GET_deviceValue( &value, cmd );
 				UART_printf("%"PRIX32,      value >> 32 );			// need to be divided in two peaces because PRIX64 has an bug
 				UART_printf("%"PRIX32"\r",  value & 0xFFFFFFFF );
 			}
@@ -67,7 +67,8 @@ at_status_t CMD_read( CMD *cmd )
 
 		default :
 			{
-				GET_deviceValue( u32val, cmd );
+				u32val = 0;
+				GET_deviceValue( &u32val, cmd );
 				UART_printf("%"PRIX32"\r", u32val );
 			}
 		break;

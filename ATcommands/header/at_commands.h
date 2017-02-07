@@ -17,10 +17,13 @@
 
 // === prototypes ==========================================
 
-void AT_parser( uint8_t inchar, bufType_n bufType, const device_mode devMode );
+void AT_parser( uint8_t inchar, bufType_n bufType );
 
-at_status_t AT_read ( CMD *pCommand );
+at_status_t AT_read ( CMD *cmd );
 at_status_t AT_exec ( uint32_t *th, cmdIDs cmdID);
 at_status_t AT_write( size_t len,   bufType_n bufType, CMD *pCommand );
+
+void TRX_printContent( bufType_n bufType, uint8_t flen, uint8_t dataStart );
+int  TRX_msgFrame    ( bufType_n bufType, uint8_t *package );
 
 #endif /* ATLOCAL_H_ */

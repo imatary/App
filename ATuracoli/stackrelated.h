@@ -3,7 +3,7 @@
  *
  * Created: 26.10.2016 08:50:30
  *  Author: TOE
- */ 
+ */
 
 
 #ifndef STACKRELATED_H_
@@ -14,7 +14,7 @@
 
 #include "../ATcommands/header/_global.h"
 #include "../ATcommands/header/enum_status.h"
-#include "../ATcommands/header/apiframe.h"
+#include "../ATcommands/header/ap_frames.h"
 
 #include "hif.h"
 #include "transceiver.h"
@@ -58,10 +58,10 @@ static void		(*TRX_setShortAddr)	(uint16_t shortaddr);
 static void		(*TRX_setLongAddr)	(uint64_t longaddr);
 static uint8_t	(*TRX_init)			(void);
 	   void		(*TRX_spiInit)		(uint8_t spirate);
-	   void		(*TRX_writeReg)		(uint8_t addr, uint8_t val);	  
+	   void		(*TRX_writeReg)		(uint8_t addr, uint8_t val);
 	   uint8_t	(*TRX_readReg)		(uint8_t addr);
 	   void		(*TRX_writeBit)		(uint8_t addr, uint8_t mask, uint8_t pos, uint8_t value);
-	   uint8_t	(*TRX_readBit)		(uint8_t addr, uint8_t mask, uint8_t pos);      
+	   uint8_t	(*TRX_readBit)		(uint8_t addr, uint8_t mask, uint8_t pos);
 	   void		(*TRX_writeTX)		(uint8_t length, uint8_t *data);
 	   uint8_t	(*TRX_readRX)		(uint8_t *data, uint8_t datasz, uint8_t *lqi);
 	   uint8_t	(*TRX_getRxLength)	(void);

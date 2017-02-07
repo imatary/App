@@ -26,7 +26,7 @@
  *
  * last modified: 2017/01/25
  */
-at_status_t CMD_exec(uint32_t *th, cmdIDs cmdID)
+at_status_t AT_exec(uint32_t *th, cmdIDs cmdID)
 {
 	switch ( cmdID )
 	{

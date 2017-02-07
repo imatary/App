@@ -20,7 +20,7 @@
 #include "_global.h"
 
 // === defines ============================================
-#define DE_BUFFER_SIZE 2048					// need to be 2^n (8, 16, 32, 64 ...), for each buffer (Bytes)
+#define DE_BUFFER_SIZE 1024					// need to be 2^n (8, 16, 32, 64 ...), for each buffer (Bytes)
 #define DE_BUFFER_MASK (DE_BUFFER_SIZE-1)	// do not forget the brackets
 
 // === typedefs ===========================================
@@ -33,15 +33,10 @@ typedef enum
 
 }__attribute__((packed)) bufType_n;
 
-/*
- * two buffer are initialized to allow parallel work without conflicts
- * one Buffer for UART op
- * one Buffer for RX op
- *
- * remember both buffer have the size of BUFFER_SIZE
- */
+// === prototypes =========================================
 bool_t GET_deBufferNewContent(bufType_n bufType);
 void   SET_deBufferNewContent(bufType_n bufType, bool_t val);
+uint8_t GET_deBufferByteAt( bufType_n bufType, uint8_t pos);
 
 at_status_t deBufferIn	(bufType_n bufType, uint8_t inByte);
 at_status_t deBufferOut	(bufType_n bufType, uint8_t *pByte);

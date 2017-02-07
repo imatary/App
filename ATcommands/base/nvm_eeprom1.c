@@ -29,8 +29,8 @@ static        uint16_t calc_crc(uint8_t* pBuffer, uint16_t size);
 
 // === globals ============================================
 static uint8_t lary[1024];
-static device_t *RFmodul = GET_device();
-static size_t       size = GET_device_tSize();
+static device_t *RFmodul;
+static size_t       size;
 
 // === functions ==========================================
 /*
@@ -48,6 +48,8 @@ static size_t       size = GET_device_tSize();
  */
 void SET_defaultInEEPROM(void)
 {
+	RFmodul = GET_device();
+	size = GET_device_tSize();
 	memset(lary, 0xFF, size + 8);
 	lary[0] = 0x88;
 	lary[1] = 0xDE;
@@ -86,6 +88,8 @@ void SET_defaultInEEPROM(void)
  */
 void GET_allFromEEPROM(void)
 {
+	RFmodul = GET_device();
+	size = GET_device_tSize();
 	eeprom_read_block(lary, (void*) START_POS, size + 8);				// (1)
 	uint16_t calcCrc = calc_crc(lary, size + 4 );						// (2)
 	uint16_t readCrc = (uint16_t) lary[size + 7] << 8 | lary[size + 6];
@@ -110,6 +114,8 @@ void GET_allFromEEPROM(void)
  */
 void SET_userValInEEPROM(void)
 {
+	RFmodul = GET_device();
+	size = GET_device_tSize();
 	lary[0] = 0x80;
 	lary[1] = 0xDE;
 	lary[2] = 0x02;

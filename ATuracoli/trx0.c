@@ -13,7 +13,8 @@
 #include "../ATcommands/header/_global.h"
 #include "../ATcommands/header/rfmodul.h"
 #include "../ATcommands/header/circularBuffer.h"
-#include "../ATcommands/header/apiframe.h"
+#include "../ATcommands/header/ap_frames.h"
+#include "../ATcommands/header/at_commands.h"
 #include "stackrelated.h"
 #include "stackdefines.h"
 
@@ -27,12 +28,6 @@
  */
 static void TRX_txHandler(void);
 static void TRX_rxHandler(void);
-/*
- * TRX_msgFrame			prepare the buffer to send a simple text message
- * TRX_atRemoteFrame	prepare the buffer to send a AT Remote command
- */
-int TRX_msgFrame	 (bufType_n bufType, uint8_t *send);
-int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send);
 
 // === structs & var init =================================
 /*
@@ -153,7 +148,7 @@ uint8_t TRX_baseInit(void)
  *
  * last modified: 2017/01/19
  */
-void TRX_send(bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen, device_mode devMode)
+void TRX_send(bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen)
 {
 	tx_stat.senderInfo = senderInfo;
 	int pos = 0;
@@ -163,7 +158,7 @@ void TRX_send(bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t s
 	/*
 	 * Handle buffer dependent on AP mode on or off and return pointer position in the array
 	 */
-	if ( devMode == GET_serintCMD_ap() )
+	if ( TRANSPARENT_MODE == GET_serintCMD_ap() )
 	{
 		pos = TRX_msgFrame( bufType, send );		// AT TX Transmit Request
 	}
@@ -185,7 +180,7 @@ void TRX_send(bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t s
 	}
 
 	/*
-	 * Step 2: setup and send package
+	 * Step 2: setup and send workArray
 	 */
 	TRX_writeReg(deRG_TRX_STATE, deCMD_RX_AACK_ON);
 	if (tx_stat.in_progress == FALSE)
@@ -218,7 +213,7 @@ void TRX_send(bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t s
 
 /*
  * TRX_receive()
- * translated received packages
+ * translated received workArrays
  *
  * Returns:
  *     OP_SCCESS			frame is received successfully without error
@@ -229,7 +224,6 @@ void TRX_send(bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t s
 at_status_t TRX_receive(bufType_n bufType)
 {
 	static uint8_t flen	= 0;					// total length of the frame which is stored in the buffer
-	static uint8_t package[PACKAGE_SIZE] = 0;	// received the data of the buffer (byte by byte)
 	static uint8_t dataStart  = 0;				// start position of data payload
 	static uint8_t srcAddrLen = 0;				// source address length
 
@@ -241,37 +235,41 @@ at_status_t TRX_receive(bufType_n bufType)
 	 * read the len out of the buffer
 	 * copy RX buffer into work buffer
 	 */
-	CPY_deBufferData(RX_WORK_BUF, bufType, flen);
+	deBufferOut( bufType, &flen );
+	CPY_deBufferData( RX_WORK_BUF, bufType, flen);
 
 	/*
 	 * - get the frame type
 	 * - set the data start pointer depending on frame type
 	 * - print the data
+	 *
+	 *  61 8C 6C 16 DE C0 40 46 41 00 A2 13 00 E0 BE 0E 04 01 00 13 A2 00 41 46 40 C0 FF FE 02 53 4C 99 C6
+	 * | MAC |                                | src |---------------- data -------------------------| crc |
+	 *       |-------------- 13 bytes --------------|
 	 */
-	switch ( 0xCC & package[1] ) // address fields length
+	switch ( 0xCC & GET_deBufferByteAt(RX_WORK_BUF, 1) ) // address fields length
 	{
-		case 0x88 : dataStart = 0x07; srcAddrLen = 2; break; // dest 16 & src 16 -> 4  bytes + (dest PAN ID + Frame counter) 3 bytes =  7
-		case 0x8C : dataStart = 0x0D; srcAddrLen = 2; break; // dest 64 & src 16 -> 10 bytes + (dest PAN ID + Frame counter) 3 bytes = 13
-		case 0xC8 : dataStart = 0x0D; srcAddrLen = 8; break; // dest 16 & src 64 -> 10 bytes + (dest PAN ID + Frame counter) 3 bytes = 13
-		case 0xCC : dataStart = 0x13; srcAddrLen = 8; break; // dest 64 & src 64 -> 16 bytes + (dest PAN ID + Frame counter) 3 bytes = 19
+		case 0x88 : dataStart = 0x0A; srcAddrLen = 2; break; // dest 16 & src 16 -> 4  bytes + (dest PAN ID + Frame counter) 3 bytes + 2 bytes MAC header =  9
+		case 0x8C : dataStart = 0x10; srcAddrLen = 2; break; // dest 64 & src 16 -> 10 bytes + (dest PAN ID + Frame counter) 3 bytes + 2 bytes MAC header = 15
+		case 0xC8 : dataStart = 0x10; srcAddrLen = 8; break; // dest 16 & src 64 -> 10 bytes + (dest PAN ID + Frame counter) 3 bytes + 2 bytes MAC header = 15
+		case 0xCC : dataStart = 0x16; srcAddrLen = 8; break; // dest 64 & src 64 -> 16 bytes + (dest PAN ID + Frame counter) 3 bytes + 2 bytes MAC header = 21
 		default:
 			rx_stat.fail++;
-			deBufferReadReset(bufType, '+', flen);
 			return TRANSMIT_IN_FAIL;
 	}
 
 	if ( TRANSPARENT_MODE == GET_serintCMD_ap() )
 	{
-		TRX_printContent( package, flen, dataStart );
+		TRX_printContent( RX_WORK_BUF, flen, dataStart );
 	}
 	else
 	{
-		switch ( 0x48 & package[0] ) // define MAC options
+		switch ( 0x48 & GET_deBufferByteAt(RX_WORK_BUF, 0) ) // define MAC options
 		{
-			case 0x40 : TRX_createAPframe( package, flen, dataStart,   srcAddrLen, 0x40 ); break;	// security disabled, PAN compression  enabled = add nothing
-			case 0x00 : TRX_createAPframe( package, flen, dataStart+2, srcAddrLen, 0x00 ); break;	// security disabled, PAN compression disabled = add 2 bytes for src PAN ID
-			case 0x08 : TRX_createAPframe( package, flen, dataStart+5, srcAddrLen, 0x08 ); break;	// security  enabled, PAN compression disabled = add 5 bytes for Auxiliary Sec. Header
-			case 0x48 : TRX_createAPframe( package, flen, dataStart+7, srcAddrLen, 0x48 ); break;	// security  enabled, PAN compression  enabled = add 7 bytes for src PAN ID and Auxiliary Sec. header
+			case 0x40 : TRX_createAPframe( RX_WORK_BUF, flen, dataStart,   srcAddrLen, 0x40 ); break;	// security disabled, PAN compression  enabled = add nothing
+			case 0x00 : TRX_createAPframe( RX_WORK_BUF, flen, dataStart+2, srcAddrLen, 0x00 ); break;	// security disabled, PAN compression disabled = add 2 bytes for src PAN ID
+			case 0x08 : TRX_createAPframe( RX_WORK_BUF, flen, dataStart+5, srcAddrLen, 0x08 ); break;	// security  enabled, PAN compression disabled = add 5 bytes for Auxiliary Sec. Header
+			case 0x48 : TRX_createAPframe( RX_WORK_BUF, flen, dataStart+7, srcAddrLen, 0x48 ); break;	// security  enabled, PAN compression  enabled = add 7 bytes for src PAN ID and Auxiliary Sec. header
 			default:
 				rx_stat.fail++;
 				return TRANSMIT_IN_FAIL;
@@ -357,7 +355,7 @@ static void TRX_rxHandler(void)
 	/*
 	 * write the length of the frame in the first field of the buffer
 	 */
-	deBufferIn( bufType, flen-2);
+	deBufferIn( bufType, flen);
 
 	/*
 	 * upload the4 frame into RX buffer

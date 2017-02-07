@@ -7,7 +7,7 @@
 // === includes ===========================================
 #include <avr/interrupt.h>
 
-#include "../header/apiframe.h"
+#include "../header/ap_frames.h"
 #include "../header/rfmodul.h"
 #include "../../ATuracoli/stackrelated.h"
 #include "../../ATuracoli/stackdefines.h"
@@ -19,7 +19,7 @@
 #define NO_ACK_WITH_MAXSTREAM 0x3
 
 // === globals ============================================
-static device_t *RFmodul = GET_device();
+static device_t *RFmodul;
 static uint8_t  workArray[PACKAGE_SIZE];
 static uint8_t deviceAddr[10]; // device MAC addr 0-7 extended, 8-9 short
 
@@ -43,17 +43,22 @@ static void prepareDeviceAddrArray(void);
  *
  * last modified: 2017/01/27
  */
-void TRX_createAPframe(uint8_t *workArray, uint8_t flen, uint8_t dataStart, uint8_t srcAddrLen, uint8_t option)
+void TRX_createAPframe(bufType_n bufType, uint8_t flen, uint8_t dataStart, uint8_t srcAddrLen, uint8_t option)
 {
+	/*
+	 * security handler not included
+	 *  -- TODO add handler (uint8_t option field) --
+	 */
+
 	/*
 	 * read option field (if included) and handle special frame
 	 * else print a receive message
 	 */
-	switch ( *(workArray+dataStart+2) )
+	switch ( GET_deBufferByteAt(bufType,dataStart+1) )
 	{
-		case 0x04 : AP_atRemoteFrame_localExec( workArray, flen, srcAddrLen );  break;	// TX response only
-		case 0x05 : AP_atRemote_response( workArray, flen);						break;	// UART response only
-		default   : AP_rxReceive( workArray, flen, srcAddrLen );                break;	// UART response only
+		case 0x04 : AP_atRemoteFrame_localExec( bufType, flen, dataStart, srcAddrLen );  break;	// TX response only
+		case 0x05 : AP_atRemote_response( bufType, flen, dataStart );					 break;	// UART response only
+		default   : AP_rxReceive( bufType, flen, dataStart, srcAddrLen );                break;	// UART response only
 	}
 
 }
@@ -75,7 +80,7 @@ int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send)
 	/* 7E + length + frame type + frame ID + 64 bit dest. addr. + 16 bit dest addr. + option + cmd [+ parameter] + crc */
 	//                          |-- data --|------- used in address creation -------|---------- data ------------|
 	//             |--------------------------------- length 15 ------------------------------------|
-
+	RFmodul = GET_device();
 	size_t length = GET_apFrameLength();
 	if ( 15 > length ) return 0;
 
@@ -93,7 +98,7 @@ int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send)
 	     ACK_NO_MAXSTREAM   == RFmodul->netCMD_mm )    *(send) |= 0x20; // ACK on
 													   *(send) |= 0x40; // PAN Compression on
 
-	memcpy( send+3, RFmodul->netCMD_my, 2);								// destination PAN_ID
+	memcpy( send+3, &RFmodul->netCMD_my, 2);								// destination PAN_ID
 
 	READ_deBufferData_atReadPosition(bufType, workArray, length);
 
@@ -109,7 +114,7 @@ int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send)
 	 */
 	if ( workArray[8] == 0xFF && workArray[9] == 0xFE )
 	{
-		for(pos = 5, pos+8 > pos; pos++)
+		for(pos = 5; pos+8 > pos; pos++)
 		{
 			*(send+pos) = workArray[12-pos];
 		}
@@ -120,10 +125,9 @@ int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send)
 			  workArray[2] == 0x00 &&\
 			  workArray[3] == 0x00 &&\
 			  workArray[4] == 0x00 &&\
-			  workArray[5] == 0x00 &&\
-			 )
+			  workArray[5] == 0x00 )
 	{
-		for(pos = 5, pos+2 > pos; pos++)
+		for(pos = 5; pos+2 > pos; pos++)
 		{
 			*(send+pos) = workArray[12-pos];
 		}
@@ -131,7 +135,7 @@ int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send)
 	}
 	else
 	{
-		for(pos = 5, pos+2 > pos; pos++)
+		for(pos = 5; pos+2 > pos; pos++)
 		{
 			*(send+pos) = workArray[14-pos];
 		}
@@ -144,15 +148,15 @@ int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send)
 	 */
 	if ( 0x0 < RFmodul->netCMD_my )
 	{
-		memcpy( send+pos, RFmodul->netCMD_my, 2);		// src. short address
+		memcpy( send+pos, &RFmodul->netCMD_my, 2);		// src. short address
 
 		*(send+1) |= 0x80;								// MAC header second byte
 		pos += 2;
 	}
 	else
 	{
-		memcpy( send+pos,   RFmodul->netCMD_sl, 4 );
-		memcpy( send+pos+4, RFmodul->netCMD_sh, 4);		// src. ext. addr.
+		memcpy( send+pos,   &RFmodul->netCMD_sl, 4 );
+		memcpy( send+pos+4, &RFmodul->netCMD_sh, 4);		// src. ext. addr.
 
 		*(send+1) |= 0xC0;								// MAC header second byte
 		pos += 8;
@@ -200,7 +204,7 @@ int TRX_atRemote_response(bufType_n bufType, uint8_t *send, uint8_t *srcAddr, ui
 {
 	/* 7E + length + frame type + frame ID + cmd + option [+ parameter] + crc */
 	//                          |--------------- data ------------------|
-
+	RFmodul = GET_device();
 	size_t length = GET_apFrameLength();
 	if ( PACKAGE_SIZE-1 <= length ) return 0;
 
@@ -218,7 +222,7 @@ int TRX_atRemote_response(bufType_n bufType, uint8_t *send, uint8_t *srcAddr, ui
 	     ACK_NO_MAXSTREAM   == RFmodul->netCMD_mm )    *(send) |= 0x20; // ACK on
 													   *(send) |= 0x40; // PAN Compression on
 
-	memcpy( send+3, RFmodul->netCMD_id, 2);								// destination PAN_ID
+	memcpy( send+3, &RFmodul->netCMD_id, 2);							// destination PAN_ID
 
 	/*
 	 * dest. addr.
@@ -235,15 +239,15 @@ int TRX_atRemote_response(bufType_n bufType, uint8_t *send, uint8_t *srcAddr, ui
 	 */
 	if ( 0x0 < RFmodul->netCMD_my )
 	{
-		memcpy( send+pos, RFmodul->netCMD_my, 2);							// src. short address
+		memcpy( send+pos, &RFmodul->netCMD_my, 2);							// src. short address
 
 		*(send+1) |= 0x80;													// MAC header second byte
 		pos += 2;
 	}
 	else
 	{
-		memcpy( send+pos,   RFmodul->netCMD_sl, 4 );
-		memcpy( send+pos+4, RFmodul->netCMD_sh, 4);							// src. ext. addr.
+		memcpy( send+pos,   &RFmodul->netCMD_sl, 4 );
+		memcpy( send+pos+4, &RFmodul->netCMD_sh, 4 );					    // src. ext. addr.
 
 		*(send+1) |= 0xC0;													// MAC header second byte
 		pos += 8;
@@ -310,7 +314,7 @@ int TRX_transmit64Frame(bufType_n bufType, uint8_t *send)
 	/* 7E + length + frame type + frame ID + 64 bit dest. addr. + option + payload + crc */
 	//                                     |---- in address creation ----|- data --|
 	//             |-------------------- length 11 ----------------------|
-
+	RFmodul = GET_device();
 	size_t length = GET_apFrameLength();
 	if ( 11 >= length || PACKAGE_SIZE-1 < length ) return 0;
 
@@ -336,8 +340,7 @@ int TRX_transmit64Frame(bufType_n bufType, uint8_t *send)
 		 workArray[2] == 0x00 &&\
 		 workArray[3] == 0x00 &&\
 		 workArray[4] == 0x00 &&\
-		 workArray[5] == 0x00 &&\
-	   )													// if command is a broadcast message
+		 workArray[5] == 0x00 )													// if command is a broadcast message
 	{
 
 		for (pos = 5; pos+2 > pos; pos++)
@@ -372,13 +375,13 @@ int TRX_transmit64Frame(bufType_n bufType, uint8_t *send)
 		*(send+3) = 0xFF;
 		*(send+4) = 0xFF;									// source PAN_ID
 
-		memcpy( send+pos, RFmodul->netCMD_id, 2);			// destination PAN_ID
+		memcpy( send+pos, &RFmodul->netCMD_id, 2);			// destination PAN_ID
 		pos += 2;
 	}
 	else
 	{
 		*(send) |= 0x40;									// PAN Compression on
-		memcpy( send+3, RFmodul->netCMD_id, 2);			    // destination PAN_ID = source PAN_ID
+		memcpy( send+3, &RFmodul->netCMD_id, 2);			    // destination PAN_ID = source PAN_ID
 	}
 
 
@@ -387,15 +390,15 @@ int TRX_transmit64Frame(bufType_n bufType, uint8_t *send)
 	 */
 	if ( 0xFFFE != RFmodul->netCMD_my )
 	{
-		memcpy( send+pos, RFmodul->netCMD_my, 2);			// src. short address
+		memcpy( send+pos, &RFmodul->netCMD_my, 2);			// src. short address
 
 		*(send+1) |= 0x80;									// MAC header second byte
 		pos += 2;
 	}
 	else
 	{
-		memcpy( send+pos, RFmodul->netCMD_sl, 4);
-		memcpy( send+pos+4, RFmodul->netCMD_sh, 4);			// src. ext. addr.
+		memcpy( send+pos, &RFmodul->netCMD_sl, 4);
+		memcpy( send+pos+4, &RFmodul->netCMD_sh, 4);			// src. ext. addr.
 
 		*(send+1) |= 0xC0;									// MAC header second byte
 		pos += 8;
@@ -436,7 +439,7 @@ int TRX_transmit16Frame(bufType_n bufType, uint8_t *send)
 	/* 7E + length + frame type + frame ID + 16 bit dest. addr. + option + payload + crc */
 	//                                     |---- in address creation ----|- data --|
 	//             |-------------------- length  5 ----------------------|
-
+	RFmodul = GET_device();
 	size_t length = GET_apFrameLength();
 	if ( 5 >= length || PACKAGE_SIZE-1 < length ) return 0;
 
@@ -477,14 +480,14 @@ int TRX_transmit16Frame(bufType_n bufType, uint8_t *send)
 		*(send+3) = 0xFF;
 		*(send+4) = 0xFF;									  // source PAN_ID
 
-		memcpy( send+7, RFmodul->netCMD_id, 2 );			  // destination PAN_ID
+		memcpy( send+7, &RFmodul->netCMD_id, 2 );			  // destination PAN_ID
 
 		pos += 4;
 	}
 	else
 	{
 		*(send) |= 0x40;									  // PAN Compression on
-		memcpy( send+3, RFmodul->netCMD_id, 2);				  // destination PAN_ID = source PAN_ID
+		memcpy( send+3, &RFmodul->netCMD_id, 2);				  // destination PAN_ID = source PAN_ID
 		pos += 2;
 	}
 
@@ -494,14 +497,14 @@ int TRX_transmit16Frame(bufType_n bufType, uint8_t *send)
 	 */
 	if ( 0xFFFE != RFmodul->netCMD_my )
 	{
-		memcpy( send+pos, RFmodul->netCMD_my, 2 );			  // src. short address
+		memcpy( send+pos, &RFmodul->netCMD_my, 2 );			  // src. short address
 		*(send+1) |= 0x80;									  // MAC header second byte
 		pos += 2;
 	}
 	else
 	{
-		memcpy( send+pos,   RFmodul->netCMD_sl, 4 );           // src. ext. addr.
-		memcpy( send+pos+4, RFmodul->netCMD_sh, 4 );
+		memcpy( send+pos,   &RFmodul->netCMD_sl, 4 );           // src. ext. addr.
+		memcpy( send+pos+4, &RFmodul->netCMD_sh, 4 );
 		*(send+1) |= 0xC0;									   // MAC header second byte
 		pos += 8;
 	}

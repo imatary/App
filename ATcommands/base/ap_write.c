@@ -10,6 +10,10 @@
 #include "../header/_global.h"	// device mode parameter
 #include "../header/rfmodul.h"	// RFmodul struct
 #include "../header/cmd.h"		// AT command parser
+#include "../header/ap_frames.h"
+
+// === globals ============================================
+static uint8_t  workArray[MAX_PARAMETER_LENGHT];
 
 // === functions ==========================================
 /*
@@ -33,9 +37,7 @@ at_status_t AP_write( bufType_n bufType, const CMD *cmd )
 
 	SET_apFrameRWXopt(WRITE);
 
-	static uint8_t  workArray[MAX_PARAMETER_LENGHT];
-
 	READ_deBufferData_atReadPosition( bufType, workArray, GET_apFrameLength() );
 
-	return cmd->valid( GET_apFrameLength(), cmd, AP_MODE);
+	return cmd->valid( GET_apFrameLength(), workArray, cmd, AP_MODE);
 }

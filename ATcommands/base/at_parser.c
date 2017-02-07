@@ -11,6 +11,7 @@
 #include "../header/_global.h"						// bool_t
 #include "../header/rfmodul.h"						// device get and set functions
 #include "../header/cmd.h"							// prototypes for rwx functions
+#include "../header/at_commands.h"
 #include "../header/circularBuffer.h"				// buffer
 #include "../../ATuracoli/stackrelated.h"			// UART functions
 #include "../../ATuracoli/stackrelated_timer.h"	// timer
@@ -33,13 +34,20 @@ static uint16_t   guartTimes = 0;
 static uint16_t ATcmdTimeOut = 0;
 static uint8_t commandSequenceChar;
 
+static CMD *pCommand  = NULL;
+
 // === prototypes =========================================
-static uint32_t AT_guardTime_timeHandle(uint32_t arg);
-static uint32_t AT_commandTime_timeHandle(uint32_t arg);
-static uint32_t AT_sendTX_timeHandle(uint32_t arg);
+static uint32_t		AT_guardTime_timeHandle(uint32_t arg);
+static uint32_t		AT_commandTime_timeHandle(uint32_t arg);
+static uint32_t		AT_sendTX_timeHandle(uint32_t arg);
+static at_status_t	AT_getCommand( bufType_n bufType, CMD **pCommand );
 
 // === functions ==========================================
-
+/*
+ *
+ *
+ *
+ */
 void AT_parser( uint8_t inchar, bufType_n bufType )
 {
 	static at_status_t ret = 0;
@@ -137,28 +145,28 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	 * - if command length equal 4 signs and carriage return cal read/exec function
 	 * - if command length greater then 4 signs and carriage return cal write function
 	 */
+
 	if ( AT_HANDLE == state && 5 > counter )
 	{
 		ret = INVALID_COMMAND;
 	}
 	else if ( AT_HANDLE == state && 4 < counter )
 	{
-		static CMD *pCommand  = NULL;
-		ret	= CMD_getCommand( bufType, pCommand );
+		ret	= AT_getCommand( bufType, &pCommand );
 
-		if      ( INVALID_COMMAND == ret ) /* do nothing */;
-		else if ( 5 == counter && EXEC == pCommand->rwxAttrib )
+		if      ( INVALID_COMMAND == ret || NULL == pCommand ) /* do nothing */;
+		else if ( 5 == counter && EXEC & pCommand->rwxAttrib )
 		{
-			ret = CMD_exec( &th, pCommand->ID );
+			ret = AT_exec( &th, pCommand->ID );
 		}
-		else if ( 5 == counter && READ == pCommand->rwxAttrib )
+		else if ( 5 == counter && READ & pCommand->rwxAttrib )
 		{
 			deBufferReadReset( bufType, '+', 1); // remove the '\0' from the buffer if in AT cmd mode
-			ret = CMD_read( pCommand );
+			ret = AT_read( pCommand );
 		}
 		else
 		{
-			ret = CMD_write( counter, bufType, pCommand );
+			ret = AT_write( counter, bufType, pCommand );
 		}
 
 		state = AT_MODE;
@@ -191,7 +199,7 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
  *
  * last modified: 2017/01/26
  */
-at_status_t AT_getCommand( bufType_n bufType, CMD *pCommand )
+static at_status_t AT_getCommand( bufType_n bufType, CMD **pCommand )
 {
 	static uint8_t cmdString[5];
 
@@ -200,9 +208,11 @@ at_status_t AT_getCommand( bufType_n bufType, CMD *pCommand )
 		deBufferOut( bufType, &cmdString[i] );
 		if ( 'a' <= cmdString[i] && 'z' >= cmdString[i] ) cmdString[i] -= 0x20;
 	}
+	cmdString[4] = 0x0;
 
-	pCommand = CMD_findInTable(cmdString);
-	return ( NO_AT_CMD == pCommand->ID || NULL == pCommand )? INVALID_COMMAND : OP_SUCCESS;
+	*pCommand = CMD_findInTable(cmdString);
+
+	return ( NO_AT_CMD == (*pCommand)->ID || NULL == *pCommand )? INVALID_COMMAND : OP_SUCCESS;
 }
 
 
@@ -225,9 +235,9 @@ static uint32_t AT_guardTime_timeHandle(uint32_t arg)
 {
 	if ( counter == 3 )
 	{
+		state = AT_MODE;
 		UART_print_status(OP_SUCCESS);
 		deBufferReset( ubuf );
-		state = AT_MODE;
 		th = deTIMER_start(AT_commandTime_timeHandle, deMSEC( ATcmdTimeOut ), 0 );
 	}
 	else
@@ -250,6 +260,7 @@ uint32_t AT_commandTime_timeHandle(uint32_t arg)
 
 uint32_t AT_sendTX_timeHandle(uint32_t arg)
 {
+	deBufferIn( ubuf, 0x00 );
 	TRX_send( ubuf, 0, NULL, 0);
 	send_th = 0;
 	return 0;

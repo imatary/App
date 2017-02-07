@@ -11,6 +11,7 @@
 #include "../header/_global.h"			// RFmodul struct
 #include "../header/defaultConfig.h"	// defines for default configuration
 #include "../header/rfmodul.h"			// prototypes
+#include "../header/cmd.h"
 
 // === globals ============================================
 static device_t RFmodul;
@@ -246,81 +247,15 @@ void SET_diagCMD_db  (uint8_t  val) { RFmodul.diagCMD_db   = val; }	// used in r
 size_t    GET_device_tSize(void) { return device_tSize; }
 device_t *GET_device(void)       { return &RFmodul; }
 
-size_t GET_offsetof_ni(void) { return offsetof( device_t, netCMD_ni    ); }
-size_t GET_offsetof_ky(void) { return offsetof( device_t, secCMD_ky    ); }
-size_t GET_offsetof_ro(void) { return offsetof( device_t, serintCMD_ro ); }
-size_t GET_offsetof_cc(void) { return offsetof( device_t, atcopCMD_cc  ); }
-size_t GET_offsetof_ia(void) { return offsetof( device_t, iolpCMD_ia   ); }
-size_t GET_offsetof_id(void) { return offsetof( device_t, netCMD_id    ); }
-size_t GET_offsetof_my(void) { return offsetof( device_t, netCMD_my    ); }
-size_t GET_offsetof_nt(void) { return offsetof( device_t, netCMD_nt    ); }
-size_t GET_offsetof_sc(void) { return offsetof( device_t, netCMD_sc    ); }
-size_t GET_offsetof_dh(void) { return offsetof( device_t, netCMD_dh    ); }
-size_t GET_offsetof_dl(void) { return offsetof( device_t, netCMD_dl    ); }
-size_t GET_offsetof_sh(void) { return offsetof( device_t, netCMD_sh    ); }
-size_t GET_offsetof_sl(void) { return offsetof( device_t, netCMD_sl    ); }
-size_t GET_offsetof_ir(void) { return offsetof( device_t, ioserCMD_ir  ); }
-size_t GET_offsetof_pr(void) { return offsetof( device_t, ioserCMD_pr  ); }
-size_t GET_offsetof_it(void) { return offsetof( device_t, ioserCMD_it  ); }
-size_t GET_offsetof_ic(void) { return offsetof( device_t, ioserCMD_ic  ); }
-size_t GET_offsetof_pt(void) { return offsetof( device_t, ioserCMD_pt  ); }
-size_t GET_offsetof_rp(void) { return offsetof( device_t, ioserCMD_rp  ); }
-size_t GET_offsetof_t0(void) { return offsetof( device_t, iolpCMD_t0   ); }
-size_t GET_offsetof_t1(void) { return offsetof( device_t, iolpCMD_t1   ); }
-size_t GET_offsetof_t2(void) { return offsetof( device_t, iolpCMD_t2   ); }
-size_t GET_offsetof_t3(void) { return offsetof( device_t, iolpCMD_t3   ); }
-size_t GET_offsetof_t4(void) { return offsetof( device_t, iolpCMD_t4   ); }
-size_t GET_offsetof_t5(void) { return offsetof( device_t, iolpCMD_t5   ); }
-size_t GET_offsetof_t6(void) { return offsetof( device_t, iolpCMD_t6   ); }
-size_t GET_offsetof_t7(void) { return offsetof( device_t, iolpCMD_t7   ); }
-size_t GET_offsetof_vr(void) { return offsetof( device_t, diagCMD_vr   ); }
-size_t GET_offsetof_hv(void) { return offsetof( device_t, diagCMD_hv   ); }
-size_t GET_offsetof_ec(void) { return offsetof( device_t, diagCMD_ec   ); }
-size_t GET_offsetof_ea(void) { return offsetof( device_t, diagCMD_ea   ); }
-size_t GET_offsetof_dd(void) { return offsetof( device_t, diagCMD_dd   ); }
-size_t GET_offsetof_db(void) { return offsetof( device_t, diagCMD_db   ); }
-size_t GET_offsetof_st(void) { return offsetof( device_t, sleepmCMD_st ); }
-size_t GET_offsetof_sp(void) { return offsetof( device_t, sleepmCMD_sp ); }
-size_t GET_offsetof_dp(void) { return offsetof( device_t, sleepmCMD_dp ); }
-size_t GET_offsetof_ct(void) { return offsetof( device_t, atcopCMD_ct  ); }
-size_t GET_offsetof_gt(void) { return offsetof( device_t, atcopCMD_gt  ); }
-size_t GET_offsetof_ca(void) { return offsetof( device_t, rfiCMD_ca    ); }
-size_t GET_offsetof_ch(void) { return offsetof( device_t, netCMD_ch    ); }
-size_t GET_offsetof_ai(void) { return offsetof( device_t, netCMD_ai    ); }
-size_t GET_offsetof_a1(void) { return offsetof( device_t, netCMD_a1    ); }
-size_t GET_offsetof_a2(void) { return offsetof( device_t, netCMD_a2    ); }
-size_t GET_offsetof_mm(void) { return offsetof( device_t, netCMD_mm    ); }
-size_t GET_offsetof_d8(void) { return offsetof( device_t, ioserCMD_d8  ); }
-size_t GET_offsetof_d7(void) { return offsetof( device_t, ioserCMD_d7  ); }
-size_t GET_offsetof_d6(void) { return offsetof( device_t, ioserCMD_d6  ); }
-size_t GET_offsetof_d5(void) { return offsetof( device_t, ioserCMD_d5  ); }
-size_t GET_offsetof_d4(void) { return offsetof( device_t, ioserCMD_d4  ); }
-size_t GET_offsetof_d3(void) { return offsetof( device_t, ioserCMD_d3  ); }
-size_t GET_offsetof_d2(void) { return offsetof( device_t, ioserCMD_d2  ); }
-size_t GET_offsetof_d1(void) { return offsetof( device_t, ioserCMD_d1  ); }
-size_t GET_offsetof_d0(void) { return offsetof( device_t, ioserCMD_d0  ); }
-size_t GET_offsetof_bd(void) { return offsetof( device_t, serintCMD_bd ); }
-size_t GET_offsetof_nb(void) { return offsetof( device_t, serintCMD_nb ); }
-size_t GET_offsetof_so(void) { return offsetof( device_t, sleepmCMD_so ); }
-size_t GET_offsetof_sm(void) { return offsetof( device_t, sleepmCMD_sm ); }
-size_t GET_offsetof_pl(void) { return offsetof( device_t, rfiCMD_pl    ); }
-size_t GET_offsetof_sd(void) { return offsetof( device_t, netCMD_sd    ); }
-size_t GET_offsetof_rr(void) { return offsetof( device_t, netCMD_rr    ); }
-size_t GET_offsetof_rn(void) { return offsetof( device_t, netCMD_rn    ); }
-size_t GET_offsetof_p0(void) { return offsetof( device_t, ioserCMD_p0  ); }
-size_t GET_offsetof_p1(void) { return offsetof( device_t, ioserCMD_p1  ); }
-size_t GET_offsetof_ap(void) { return offsetof( device_t, serintCMD_ap ); }
-size_t GET_offsetof_iu(void) { return offsetof( device_t, ioserCMD_iu  ); }
-size_t GET_offsetof_ce(void) { return offsetof( device_t, netCMD_ce    ); }
-size_t GET_offsetof_no(void) { return offsetof( device_t, netCMD_no    ); }
-size_t GET_offsetof_ee(void) { return offsetof( device_t, secCMD_ee    ); }
-
-
 uint8_t  GET_atAP_tmp(void) { return atAP_tmp; }
 uint16_t GET_atCT_tmp(void) { return atCT_tmp; }
 
 uint8_t GET_serintCMD_ap(void) { return RFmodul.serintCMD_ap; }
 uint8_t GET_serintCMD_bd(void) { return RFmodul.serintCMD_bd; }
+
+uint8_t  GET_atcopCMD_cc(void) { return RFmodul.atcopCMD_cc; }
+uint16_t GET_atcopCMD_gt(void) { return RFmodul.atcopCMD_gt; }
+uint16_t GET_atcopCMD_ct(void) { return RFmodul.atcopCMD_ct; }
 
 // === general functions ==================================
 /*

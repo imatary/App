@@ -7,6 +7,11 @@
 // === includes ===========================================
 #include <inttypes.h>		// uint8/16_t
 #include <stddef.h>			// size_t
+#include <string.h>
+
+#include "../header/_global.h"
+#include "../header/enum_status.h"
+#include "../header/enum_cmd.h"
 
 // === struct =============================================
 struct api_f

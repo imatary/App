@@ -9,12 +9,12 @@
 
 #include "../header/_global.h"
 #include "../header/cmd.h"						// AT command search parser
-#include "../header/apiframe.h"					// AP set functions
+#include "../header/ap_frames.h"				// AP set functions
 #include "../header/rfmodul.h"					// RFmodul struct
 #include "../../ATuracoli/stackrelated.h"		// uart functions
 
 // === globals ============================================
-static uint8_t workArray[21];
+static uint8_t workArray[MAX_PARAMETER_LENGHT];
 
 // === functions ==========================================
 /*
@@ -29,7 +29,7 @@ static uint8_t workArray[21];
  *
  * last modified: 2017/01/26
  */
-at_status_t CMD_read( CMD *cmd )
+at_status_t AP_read( const CMD *cmd )
 {
 	uint16_t length;
 
@@ -37,8 +37,6 @@ at_status_t CMD_read( CMD *cmd )
 
 	switch( cmd->ID )
 	{
-
-
 		case AT_pC :
 			{
 				workArray[0] = 0x1;

@@ -22,7 +22,10 @@
 static CMD *pCommand = NULL;
 static uint8_t macHeader[24];
 static int macHeaderSize;
-static device_t *RFmodul = GET_device();
+static device_t *RFmodul;
+
+// === prototypes =========================================
+static void SET_macHeader(void);
 
 // === functions ==========================================
 /*
@@ -39,12 +42,13 @@ static device_t *RFmodul = GET_device();
  *
  * last modified: 2017/01/26
  */
-void TRX_printContent(uint8_t *package, uint8_t flen, uint8_t dataStart)
+void TRX_printContent( bufType_n bufType, uint8_t flen, uint8_t dataStart )
 {
+	RFmodul = GET_device();
 	dataStart += ( NO_ACK_NO_MAXSTREAM == RFmodul->netCMD_mm ||\
 	               ACK_NO_MAXSTREAM    == RFmodul->netCMD_mm )? 0 : 2;
 
-	if ( 0x08 & package[0] )	// security enabled
+	if ( 0x08 & GET_deBufferByteAt(RX_WORK_BUF, 0) )	// security enabled
 	{
 		/* TODO */
 	}
@@ -52,8 +56,7 @@ void TRX_printContent(uint8_t *package, uint8_t flen, uint8_t dataStart)
 	{
 		for (uint8_t i = dataStart; i < flen-2 ; i++)
 		{
-			UART_putc(package[i]);
-
+			UART_putc(0x48 & GET_deBufferByteAt(RX_WORK_BUF, i));
 		}/* end for loop */
 	}
 }
@@ -74,9 +77,11 @@ void TRX_printContent(uint8_t *package, uint8_t flen, uint8_t dataStart)
  *
  * last modified: 2017/01/26
  */
-int TRX_msgFrame(uint8_t *dest, uint8_t *src, size_t len)
+int TRX_msgFrame( bufType_n bufType, uint8_t *package )
 {
-	uint8_t u8tmp = *dest+2;
+	        RFmodul = GET_device();
+	uint8_t   u8tmp = *(package+2);
+	at_status_t ret = 0;
 
 	/*
 	 * if the value of pan id, dest. addr or src. short addr changed
@@ -88,26 +93,32 @@ int TRX_msgFrame(uint8_t *dest, uint8_t *src, size_t len)
 		dirtyBits ^= (dirtyBits & 0x68);
 	}
 
-	memcpy( (uint8_t*) src, (uint8_t*) macHeader, macHeaderSize);
-	*dest+2 = u8tmp;
+	memcpy( (uint8_t*) package, (uint8_t*) macHeader, macHeaderSize);
+	*(package+2) = u8tmp;
 
 	int pos = macHeaderSize;
 
 	if ( NO_ACK_NO_MAXSTREAM != RFmodul->netCMD_mm ||\
 	     ACK_NO_MAXSTREAM    != RFmodul->netCMD_mm )
 	{
-		*( dest+pos   ) = (uint8_t) ( *(dest+2) + RFmodul->netCMD_sl & 0xFF );	// second counter, distance to frame counter is last byte of src extended addr.
-		*( dest+pos+2 ) = 0x00;													// this byte will be used as command, 0x00 = no command is given
+		*( package + pos     ) = (uint8_t) ( *( package + 2 ) + RFmodul->netCMD_sl & 0xFF );	// second counter, distance to frame counter is last byte of src extended addr.
+		*( package + pos + 2 ) = 0x00;													        // this byte will be used as command, 0x00 = no command is given
 		pos += 2;
 	}
 
-	memcpy( dest+pos, src, len );
+	while ( 0x00 != u8tmp )
+	{
+		ret = deBufferOut(bufType, &u8tmp);
+		if ( BUFFER_OUT_FAIL == ret ) break;
+		*( package + pos) = u8tmp;
+		pos++;
+	}
 
 	/*
 	 *	if no data has been read, return 0
 	 */
-	if ( 0 == len ) return 0;
-	else            return pos+len;
+	if ( pos <= macHeaderSize ) return 0;
+	else                        return pos;
 }
 
 
@@ -117,6 +128,7 @@ int TRX_msgFrame(uint8_t *dest, uint8_t *src, size_t len)
  */
 static void SET_macHeader(void)
 {
+	RFmodul = GET_device();
 	uint64_t u64tmp;
 
 	/*
@@ -143,7 +155,7 @@ static void SET_macHeader(void)
 	/*
 	 * destination PAN_ID
 	 */
-	memcpy( &macHeader[3], RFmodul->netCMD_id, 2);
+	memcpy( &macHeader[3], &RFmodul->netCMD_id, 2);
 
 	/*
 	 * destination addr.
@@ -170,7 +182,7 @@ static void SET_macHeader(void)
 	 */
 	if ( 0xFFFE != RFmodul->netCMD_my )
 	{
-		memcpy( &macHeader[ macHeaderSize ], RFmodul->netCMD_my, 2 );
+		memcpy( &macHeader[ macHeaderSize ], &RFmodul->netCMD_my, 2 );
 		macHeader[ macHeaderSize ] |= 0x80; // MAC header second byte (bit 6/7)
 		macHeaderSize += 2;
 	}

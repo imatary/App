@@ -63,48 +63,6 @@ at_status_t max_u32val( size_t len, const uint8_t *workArray, const CMD *cmd, co
 }
 
 
-at_status_t max_u64val( size_t len, const uint8_t *workArray, const CMD *cmd, const device_mode devMode )
-{
-/*	uint8_t  workArray_A[9] = {0x0};
-	size_t len_A = (len > 9)? 8 : len;
-	uint64_t val = 0;
-	char *endptr;
-
-	GET_deBufferData_atReadPosition( bufType, workArray_A, len_A);
-
-	if( TRANSPARENT_MODE == GET_serintCMD_ap )
-	{
-		val = (uint64_t) strtoul( (const char*) workArray_A, &endptr, 16) << ( len > 9 )? 32 : 0;
-		if ( *endptr != workArray_A[len-1]) return INVALID_PARAMETER;
-
-		if ( len > 9 )
-		{
-			uint8_t workArray_B[9] = {0x0};
-			uint16_t len_B = len-8;
-
-			GET_deBufferData_atReadPosition( bufType, workArray_B, len_B);
-			val |= strtoul( (const char*) workArray_B, &endptr, 16);
-			if ( *endptr != workArray_B[len-1]) return INVALID_PARAMETER;
-		}
-	}
-	else
-	{
-		memcpy( &val, workArray_A, len);
-		if ( val & 0xFF != workArray_A[len-2] );
-	}
-
-	deBufferReadReset( bufType, '+', len);
-
-	if ( val >= *cmd->min && val <= *cmd->max )
-	{
-		cmd->mySet( &val, cmd->cmdSize);
-
-		if ( devMode == GET_serintCMD_ap() ) { UART_print_status(OP_SUCCESS); }
-		return OP_SUCCESS;
-	}
-	else return INVALID_PARAMETER;*/
-}
-
 
 /*
  * special handle if
@@ -115,7 +73,7 @@ at_status_t node_identifier( size_t len, const uint8_t *workArray, const CMD *cm
 {
 	if ( len <= cmd->max )
 	{
-		cmd->mySet( workArray, len);
+		cmd->mySet( (uint8_t*) workArray, len);
 
 		if ( devMode == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
 		return OP_SUCCESS;
@@ -126,12 +84,12 @@ at_status_t node_identifier( size_t len, const uint8_t *workArray, const CMD *cm
 	}
 }
 
-at_status_t ky_validator( bufType_n bufType, size_t len, CMD *cmd, const device_t devMode )
+at_status_t ky_validator( size_t len, const uint8_t *workArray, const CMD *cmd, const device_mode devMode )
 {
 	/* TODO */
 	if (FALSE)
 	{
-		if ( devMode == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
+		//if ( devMode == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
 		return OP_SUCCESS;
 	}
 	else

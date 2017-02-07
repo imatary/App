@@ -10,11 +10,12 @@
 #define APIFRAME_H_
 
 // === includes ===========================================
-#include <inttypes.h>		// uint8_t
+#include <inttypes.h>			// uint8_t
 #include <stddef.h>
 
 #include "_global.h"
-#include "enum_status.h"	// at_status_t
+#include "enum_status.h"		// at_status_t
+#include "cmd.h"				// Command IDs
 #include "circularBuffer.h"
 
 // === prototypes =========================================
@@ -26,9 +27,9 @@ void		SET_apFrameRWXopt	(uint8_t rwx);
 void		SET_apFrameID		(uint8_t id);
 void		SET_apFrameCRC		(uint8_t crc, bool_t update);
 void		SET_apFrameATcmd	(uint8_t *array);
-void		SET_apFrameMsg		(void *val, size_t len, const cmdIDs id)
+void		SET_apFrameMsg		(void *val, size_t len, const cmdIDs id);
 void		SET_apFrameType		(uint8_t type);
-at_status_t SET_apFrameLength	(uint16_t length, bool_t update)
+void        SET_apFrameLength	(uint16_t length, bool_t or);
 
 void		GET_apFrameMsg		(uint8_t *array, int pos, size_t len);
 void		GET_apFrameATcmd	(uint8_t *array, int pos);
@@ -60,9 +61,9 @@ at_status_t AP_exec  ( cmdIDs cmdID );
  */
 void AP_parser					( uint8_t inchar, bufType_n bufType );
 void AP_frameHandle_uart		( bufType_n bufType );
-void AP_atRemoteFrame_localExec	( bufType_n bufType, uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen );
-void AP_atRemote_response		( bufType_n bufType, uint16_t length );
-void AP_rxReceive				( bufType_n bufType, uint16_t length, uint8_t *srcAddr, uint8_t srcAddrLen );
+void AP_atRemoteFrame_localExec ( bufType_n bufType, uint16_t length, uint8_t dataStart, uint8_t srcAddrLen);
+void AP_atRemote_response		( bufType_n bufType, uint16_t length, uint8_t dataStart);
+void AP_rxReceive				( bufType_n bufType, uint16_t length, uint8_t dataStart, uint8_t srcAddrLen );
 void AP_txStatus				( at_status_t status);
 
 /*

@@ -11,6 +11,9 @@
 #include "../header/rfmodul.h"	// RFmodul struct
 #include "../header/cmd.h"		// AT command parser
 
+// === globals ============================================
+static uint8_t  workArray[MAX_PARAMETER_LENGHT];
+
 // === functions ==========================================
 /*
  * Command write function write values into the memory
@@ -31,9 +34,7 @@ at_status_t AT_write(size_t len, bufType_n bufType, const CMD *cmd )
 {
 	if ( NULL == cmd ) return ERROR;
 
-	static uint8_t  workArray[MAX_PARAMETER_LENGHT];
-
 	READ_deBufferData_atReadPosition( bufType, workArray, len);
 
-	return cmd->valid(len, cmd, TRANSPARENT_MODE);
+	return cmd->valid(len, workArray, cmd, TRANSPARENT_MODE);
 }
