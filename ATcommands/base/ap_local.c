@@ -40,7 +40,7 @@ static at_status_t ret;
 static CMD *pCommand  = NULL;
 
 // === Prototypes =========================================
-static at_status_t AP_getCommand( bufType_n bufType, CMD *pCommand );
+static at_status_t AP_getCommand( bufType_n bufType, CMD **cmd );
 static void		   AP_atLocal_response(void);
 
 static at_status_t AP_localDevice(bufType_n bufType);
@@ -55,7 +55,7 @@ static at_status_t AP_localDevice(bufType_n bufType);
  * Returns:
  *		nothing
  *
- * last modified: 2017/01/26
+ * last modified: 2017/02/08
  */
 void AP_frameHandle_uart(bufType_n bufType)
 {
@@ -72,6 +72,7 @@ void AP_frameHandle_uart(bufType_n bufType)
 		deBufferReset( bufType );
 		return;
 	}
+	SET_apFrameType(outchar[0]);
 
 	// frame id		1 byte
 	ret = deBufferOut( bufType, &outchar[0] );
@@ -80,30 +81,36 @@ void AP_frameHandle_uart(bufType_n bufType)
 		deBufferReset( bufType );
 		return;
 	}
+	SET_apFrameID(outchar[0]);
+
+UART_printf("len: %x, typ: %x, id: %x\r", GET_apFrameLength(), GET_apFrameType(), GET_apFrameID());
 
 	switch ( GET_apFrameType() )
 	{
 		case AT_COMMAND    :
 		case AT_COMMAND_Q  :
 			{
-				ret	= AP_getCommand( bufType, pCommand );
+				ret	= AP_getCommand( bufType, &pCommand );
 				if ( INVALID_COMMAND == ret )
 				{
 					SET_apFrameRet(INVALID_COMMAND);
 					AP_atLocal_response();
 					return;
 				}
-
-				if ( 4 == GET_apFrameLength() && EXEC == pCommand->rwxAttrib )
+UART_printf("CMD: %s ", pCommand->name); TODODODODOD
+				if ( 4 == GET_apFrameLength() && EXEC & pCommand->rwxAttrib )
 				{
+					UART_print("exec");
 					ret = AP_exec( pCommand->ID );
 				}
-				else if ( 4 == GET_apFrameLength() && READ == pCommand->rwxAttrib )
+				else if ( 4 == GET_apFrameLength() && READ & pCommand->rwxAttrib )
 				{
+					UART_print("read");
 					ret = AP_read( pCommand );
 				}
 				else
 				{
+					UART_print("write");
 					ret = AP_write( bufType, pCommand );
 					if ( OP_SUCCESS == ret && AT_COMMAND == GET_apFrameType() )
 					{
@@ -173,7 +180,7 @@ void AP_frameHandle_uart(bufType_n bufType)
  *
  * last modified: 2017/01/26
  */
-static at_status_t AP_getCommand( bufType_n bufType, CMD *pCommand )
+static at_status_t AP_getCommand( bufType_n bufType, CMD **cmd )
 {
 	outchar[0] = 'A';
 	outchar[1] = 'T';
@@ -184,8 +191,8 @@ static at_status_t AP_getCommand( bufType_n bufType, CMD *pCommand )
 	SET_apFrameATcmd( &outchar[2] );
 	SET_apFrameCRC( outchar[2] + outchar[3], TRUE );
 
-	pCommand = CMD_findInTable(outchar);
-	return ( NO_AT_CMD == pCommand->ID || NULL == pCommand )? INVALID_COMMAND : OP_SUCCESS;
+	*cmd = CMD_findInTable(outchar);
+	return ( NO_AT_CMD == (*cmd)->ID || NULL == *cmd )? INVALID_COMMAND : OP_SUCCESS;
 }
 
 
@@ -483,7 +490,7 @@ void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t data
 
 	length -= 0xA; // length = 2 dummy bytes + 2 bytes AT cmd [+ n-bytes payload]
 
-	ret	= AP_getCommand( bufType, pCommand );
+	ret	= AP_getCommand( bufType, &pCommand );
 	if ( INVALID_COMMAND == ret )
 	{
 		SET_apFrameRet(ret);

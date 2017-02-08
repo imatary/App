@@ -30,7 +30,7 @@
 // === command table ======================================
 static const CMD StdCmdTable[] =
 {
-	/* name ,  ID  ,  addr at offset  ,  rwx option       , max size , min ,     max   , set functions   , validation    , print function */
+	/* name ,  ID  ,  addr at offset                   ,  rwx option        , max size , min ,     max   , set functions   , validation    , print function */
     /* AT */
 	{ "AT%C", AT_pC,                         NO_OFFSET , READ               ,  U8__SIZE,													 }, // %
 	{ "AT%V", AT_pV,                         NO_OFFSET , READ               ,  0,														     },			// TODO ZigBee
@@ -129,7 +129,6 @@ static const CMD StdCmdTable[] =
 
     /* DE */
 	{ "DEFV", DE_FV,                         NO_OFFSET , READ               ,  0,														     }, // F
-
 };
 
 const CMD *pStdCmdTable = StdCmdTable;
@@ -191,16 +190,15 @@ CMD *CMD_findInTableByID(cmdIDs id)
 	int right  = ( sizeof(StdCmdTable)/sizeof(CMD) ) - 1; // count of elements in CMD table - 1
 	int middle;
 	int left = 0;
-	int val  = 0;
+	cmdIDs val;
 
 	while( left <= right )
 	{
 		middle = left + ( ( right - left) /2 );
-		val = memcmp( &id, &(pStdCmdTable+middle)->ID, sizeof(cmdIDs) );
-
-		if      ( 0 == val )   return (CMD*) (pStdCmdTable+middle);
-		else if ( 0 > val )    right = middle - 1;
-		else /* ( 0 < val ) */ left  = middle + 1;
+		val = StdCmdTable[middle].ID;
+		if      ( id == val )   return (CMD*) &StdCmdTable[middle];
+		else if ( id < val )    right = middle - 1;
+		else /* ( 0 > val ) */ left  = middle + 1;
 
 	}
 	return NO_AT_CMD;

@@ -67,12 +67,13 @@ static uint8_t    send[PACKAGE_SIZE] = {0};
  *
  * last modified: 2017/01/19
  */
+uint8_t ret;
+uint8_t channel;
+uint16_t panid, shortaddr;
+uint32_t extaddrhigh, extaddrlow;
 uint8_t TRX_baseInit(void)
 {
-	uint8_t ret;
-	uint8_t channel;
-	uint16_t panid, shortaddr;
-	uint32_t extaddrhigh, extaddrlow;
+
 	CMD *cmd;
 
 	TRX_setPanId	 = trx_set_panid;
@@ -247,12 +248,12 @@ at_status_t TRX_receive(bufType_n bufType)
 	 * | MAC |                                | src |---------------- data -------------------------| crc |
 	 *       |-------------- 13 bytes --------------|
 	 */
-	switch ( 0xCC & GET_deBufferByteAt(RX_WORK_BUF, 1) ) // address fields length
+	switch ( GET_deBufferByteAt(RX_WORK_BUF, 1) ) // address fields length
 	{
-		case 0x88 : dataStart = 0x0A; srcAddrLen = 2; break; // dest 16 & src 16 -> 4  bytes + (dest PAN ID + Frame counter) 3 bytes + 2 bytes MAC header =  9
-		case 0x8C : dataStart = 0x10; srcAddrLen = 2; break; // dest 64 & src 16 -> 10 bytes + (dest PAN ID + Frame counter) 3 bytes + 2 bytes MAC header = 15
-		case 0xC8 : dataStart = 0x10; srcAddrLen = 8; break; // dest 16 & src 64 -> 10 bytes + (dest PAN ID + Frame counter) 3 bytes + 2 bytes MAC header = 15
-		case 0xCC : dataStart = 0x16; srcAddrLen = 8; break; // dest 64 & src 64 -> 16 bytes + (dest PAN ID + Frame counter) 3 bytes + 2 bytes MAC header = 21
+		case 0x88 : dataStart = 0x09; srcAddrLen = 2; break; // dest 16 & src 16 -> 4  bytes + (dest PAN ID + Frame counter) 3 bytes + 2 bytes MAC header =  9
+		case 0x8C : dataStart = 0x0F; srcAddrLen = 2; break; // dest 64 & src 16 -> 10 bytes + (dest PAN ID + Frame counter) 3 bytes + 2 bytes MAC header = 15
+		case 0xC8 : dataStart = 0x0F; srcAddrLen = 8; break; // dest 16 & src 64 -> 10 bytes + (dest PAN ID + Frame counter) 3 bytes + 2 bytes MAC header = 15
+		case 0xCC : dataStart = 0x15; srcAddrLen = 8; break; // dest 64 & src 64 -> 16 bytes + (dest PAN ID + Frame counter) 3 bytes + 2 bytes MAC header = 21
 		default:
 			rx_stat.fail++;
 			return TRANSMIT_IN_FAIL;
@@ -264,7 +265,7 @@ at_status_t TRX_receive(bufType_n bufType)
 	}
 	else
 	{
-		switch ( 0x48 & GET_deBufferByteAt(RX_WORK_BUF, 0) ) // define MAC options
+		switch ( GET_deBufferByteAt(RX_WORK_BUF, 0) ) // define MAC options
 		{
 			case 0x40 : TRX_createAPframe( RX_WORK_BUF, flen, dataStart,   srcAddrLen, 0x40 ); break;	// security disabled, PAN compression  enabled = add nothing
 			case 0x00 : TRX_createAPframe( RX_WORK_BUF, flen, dataStart+2, srcAddrLen, 0x00 ); break;	// security disabled, PAN compression disabled = add 2 bytes for src PAN ID

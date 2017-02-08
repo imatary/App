@@ -72,7 +72,5 @@ at_status_t AT_exec(uint32_t *th, cmdIDs cmdID)
 		default: return INVALID_COMMAND;
 	}
 
-	UART_print_status(OP_SUCCESS);
-
 	return OP_SUCCESS;
 }

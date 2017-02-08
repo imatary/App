@@ -10,12 +10,13 @@
 #include <avr/interrupt.h>
 
 #include "../header/_global.h"					// bool_t
-#include "../header/ap_frames.h"					// prototypes
+#include "../header/ap_frames.h"				// prototypes
 #include "../header/circularBuffer.h"			// buffer
 #include "../../ATuracoli/stackrelated_timer.h"	// timer
 
 // === defines ============================================
-#define AP_TIMEOUT	 0x15
+#define AP_TIMEOUT	 0x25
+
 #define STATEM_IDLE	 0x00
 #define AP_LENGTH_1	 0x01
 #define AP_LENGTH_2	 0x02
@@ -79,6 +80,7 @@ void AP_parser( uint8_t inchar, bufType_n bufType )
 		{
 			th = deTIMER_restart(th, deMSEC( AP_TIMEOUT ) );
 			SET_apFrameLength( (uint16_t) inchar & 0xFF, TRUE ); // update value
+			state = AP_GET_DATA;
 		}
 		break;
 

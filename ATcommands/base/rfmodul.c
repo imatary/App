@@ -12,6 +12,7 @@
 #include "../header/defaultConfig.h"	// defines for default configuration
 #include "../header/rfmodul.h"			// prototypes
 #include "../header/cmd.h"
+#include "../../ATuracoli/stackrelated.h"
 
 // === globals ============================================
 static device_t RFmodul;

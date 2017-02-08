@@ -23,13 +23,13 @@
 
 // === struct and struct table ============================
 typedef struct command {
-	char		*name;		                        // command name
-	cmdIDs	ID;										// AT ID of enum type cmdIDs
-	size_t	addr_offset;							// offset of RFmodul struct
-	uint8_t	rwxAttrib;								// 8 Bit for rwx or rwx Attrib bit field
-	uint8_t   cmdSize;								// max command size depending on data type or array size
-	uint32_t	min;		                        // allowed minimum value
-	uint32_t  max;									// allowed maximum value
+	char		*name;									// command name
+	cmdIDs	ID;											// AT ID of enum type cmdIDs
+	size_t	addr_offset;								// offset of RFmodul struct
+	uint8_t	  rwxAttrib;								// 8 Bit for rwx or rwx Attrib bit field
+	uint8_t     cmdSize;								// max command size depending on data type or array size
+	uint32_t	    min;		                        // allowed minimum value
+	uint32_t        max;								// allowed maximum value
 
 	void        (*mySet) ( void*, size_t );				// set function (data, length)
 	at_status_t (*valid) (size_t len,					// command parameter length

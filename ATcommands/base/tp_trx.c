@@ -50,13 +50,14 @@ void TRX_printContent( bufType_n bufType, uint8_t flen, uint8_t dataStart )
 
 	if ( 0x08 & GET_deBufferByteAt(RX_WORK_BUF, 0) )	// security enabled
 	{
-		/* TODO */
+		UART_print("Cant read data now!"); /* TODO */
 	}
 	else					    // security disabled
 	{
 		for (uint8_t i = dataStart; i < flen-2 ; i++)
 		{
-			UART_putc(0x48 & GET_deBufferByteAt(RX_WORK_BUF, i));
+			UART_putc( GET_deBufferByteAt(RX_WORK_BUF, i) );
+
 		}/* end for loop */
 	}
 }
@@ -87,7 +88,7 @@ int TRX_msgFrame( bufType_n bufType, uint8_t *package )
 	 * if the value of pan id, dest. addr or src. short addr changed
 	 * create new mac header
 	 */
-	if ( 0 < dirtyBits & 0x68 )
+	if ( dirtyBits & 0x68 )
 	{
 		SET_macHeader();
 		dirtyBits ^= (dirtyBits & 0x68);
@@ -118,7 +119,7 @@ int TRX_msgFrame( bufType_n bufType, uint8_t *package )
 	 *	if no data has been read, return 0
 	 */
 	if ( pos <= macHeaderSize ) return 0;
-	else                        return pos;
+	else                        return pos-1;
 }
 
 
@@ -161,7 +162,7 @@ static void SET_macHeader(void)
 	 * destination addr.
 	 * extended or short
 	 */
-	u64tmp = (uint64_t) RFmodul->netCMD_dh << 32 | RFmodul->netCMD_mm;
+	u64tmp = (uint64_t) RFmodul->netCMD_dh << 32 | RFmodul->netCMD_dl;
 
 	if ( 0xFFFF < u64tmp )
 	{
@@ -183,7 +184,7 @@ static void SET_macHeader(void)
 	if ( 0xFFFE != RFmodul->netCMD_my )
 	{
 		memcpy( &macHeader[ macHeaderSize ], &RFmodul->netCMD_my, 2 );
-		macHeader[ macHeaderSize ] |= 0x80; // MAC header second byte (bit 6/7)
+		macHeader[1] |= 0x80; // MAC header second byte (bit 6/7)
 		macHeaderSize += 2;
 	}
 	else
