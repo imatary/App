@@ -279,12 +279,22 @@ uint16_t GET_deviceValue( void *dest, const CMD *cmd )
 
 	memcpy( dest, value, cmd->cmdSize );
 
+	if ( AT_AP == cmd->ID && cmd->max >= RFmodul.serintCMD_ap )
+	{
+		SET_atAP_tmp( &RFmodul.serintCMD_ap, 1 );
+	}
+
+	if ( AT_CT == cmd->ID && cmd->max >= RFmodul.atcopCMD_ct && cmd->min <= RFmodul.atcopCMD_ct )
+	{
+		SET_atCT_tmp( &RFmodul.atcopCMD_ct, 2 );
+	}
+
 	if ( AT_NI != cmd->ID )
 	{
 		return cmd->cmdSize;
 	}
 	else
 	{
-		return strlen( (const char*) RFmodul.netCMD_ni) + 1;
+		return strlen( (const char*) RFmodul.netCMD_ni);
 	}
 }

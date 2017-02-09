@@ -43,7 +43,7 @@ at_status_t max_u32val( size_t len, const uint8_t *workArray, const CMD *cmd, co
 	uint32_t val = 0x0;
 	char *endptr;
 
-	if( devMode == GET_serintCMD_ap() )
+	if( TRANSPARENT_MODE == devMode )
 	{
 		val = strtoul( (const char*) workArray, &endptr, 16);
 		if ( *endptr != workArray[len-1]) return INVALID_PARAMETER;

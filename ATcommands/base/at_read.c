@@ -74,15 +74,5 @@ at_status_t AT_read( CMD *cmd )
 		break;
 	}
 
-	if ( AT_AP == cmd->ID && cmd->max >= u32val )
-	{
-		SET_atAP_tmp(&u32val, cmd->cmdSize);
-	}
-
-	if ( AT_CT == cmd->ID && cmd->max >= u32val && cmd->min <= u32val )
-	{
-		SET_atCT_tmp(&u32val, cmd->cmdSize);
-	}
-
 	return OP_SUCCESS;
 }

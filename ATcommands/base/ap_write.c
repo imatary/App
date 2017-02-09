@@ -11,6 +11,7 @@
 #include "../header/rfmodul.h"	// RFmodul struct
 #include "../header/cmd.h"		// AT command parser
 #include "../header/ap_frames.h"
+#include "../../ATuracoli/stackrelated.h"
 
 // === globals ============================================
 static uint8_t  workArray[MAX_PARAMETER_LENGHT];
@@ -37,7 +38,7 @@ at_status_t AP_write( bufType_n bufType, const CMD *cmd )
 
 	SET_apFrameRWXopt(WRITE);
 
-	READ_deBufferData_atReadPosition( bufType, workArray, GET_apFrameLength() );
+	READ_deBufferData_atReadPosition( bufType, workArray, GET_apFrameLength()-4 );
 
-	return cmd->valid( GET_apFrameLength(), workArray, cmd, AP_MODE);
+	return cmd->valid( GET_apFrameLength()-4, workArray, cmd, AP_MODE);
 }

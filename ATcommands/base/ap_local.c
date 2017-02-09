@@ -83,8 +83,6 @@ void AP_frameHandle_uart(bufType_n bufType)
 	}
 	SET_apFrameID(outchar[0]);
 
-UART_printf("len: %x, typ: %x, id: %x\r", GET_apFrameLength(), GET_apFrameType(), GET_apFrameID());
-
 	switch ( GET_apFrameType() )
 	{
 		case AT_COMMAND    :
@@ -97,20 +95,16 @@ UART_printf("len: %x, typ: %x, id: %x\r", GET_apFrameLength(), GET_apFrameType()
 					AP_atLocal_response();
 					return;
 				}
-UART_printf("CMD: %s ", pCommand->name); TODODODODOD
 				if ( 4 == GET_apFrameLength() && EXEC & pCommand->rwxAttrib )
 				{
-					UART_print("exec");
 					ret = AP_exec( pCommand->ID );
 				}
 				else if ( 4 == GET_apFrameLength() && READ & pCommand->rwxAttrib )
 				{
-					UART_print("read");
 					ret = AP_read( pCommand );
 				}
 				else
 				{
-					UART_print("write");
 					ret = AP_write( bufType, pCommand );
 					if ( OP_SUCCESS == ret && AT_COMMAND == GET_apFrameType() )
 					{

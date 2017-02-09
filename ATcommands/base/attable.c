@@ -30,7 +30,7 @@
 // === command table ======================================
 static const CMD StdCmdTable[] =
 {
-	/* name ,  ID  ,  addr at offset                   ,  rwx option        , max size , min ,     max   , set functions   , validation    , print function */
+	/* name ,  ID  ,  addr at offset                   ,  rwx option        , max size , min ,     max   , set functions   , validation     */
     /* AT */
 	{ "AT%C", AT_pC,                         NO_OFFSET , READ               ,  U8__SIZE,													 }, // %
 	{ "AT%V", AT_pV,                         NO_OFFSET , READ               ,  0,														     },			// TODO ZigBee
