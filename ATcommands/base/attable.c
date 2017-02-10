@@ -73,7 +73,7 @@ static const CMD StdCmdTable[] =
 
 	{ "ATHV", AT_HV, offsetof( device_t, diagCMD_hv   ), READ | WRITE       ,  U16_SIZE, 0x00,     0xFFFF, SET_diagCMD_hv  , max_u32val      }, // H
 
-	{ "ATIA", AT_IA, offsetof( device_t, iolpCMD_ia   ), READ | WRITE       ,  U64_SIZE, 0x00,       0x00, SET_iolpCMD_ia  ,                 }, // I
+	{ "ATIA", AT_IA, offsetof( device_t, iolpCMD_ia   ), READ | WRITE       ,  U64_SIZE, 0x00,       0x00, SET_iolpCMD_ia  , max_u64val      }, // I
 	{ "ATIC", AT_IC, offsetof( device_t, ioserCMD_ic  ), READ | WRITE       ,  U8__SIZE, 0x00,       0xFF, SET_ioserCMD_ic , max_u32val      },
 	{ "ATID", AT_ID, offsetof( device_t, netCMD_id    ), READ | WRITE       ,  U16_SIZE, 0x00,     0xFFFF, SET_netCMD_id   , max_u32val      },
 	{ "ATIR", AT_IR, offsetof( device_t, ioserCMD_ir  ), READ | WRITE       ,  U16_SIZE, 0x00,     0xFFFF, SET_ioserCMD_ir , max_u32val      },

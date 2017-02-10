@@ -70,7 +70,6 @@ void SET_defaultInEEPROM(void)
 	memcpy( &lary[size + 6] , &crc_val, 2);
 
 	eeprom_write_block(lary, (void*) START_POS, size + 8 );
-	dirtyBits = 0;
 }
 
 /*

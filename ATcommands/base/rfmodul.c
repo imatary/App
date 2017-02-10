@@ -251,6 +251,7 @@ device_t *GET_device(void)       { return &RFmodul; }
 uint8_t  GET_atAP_tmp(void) { return atAP_tmp; }
 uint16_t GET_atCT_tmp(void) { return atCT_tmp; }
 
+uint8_t GET_netCMD_mm   (void) { return RFmodul.netCMD_mm; }
 uint8_t GET_serintCMD_ap(void) { return RFmodul.serintCMD_ap; }
 uint8_t GET_serintCMD_bd(void) { return RFmodul.serintCMD_bd; }
 

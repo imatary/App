@@ -376,6 +376,17 @@ void AP_txStatus(at_status_t status)
  * RX Receive Packet Frame
  * prints the received package as an AP frame
  *
+ * RX frame sample:
+ * |<----------------- dataStart length -------------->|
+ *  61 8C xx 16 DE 27 C3 00 FF FF 2E 21 00 | 0E BE | 0B 00 | 00 4D 65 73 73 61 67 65 | xx xx |
+ *                                         |< src >|<- * ->|<----- data payload ---->|< crc >|
+ *                                                     * MaxStream header (optional)
+ *
+ * API frame:
+ *         |<---------------- frame length ----------------->|
+ * 7E 00 0C 81 | 0E BE |  18   |  01  | 4D 65 73 73 61 67 65 |  02
+ *             |< src >|< RSSI + opt >|<--- data payload --->|< crc >|
+ *
  * Received:
  *		uint8_t		pointer to the srcAddrAndOtion array
  *		uint8_t		length of src. addr.
@@ -387,51 +398,75 @@ void AP_txStatus(at_status_t status)
  */
 void AP_rxReceive( bufType_n bufType, uint16_t length, uint8_t dataStart, uint8_t srcAddrLen )
 {
-	// |------------------ dataStart length -----------|
-	//  61 8C 1B 16 DE C0 40 46 41 00 A2 13 00 00 00 0B 00 44 46 2A
-	//                                        | src | **  | *| crc |
-	// * data payload // ** MaxStream header
-
 	/*
 	 * Frame length calculation:
-	 * total received frame length - (payload start position - 1) - 2 bytes crc
-	 * + 1 byte frame type + 1 (RSSI) + 1 (Option) + src addr length
-	 *
-	 * if Mac Mode equal to ACK_WITH_MAXSTREAM or NO_ACK_WITH_MAXSTREAM, - 2 bytes MaxStream header
+	 * length = total received frame length - (payload start position - 1) - 2 bytes crc + 1 byte frame type + 1 (RSSI) + src addr length
 	 */
-	uint16_t frLength = length - ( dataStart - 1 ) - 2 + 3 + srcAddrLen;			// +2 (frame type) +1 (RSSI) +1 (Option) + src addr length
+	uint8_t tmp;
+	uint16_t frLength = length - dataStart + srcAddrLen - 1;
 
-	UART_putc( STD_DELIMITER );								// start delimiter
-	UART_putc( (uint8_t) (frLength >> 8) );					// frame length
+	/*
+	 * std. delimiter
+	 */
+	UART_putc( STD_DELIMITER );
+
+	/*
+	 * frame length
+	 */
+	UART_putc( (uint8_t) (frLength >> 8) );
 	UART_putc( (uint8_t) (frLength & 0xFF) );
-	if ( srcAddrLen == 8 )									// frame type
+
+	/*
+	 * frame type
+	 */
+	if ( srcAddrLen == 8 )
 	{
-		UART_putc( 0x80 );
+		UART_putc( 0x80 );				// 64 bit src addr
 		SET_apFrameCRC( 0x80, FALSE );
 	}
 	else
 	{
-		UART_putc( 0x81 );
+		UART_putc( 0x81 );				// 16 bit src addr
 		SET_apFrameCRC( 0x81, FALSE );
 	}
 
-	for ( short i = 0; i < srcAddrLen ; i++ )					// Addr.
+	/*
+	 * source address
+	 */
+	for ( uint8_t i = 0; i < srcAddrLen ; i++ )
 	{
-		UART_putc( GET_deBufferByteAt( bufType, dataStart-i) );
-		SET_apFrameCRC( GET_deBufferByteAt( bufType, dataStart-i), TRUE );
+		tmp = GET_deBufferByteAt( bufType, dataStart-i-1);
+		UART_putc( tmp );
+		SET_apFrameCRC( tmp, TRUE );
 	}
 
-	uint8_t x = TRX_readReg(PHY_RSSI) & 0x1F;
-	UART_putc( x );
-	SET_apFrameCRC( x, TRUE );
+	/*
+	 * RSSI value
+	 */
+	tmp = TRX_readReg(PHY_RSSI) & 0x1F;
+	UART_putc( tmp );
+	SET_apFrameCRC( tmp, TRUE );
 
-	UART_putc( GET_deBufferByteAt( bufType, dataStart) );		// Option
-	SET_apFrameCRC( GET_deBufferByteAt( bufType, dataStart), TRUE);
+	/*
+	 * option [0x1] Address broadcast / [0x2] PAN broadcast
+	 */
+	tmp = GET_deBufferByteAt( bufType, dataStart+1);
+	if ( 0x4 == tmp ) UART_putc( 0x2 );
+	else              UART_putc( 0x1 );
 
-	for (uint16_t i; i < length; i++ )
+	/*
+	 * if Mac Mode (MM) equal to ACK_WITH_MAXSTREAM or NO_ACK_WITH_MAXSTREAM, + 2 bytes for MaxStream header
+	 */
+	if ( ACK_WITH_MAXSTREAM == GET_netCMD_mm() || NO_ACK_WITH_MAXSTREAM == GET_netCMD_mm() ) dataStart += 2;
+
+	/*
+	 * data payload
+	 */
+	for ( uint16_t i = 0; i < frLength-srcAddrLen-2; i++ )
 	{
-		UART_putc( GET_deBufferByteAt( bufType, dataStart) );
-		SET_apFrameCRC( GET_deBufferByteAt( bufType, dataStart), TRUE);
+		tmp = GET_deBufferByteAt( bufType, dataStart+i);
+		UART_putc( tmp );
+		SET_apFrameCRC( tmp, TRUE);
 	}
 
 	UART_putc( GET_apFrameCRC() );							// checksum

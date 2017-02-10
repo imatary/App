@@ -15,43 +15,55 @@
 #include "../../ATuracoli/stackrelated.h"
 
 // === prototypes =========================================
+static inline void swap(uint8_t *array, size_t len);
 static inline void swap_u32(uint32_t *inVal);
-static inline void swap_u64(uint64_t *inVal);
 
 // === functions ==========================================
 /*
- * Validation an write function
- * - received the buffer content and converted content to uint32 hex values
- * if - the command size smaller or equal then unit of the tmp buffer
- *    - the buffer value greater or equal than min value
- *    - the buffer value smaller or equal than max value
- * write to RFmodul struct
+ * Validation and write function
+ * if AT command
+ *    - if length greater than 8 return invalid parameter
+ *    - else convert string to unsigned long
+ *    - if end pointer is not equal to '\0' return invalid parameter
+ *
+ * if API command
+ *	  - if length greater than 4 return invalid parameter
+ *	  - else swap buffer content and copy the received values in to 32 bit variable
+ *
+ * compare variable with min and max values
+ *	  - if value is OK, store it into RFmodul struct
+ *	  - else return invalid parameter
  *
  * Received:
- *		bufType_n	number of buffer type
- *		size_t  	string length
- *		CMD			pointer to command in command table
+ *		size_t			string length
+ *		uint8_t  		pointer to workArray which includes the data
+ *		CMD				pointer to command in command table
+ *		device_mode		type of command AT or API
  *
  * Returns:
  *     OP_SUCCESS			on success
- *	   INVALID_PARAMETER	if parameter is not valid or error has occurred during transforming to hex
+ *	   INVALID_PARAMETER	if parameter is not valid
  *
- * last modified: 2016/12/02
+ * last modified: 2017/02/10
  */
-at_status_t max_u32val( size_t len, const uint8_t *workArray, const CMD *cmd, const device_mode devMode )
+at_status_t max_u32val( size_t len, uint8_t *workArray, const CMD *cmd, const device_mode devMode )
 {
 	uint32_t val = 0x0;
-	char *endptr;
 
 	if( TRANSPARENT_MODE == devMode )
 	{
+		if ( 8 < len ) return INVALID_PARAMETER;
+
+		char *endptr;
 		val = strtoul( (const char*) workArray, &endptr, 16);
-		if ( *endptr != workArray[len-1]) return INVALID_PARAMETER;
+		if ( *endptr != workArray[len]) return INVALID_PARAMETER;
 	}
 	else
 	{
+		if ( 4 < len ) return INVALID_PARAMETER;
+
+		swap(workArray, len);
 		memcpy( &val, workArray, len);
-		swap_u32(&val);
 	}
 
 	if ( val >= cmd->min && val <= cmd->max )
@@ -65,9 +77,85 @@ at_status_t max_u32val( size_t len, const uint8_t *workArray, const CMD *cmd, co
 
 
 /*
- * special handle if
- * - network identifier string command
- * - buffer content <= 20 characters
+ * Validation and write function
+ * if AT command
+ *    - if length greater than 16 return invalid parameter
+ *	  - if length greater than 8 move len-8 bytes one position onwards and
+ *      set a space at position 8 in array
+ *    - else convert string to unsigned long
+ *    - if end pointer is not equal to '\0' return invalid parameter
+ *
+ * if API command
+ *	  - if length greater than 8 return invalid parameter
+ *	  - else swap buffer content and copy the received values in to 32 bit variable
+ *
+ * store value into RFmodul struct
+ *
+ * Received:
+ *		size_t			string length
+ *		uint8_t  		pointer to workArray which includes the data
+ *		CMD				pointer to command in command table
+ *		device_mode		type of command AT or API
+ *
+ * Returns:
+ *     OP_SUCCESS			on success
+ *	   INVALID_PARAMETER	if parameter is not valid
+ *
+ * last modified: 2017/02/10
+ */
+at_status_t max_u64val( size_t len, uint8_t *workArray, const CMD *cmd, const device_mode devMode )
+{
+	uint64_t val;
+
+	if( TRANSPARENT_MODE == devMode )
+	{
+		if ( 16 < len ) return INVALID_PARAMETER;
+
+		char *endptr;
+		uint8_t shift = 0x0;
+
+		if ( 8 < len )
+		{
+			memmove( &workArray[9], &workArray[8], len-8 );
+			workArray[8] = 0x20;
+			shift = 4 * (len-8);
+		}
+
+		val  = (uint64_t) strtoul( (const char*) workArray, &endptr, 16) << shift;
+		if ( *endptr != workArray[len] && 8 >= len ) return INVALID_PARAMETER;
+
+		val |= strtoul( (const char*) endptr, &endptr, 16);
+		if ( *endptr != workArray[len] && 8 < len ) return INVALID_PARAMETER;
+	}
+	else
+	{
+		if ( 8 < len ) return INVALID_PARAMETER;
+		swap(workArray, len);
+		memcpy( &val, workArray, len);
+	}
+
+	cmd->mySet( &val, cmd->cmdSize);
+	return OP_SUCCESS;
+}
+
+
+
+/*
+ * node identifier string command function
+ * if buffer content smaller than 20 characters
+ * store value into RFmodul struct else return invalid parameter
+ *
+ * Received:
+ *		size_t			string length
+ *		uint8_t  		pointer to workArray which includes the data
+ *		CMD				pointer to command in command table
+ *		device_mode		type of command AT or API
+ *
+ * Returns:
+ *     OP_SUCCESS			on success
+ *	   INVALID_PARAMETER	if parameter is not valid
+ *
+ * last modified: 2017/02/10
  */
 at_status_t node_identifier( size_t len, const uint8_t *workArray, const CMD *cmd, const device_mode devMode )
 {
@@ -75,7 +163,7 @@ at_status_t node_identifier( size_t len, const uint8_t *workArray, const CMD *cm
 	{
 		cmd->mySet( (uint8_t*) workArray, len);
 
-		if ( devMode == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
+		if ( TRANSPARENT_MODE == devMode ) UART_print_status(OP_SUCCESS);
 		return OP_SUCCESS;
 	}
 	else
@@ -84,49 +172,59 @@ at_status_t node_identifier( size_t len, const uint8_t *workArray, const CMD *cm
 	}
 }
 
-at_status_t ky_validator( size_t len, const uint8_t *workArray, const CMD *cmd, const device_mode devMode )
-{
-	/* TODO */
-	if (FALSE)
-	{
-		//if ( devMode == GET_serintCMD_ap() ) UART_print_status(OP_SUCCESS);
-		return OP_SUCCESS;
-	}
-	else
-	{
-		return INVALID_PARAMETER;
-	}
-}
+
 
 /*
- * swap helper functions
+ * key validation for AES encryption
+ * TODO
+ *
+ * store value into RFmodul struct else return invalid parameter
+ *
+ * Received:
+ *		size_t			string length
+ *		uint8_t  		pointer to workArray which includes the data
+ *		CMD				pointer to command in command table
+ *		device_mode		type of command AT or API
+ *
+ * Returns:
+ *     OP_SUCCESS			on success
+ *	   INVALID_PARAMETER	if parameter is not valid
+ *
+ * last modified: 20--/--/--
+ */
+at_status_t ky_validator( size_t len, const uint8_t *workArray, const CMD *cmd, const device_mode devMode )
+{
+	if ( 16 >= len )
+	{
+		//if ( TRANSPARENT_MODE == devMode ) UART_print_status(OP_SUCCESS);
+		return OP_SUCCESS;
+	}
+	else
+	{
+		return INVALID_PARAMETER;
+	}
+}
+
+
+
+/*
+ * swap helper function swap
+ *
+ * Received:
+ *		uint8_t		pointer to array which should swapped
+ *		size_t		size of array
  *
  * Returns:
  *		nothing
  *
- * last modified: 2017/01/23
+ * last modified: 2017/02/10
  */
-
-static inline void swap_u32(uint32_t *inVal)
+static inline void swap(uint8_t *array, size_t len)
 {
-	uint8_t *bytes = (uint8_t*)inVal;
-	bytes[0] ^= bytes[3];
-	bytes[3] ^= bytes[0];
-	bytes[0] ^= bytes[3];
-	bytes[1] ^= bytes[2];
-	bytes[2] ^= bytes[1];
-	bytes[1] ^= bytes[2];
-}
-
-static inline void swap_u64(uint64_t *inVal)
-{
-	uint8_t *bytes = (uint8_t*)inVal;
-
-	for(char i = 0; i < 4; i++)
+	for(size_t i = 0; i < len/2; i++)
 	{
-		bytes[i]   ^= bytes[7-i];
-		bytes[7-i] ^= bytes[i];
-		bytes[i]   ^= bytes[7-i];
+		array[i] ^= array[len-1-i];
+		array[len-1-i] ^= array[i];
+		array[i] ^= array[len-1-i];
 	}
-
 }

@@ -182,6 +182,7 @@ device_t *GET_device(void);
 uint8_t  GET_atAP_tmp(void);
 uint16_t GET_atCT_tmp(void);
 
+uint8_t GET_netCMD_mm   (void);
 uint8_t GET_serintCMD_ap(void);
 uint8_t GET_serintCMD_bd(void);
 

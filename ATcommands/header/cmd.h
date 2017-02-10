@@ -33,7 +33,7 @@ typedef struct command {
 
 	void        (*mySet) ( void*, size_t );				// set function (data, length)
 	at_status_t (*valid) (size_t len,					// command parameter length
-	                      const uint8_t *workArray,		// array pointer to workArray which contained command param
+	                      uint8_t *workArray,		    // array pointer to workArray which contained command param
 						  const struct command *cmd,	// pointer to command information in command table
 						  const device_mode devMode		// information from which mode this function was called
 						 );								// validation function, if data valid it call the set function

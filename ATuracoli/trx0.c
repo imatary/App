@@ -265,7 +265,7 @@ at_status_t TRX_receive(bufType_n bufType)
 	}
 	else
 	{
-		switch ( GET_deBufferByteAt(RX_WORK_BUF, 0) ) // define MAC options
+		switch ( 0x48 & GET_deBufferByteAt(RX_WORK_BUF, 0) ) // define MAC options
 		{
 			case 0x40 : TRX_createAPframe( RX_WORK_BUF, flen, dataStart,   srcAddrLen, 0x40 ); break;	// security disabled, PAN compression  enabled = add nothing
 			case 0x00 : TRX_createAPframe( RX_WORK_BUF, flen, dataStart+2, srcAddrLen, 0x00 ); break;	// security disabled, PAN compression disabled = add 2 bytes for src PAN ID
