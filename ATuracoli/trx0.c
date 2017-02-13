@@ -167,10 +167,11 @@ void TRX_send(bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t s
 	{
 		switch(senderInfo)
 		{
-			case 0x17 : { pos = TRX_atRemoteFrame    ( bufType, send );						} break;	// AP Remote Command
-		    case 0x00 : { pos = TRX_transmit64Frame  ( bufType, send ); 					} break;	// AP TX Transmit Request 64-bit addr.
+			case 0x00 : { pos = TRX_transmit64Frame  ( bufType, send ); 					} break;	// AP TX Transmit Request 64-bit addr.
 	        case 0x01 : { pos = TRX_transmit16Frame  ( bufType, send ); 					} break;	// AP TX Transmit Request 16-bit addr.
+			case 0x17 : { pos = TRX_atRemoteFrame    ( bufType, send );						} break;	// AP Remote Command
 		    case 0x97 : { pos = TRX_atRemote_response( bufType, send, srcAddr, srcAddrLen);	} break;	// AP Remote Response
+			default: pos = 0; break;
 		}
 	}
 

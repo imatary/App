@@ -18,21 +18,21 @@
 #include "../../ATuracoli/stackdefines.h"		// defined register addresses
 
 // === std. defines & frame types =========================
-#define STD_DELIMITER	(0x7E)
-#define TX_MSG_64		(0x00)
-#define TX_MSG_16		(0x01)
-#define AT_COMMAND		(0x08)
-#define AT_COMMAND_Q	(0x09)
-#define REMOTE_AT_CMD	(0x17)
-#define DEVICE_AT_CMD	(0x18)
-#define RX_MSG_64		(0x80)
-#define RX_MSG_16		(0x81)
-#define REMOTE_RESPONSE (0x97)
+#define STD_DELIMITER	0x7E
+#define TX_MSG_64		0x00
+#define TX_MSG_16		0x01
+#define AT_COMMAND		0x08
+#define AT_COMMAND_Q	0x09
+#define REMOTE_AT_CMD	0x17
+#define DEVICE_AT_CMD	0x18
+#define RX_MSG_64		0x80
+#define RX_MSG_16		0x81
+#define REMOTE_RESPONSE 0x97
 
-#define ACK_WITH_MAXSTREAM    (0x0)
-#define NO_ACK_NO_MAXSTREAM   (0x1)
-#define ACK_NO_MAXSTREAM	  (0x2)
-#define NO_ACK_WITH_MAXSTREAM (0x3)
+#define ACK_WITH_MAXSTREAM    0x0
+#define NO_ACK_NO_MAXSTREAM   0x1
+#define ACK_NO_MAXSTREAM	  0x2
+#define NO_ACK_WITH_MAXSTREAM 0x3
 
 // === globals ============================================
 static uint8_t outchar[256];
@@ -229,7 +229,7 @@ static at_status_t AP_localDevice(bufType_n bufType)
 	 * frame length
 	 * EXEC is allowed
 	 */
-	if ( 4 == GET_apFrameLength() && EXEC == pCommand->rwxAttrib )
+	if ( 4 == GET_apFrameLength() && EXEC & pCommand->rwxAttrib )
 	{
 		SET_apFrameRWXopt(EXEC);
 
@@ -243,7 +243,7 @@ static at_status_t AP_localDevice(bufType_n bufType)
 	 * frame length
 	 * READ is allowed
 	 */
-	else if ( 4 == GET_apFrameLength() && pCommand->rwxAttrib & READ )
+	else if ( 4 == GET_apFrameLength() && READ & pCommand->rwxAttrib )
 	{
 		SET_apFrameRWXopt(READ);
 
@@ -265,7 +265,7 @@ static at_status_t AP_localDevice(bufType_n bufType)
 	 * string length of input
 	 * writing to RFmodul struct [and to EEPROM] is allowed
 	 */
-	else if ( 4 < GET_apFrameLength() && WRITE == pCommand->rwxAttrib )
+	else if ( 4 < GET_apFrameLength() && WRITE & pCommand->rwxAttrib )
 	{
 		size_t cmdSize = GET_apFrameLength() - 4;
 		SET_apFrameRWXopt(WRITE);
@@ -336,7 +336,7 @@ static void AP_atLocal_response(void)
 
 
 /*
- * The tx status frame
+ * The tx status frame,
  * generated the output AP frame with the status return value
  * of the transmit 16/64 frame
  *
@@ -346,18 +346,36 @@ static void AP_atLocal_response(void)
  * Returns:
  *		nothing
  *
- * last modified: 2017/01/26
+ * last modified: 2017/02/10
  */
 void AP_txStatus(at_status_t status)
 {
-	UART_putc( STD_DELIMITER );						// start delimiter
-	UART_putc( 0x0 );								// frame length
+	/*
+	 * std. delimiter
+	 */
+	UART_putc( STD_DELIMITER );
+
+	/*
+	 * frame length, constant 3 bytes
+	 */
+	UART_putc( 0x0 );
 	UART_putc( 0x3 );
+
+	/*
+	 * frame  type
+	 */
 	UART_putc( 0x89 );
+
+	/*
+	 * frame ID
+	 */
 	UART_putc( GET_apFrameID() );
 
 	uint8_t crc = 0x89 + GET_apFrameID();
 
+	/*
+	 * status value
+	 */
 	switch (status)
 	{
 		case OP_SUCCESS			: UART_putc( 0x00 ); crc += 0x00; break;	// success
@@ -373,7 +391,7 @@ void AP_txStatus(at_status_t status)
 
 
 /*
- * RX Receive Packet Frame
+ * RX Receive Packet Frame,
  * prints the received package as an AP frame
  *
  * RX frame sample:
@@ -394,7 +412,7 @@ void AP_txStatus(at_status_t status)
  * Returns:
  *     nothing
  *
- * last modified: 2017/01/26
+ * last modified: 2017/02/13
  */
 void AP_rxReceive( bufType_n bufType, uint16_t length, uint8_t dataStart, uint8_t srcAddrLen )
 {
@@ -451,8 +469,16 @@ void AP_rxReceive( bufType_n bufType, uint16_t length, uint8_t dataStart, uint8_
 	 * option [0x1] Address broadcast / [0x2] PAN broadcast
 	 */
 	tmp = GET_deBufferByteAt( bufType, dataStart+1);
-	if ( 0x4 == tmp ) UART_putc( 0x2 );
-	else              UART_putc( 0x1 );
+	if ( 0x4 == tmp )
+	{
+		UART_putc( 0x2 );
+		SET_apFrameCRC( 0x2, TRUE);
+	}
+	else
+	{
+		UART_putc( 0x1 );
+		SET_apFrameCRC( 0x1, TRUE);
+	}
 
 	/*
 	 * if Mac Mode (MM) equal to ACK_WITH_MAXSTREAM or NO_ACK_WITH_MAXSTREAM, + 2 bytes for MaxStream header
@@ -462,21 +488,30 @@ void AP_rxReceive( bufType_n bufType, uint16_t length, uint8_t dataStart, uint8_
 	/*
 	 * data payload
 	 */
-	for ( uint16_t i = 0; i < frLength-srcAddrLen-2; i++ )
+	for ( uint16_t i = 0; i < frLength-srcAddrLen-3; i++ )
 	{
 		tmp = GET_deBufferByteAt( bufType, dataStart+i);
 		UART_putc( tmp );
 		SET_apFrameCRC( tmp, TRUE);
 	}
 
-	UART_putc( GET_apFrameCRC() );							// checksum
+	/*
+	 * checksum
+	 */
+	UART_putc( GET_apFrameCRC() );
 }
 
 
 
 /*
- * AT Remote Command (local execution)
+ * AT Remote Command (local execution),
  * reads from RX buffer, prepared the response frame struct and send response
+ *
+ * RX frame sample:
+ * |<------------------ dataStart length ------------->|   |<----------------- 14 bytes -------------------->|
+ *  61 8C 6C 16 DE C0 40 46 41 00 A2 13 00 | E0 BE | 0E 04 | 01 | 00 13 A2 00 41 46 40 C0 FF FE | 02 | 53 4C | 99 C6
+ *                                         |< src >|       |<ID>|<-------- dest, addr --------->|<* >|< cmd >|
+ *																	                              * option
  *
  * Received:
  *		uint8_t		pointer to the workArray
@@ -486,18 +521,14 @@ void AP_rxReceive( bufType_n bufType, uint16_t length, uint8_t dataStart, uint8_
  * Returns:
  *		nothing
  *
- * last modified: 2017/01/27
+ * last modified: 2017/02/13
  */
 void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t dataStart, uint8_t srcAddrLen)
 {
-	// |------------------ dataStart length -----------|  |-------------- 14 bytes -----------------|
-	//  61 8C 6C 16 DE C0 40 46 41 00 A2 13 00 E0 BE 0E 04 01 00 13 A2 00 41 46 40 C0 FF FE 02 53 4C 99 C6
-	//                                        | src |     |ID|-------- dest, addr ---------|* | cmd |
-	//																	                    * option
-
 	uint8_t srcAddr[8];
+	uint8_t mm_option = GET_netCMD_mm();
 	/*
-	 * - Frame consist a minimum of 14 payload bytes
+	 * - Frame consists a minimum of 14 payload bytes
 	 * - read src address for response
 	 * - read AP Frame ID (1 byte)
 	 * - read dest. addr. (10 bytes) (not important) but need to be deleted
@@ -511,13 +542,18 @@ void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t data
 
 	deBufferReadReset(bufType, '+', dataStart - srcAddrLen );
 	READ_deBufferData_atReadPosition(bufType,srcAddr,srcAddrLen);
+	if ( ACK_WITH_MAXSTREAM == mm_option || NO_ACK_WITH_MAXSTREAM == mm_option )
+	{
+		deBufferReadReset(bufType, '+', 2 );
+		dataStart += 2;
+	}
 
-	SET_apFrameID( GET_deBufferByteAt(bufType, 0) );
+	SET_apFrameID  ( GET_deBufferByteAt(bufType, 0) );
 	SET_apFrameType( GET_deBufferByteAt(bufType, 11 ) ); // the frame type variable will be used for option
 
 	deBufferReadReset(bufType, '+', 12 );
 
-	length -= 0xA; // length = 2 dummy bytes + 2 bytes AT cmd [+ n-bytes payload]
+	length -= (dataStart+12); // length = 2 dummy bytes + 2 bytes AT cmd [+ n-bytes payload] (min 4 Bytes)
 
 	ret	= AP_getCommand( bufType, &pCommand );
 	if ( INVALID_COMMAND == ret )
@@ -527,16 +563,17 @@ void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t data
 		return;
 	}
 
-	if ( 4 == GET_apFrameLength() && EXEC == pCommand->rwxAttrib )
+	if ( 4 == length && EXEC & pCommand->rwxAttrib )
 	{
 		ret = AP_exec( pCommand->ID );
 	}
-	else if ( 4 == GET_apFrameLength() && READ == pCommand->rwxAttrib )
+	else if ( 4 == length && READ & pCommand->rwxAttrib )
 	{
 		ret = AP_read( pCommand );
 	}
 	else
 	{
+		SET_apFrameLength(length, FALSE);
 		ret = AP_write( bufType, pCommand );
 	}
 	SET_apFrameRet(ret);
@@ -563,21 +600,22 @@ void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t data
  * AT Remote Response Frame (read frame)
  * prints the response of an AT Remote Command
  *
+ * RX frame sample:
+ * |<----- dataStart length ---->|   |<------------- API frame payload length + 1 ------------------>|
+ *  61 88 5B 16 DE E0 BE E1 BE 09 05 | 01 | 00 13 A2 00 41 46 40 C0 BE E1 | 53 4C | 00 | 41 46 40 C0 | 2C BF
+ *                                   |<ID>|<--------- src addr ---------->|< cmd >|<* >|<- [param] ->|< crc >|
+ *                                                                                  * return value
+ *
  * received:
  *		uint16_t	length of data content
  *
  * Returns:
  *		nothing
  *
- * last modified: 2017/01/26
+ * last modified: 2017/02/13
  */
 void AP_atRemote_response(bufType_n bufType, uint16_t length, uint8_t dataStart)
 {
-	// |------ dataStart length -----|  |---------- API frame payload length + 1 -------------|
-	//  61 88 5B 16 DE E0 BE E1 BE 09 05 01 00 13 A2 00 41 46 40 C0 BE E1 53 4C 00 41 46 40 C0 2C BF
-	//                                  |ID|--------- src addr ----------| cmd |* |- [param] -| crc |
-	//																	        * return value
-
 	uint8_t  outchar;
 	/*
 	 * Frame length calculation:
@@ -592,7 +630,7 @@ void AP_atRemote_response(bufType_n bufType, uint16_t length, uint8_t dataStart)
 	uint8_t crc = 0x97;
 
 	deBufferReadReset( bufType, '+', dataStart + 2 );
-	for (uint16_t i = 0; i < length-1; i++)
+	for (uint16_t i = 0; i < frLength-1; i++)
 	{
 		deBufferOut( bufType, &outchar );
 		UART_putc( outchar );
