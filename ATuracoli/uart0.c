@@ -3,7 +3,7 @@
  *
  * Created: 26.10.2016 09:07:14
  *  Author: TOE
- */ 
+ */
 #include <inttypes.h>
 
 #include "../ATcommands/header/_global.h"
@@ -14,7 +14,7 @@
 #include "board.h"
 
 /*
- * the UART_init initialized the MCU, URAT 
+ * the UART_init initialized the MCU, URAT
  * and adjust the baud rate
  *
  * last modified: 2016/10/26
@@ -37,7 +37,7 @@ void UART_init(void)
 		default  : baud = deHIF_DEFAULT_BAUDRATE; break;
 	}
 	hif_init(baud);
-	
+
 	UART_getc	= hif_getc;
 	UART_putc	= hif_putc;
 	UART_puts	= hif_puts;
@@ -48,7 +48,7 @@ void UART_init(void)
 /*
  * UART_print_status()
  * print a error message to the uart
- * 
+ *
  * Received:
  *		at_status_t	value with the return information, which error occurred
  *
@@ -63,7 +63,7 @@ void UART_print_status(at_status_t value)
 	{
 		case QUIT_CMD_MODE		: UART_print("Leave Command Mode.\r");						break;
 		case OP_SUCCESS			: UART_print("OK\r");										break;
-		case ERROR				: UART_print("ERROR!\r");									break;	
+		case ERROR				: UART_print("ERROR!\r");									break;
 		case INVALID_COMMAND	: UART_print("Invalid command!\r");							break;
 		case INVALID_PARAMETER	: UART_print("Invalid parameter!\r");						break;
 		case BUFFER_IN_FAIL		: UART_print("BufferIn error!\r"); 							break;

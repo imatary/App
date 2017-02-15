@@ -8,12 +8,12 @@
 #include <inttypes.h>							// uint8/16/32
 #include <ctype.h>
 
-#include "../header/_global.h"						// bool_t
-#include "../header/rfmodul.h"						// device get and set functions
-#include "../header/cmd.h"							// prototypes for rwx functions
+#include "../header/_global.h"					// bool_t
+#include "../header/rfmodul.h"					// device get and set functions
+#include "../header/cmd.h"						// prototypes for rwx functions
 #include "../header/at_commands.h"
-#include "../header/circularBuffer.h"				// buffer
-#include "../../ATuracoli/stackrelated.h"			// UART functions
+#include "../header/circularBuffer.h"			// buffer
+#include "../../ATuracoli/stackrelated.h"		// UART functions
 #include "../../ATuracoli/stackrelated_timer.h"	// timer
 
 // === defines ============================================
@@ -21,16 +21,16 @@
 #define AT_CC_COUNT		0x10
 #define AT_MODE			0x20
 #define AT_HANDLE		0x30
-#define TIMER_EXPIRED	0x40
 
 // === globals ============================================
 static uint8_t    state = STATEM_IDLE;
 static uint16_t counter = 0;
-static uint32_t	 GT_th;
-static uint32_t  CT_th;
+static uint32_t	  GT_th;
+static uint32_t   CT_th;
 static uint32_t SEND_th;
 
 static bufType_n        ubuf;
+static uint32_t      timeout;
 static uint16_t   guardTimes;
 static uint16_t ATcmdTimeOut;
 static uint8_t commandSequenceChar;
@@ -75,10 +75,47 @@ static at_status_t	AT_getCommand( bufType_n bufType, CMD **cmd );
 void AT_parser( uint8_t inchar, bufType_n bufType )
 {
 	static at_status_t ret = 0;
-	commandSequenceChar = GET_atcopCMD_cc();
-	guardTimes			= GET_atcopCMD_gt();
-	ATcmdTimeOut		= deMSEC( (uint32_t) GET_atcopCMD_ct() * 0x64UL );
-	ubuf                = bufType;
+
+	if ( DIRTYB_CC & dirtyBits )
+	{
+		dirtyBits ^= DIRTYB_CC;
+		commandSequenceChar = GET_atcopCMD_cc();
+	}
+
+	if ( DIRTYB_GT & dirtyBits )
+	{
+		dirtyBits ^= DIRTYB_GT;
+		guardTimes = deMSEC( GET_atcopCMD_gt() );
+	}
+
+	if ( DIRTYB_CT_AT & dirtyBits )
+	{
+		dirtyBits ^= DIRTYB_CT_AT;
+		ATcmdTimeOut = deMSEC( GET_atcopCMD_ct() * 0x64UL );
+	}
+
+	if ( DIRTYB_RO & dirtyBits )
+	{
+		dirtyBits ^= DIRTYB_RO;
+		timeout = GET_serintCMD_ro() * 10000000;
+
+		switch( GET_serintCMD_bd() )
+		{
+			case 0x0 : timeout /=   1200; break;
+			case 0x1 : timeout /=   2400; break;
+			case 0x2 : timeout /=   4800; break;
+			case 0x3 : timeout /=   9600; break;
+			case 0x4 : timeout /=  19200; break;
+			case 0x5 : timeout /=  38400; break;
+			case 0x6 : timeout /=  57600; break;
+			case 0x7 : timeout /= 115200; break;
+			default  : timeout /= deHIF_DEFAULT_BAUDRATE; break;
+		}
+
+		timeout = deUSEC( timeout );
+	}
+
+	ubuf = bufType;
 
 	/*
 	 * if a CC character received, start timer and count CC character signs
@@ -93,7 +130,7 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 		{
 			if ( inchar == commandSequenceChar )
 			{
-				GT_th = deTIMER_start(AT_guardTime_timeHandle, deMSEC( guardTimes ), 0 );
+				GT_th = deTIMER_start(AT_guardTime_timeHandle, guardTimes, 0 );
 				state = AT_CC_COUNT;
 			}
 		}
@@ -107,7 +144,7 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 				counter = 0;
 				state = STATEM_IDLE;
 			}
-			else { GT_th = deTIMER_restart(GT_th, deMSEC( guardTimes ) ); }
+			else { GT_th = deTIMER_restart(GT_th, guardTimes ); }
 		}
 		break;
 
@@ -154,11 +191,11 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	{
 		if ( 0 == SEND_th )
 		{
-			SEND_th = deTIMER_start(AT_sendTX_timeHandle, deMSEC(0x10), 0);
+			SEND_th = deTIMER_start(AT_sendTX_timeHandle, timeout, 0);
 		}
 		else
 		{
-			SEND_th = deTIMER_restart( SEND_th, deMSEC(0x10) );
+			SEND_th = deTIMER_restart( SEND_th, timeout );
 		}
 	}
 
@@ -190,6 +227,7 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 		{
 			deBufferReadReset( bufType, '+', 1); // remove the '\0' from the buffer
 			ret = AT_read( pCommand );
+			if ( OP_SUCCESS != ret ) UART_print_status(ret);
 		}
 		else
 		{

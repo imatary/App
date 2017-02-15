@@ -54,9 +54,15 @@ at_status_t max_u32val( size_t len, uint8_t *workArray, const CMD *cmd, const de
 	{
 		if ( 8 < len ) return INVALID_PARAMETER;
 
+		for (int i = 0; i< len; i++)
+		{
+			UART_printf(">> woa > %x", workArray[i] );
+		}
+
 		char *endptr;
 		val = strtoul( (const char*) workArray, &endptr, 16);
-		if ( *endptr != workArray[len]) return INVALID_PARAMETER;
+		UART_printf("> val > %"PRIX32"\r> epr > %x\r> woa > %x",val, *(char*) endptr, workArray[len-1] );
+		if ( *endptr != workArray[len-1]) return INVALID_PARAMETER;
 	}
 	else
 	{

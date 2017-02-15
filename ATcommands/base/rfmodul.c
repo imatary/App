@@ -159,7 +159,6 @@ void SET_ioserCMD_d3 (void *val, size_t len) { memcpy(&RFmodul.ioserCMD_d3 , val
 void SET_ioserCMD_d2 (void *val, size_t len) { memcpy(&RFmodul.ioserCMD_d2 , val, len); }
 void SET_ioserCMD_d1 (void *val, size_t len) { memcpy(&RFmodul.ioserCMD_d1 , val, len); }
 void SET_ioserCMD_d0 (void *val, size_t len) { memcpy(&RFmodul.ioserCMD_d0 , val, len); }
-void SET_serintCMD_bd(void *val, size_t len) { memcpy(&RFmodul.serintCMD_bd, val, len); }
 void SET_serintCMD_nb(void *val, size_t len) { memcpy(&RFmodul.serintCMD_nb, val, len); }
 void SET_sleepmCMD_so(void *val, size_t len) { memcpy(&RFmodul.sleepmCMD_so, val, len); }
 void SET_sleepmCMD_sm(void *val, size_t len) { memcpy(&RFmodul.sleepmCMD_sm, val, len); }
@@ -174,6 +173,12 @@ void SET_netCMD_ce   (void *val, size_t len) { memcpy(&RFmodul.netCMD_ce   , val
 void SET_netCMD_no   (void *val, size_t len) { memcpy(&RFmodul.netCMD_no   , val, len); }
 void SET_secCMD_ee   (void *val, size_t len) { memcpy(&RFmodul.secCMD_ee   , val, len); }
 void SET_diagCMD_dd  (void *val, size_t len) { memcpy(&RFmodul.diagCMD_dd  , val, len); }
+
+void SET_serintCMD_bd(void *val, size_t len)
+{
+	memcpy(&RFmodul.serintCMD_bd, val, len);
+	dirtyBits ^= DIRTYB_BD;
+}
 
 void SET_netCMD_id   (void *val, size_t len)
 {
@@ -220,7 +225,7 @@ void SET_netCMD_a2   (void *val, size_t len)
 void SET_atCT_tmp    (void *val, size_t len)
 {
 	memcpy(&atCT_tmp, val, len);
-	dirtyBits ^= DIRTYB_CT;
+	dirtyBits ^= DIRTYB_CT_AC;
 }
 
 void SET_atAP_tmp    (void *val, size_t len)
@@ -254,6 +259,7 @@ uint16_t GET_atCT_tmp(void) { return atCT_tmp; }
 uint8_t GET_netCMD_mm   (void) { return RFmodul.netCMD_mm; }
 uint8_t GET_serintCMD_ap(void) { return RFmodul.serintCMD_ap; }
 uint8_t GET_serintCMD_bd(void) { return RFmodul.serintCMD_bd; }
+uint8_t GET_serintCMD_ro(void) { return RFmodul.serintCMD_ro; }
 
 uint8_t  GET_atcopCMD_cc(void) { return RFmodul.atcopCMD_cc; }
 uint16_t GET_atcopCMD_gt(void) { return RFmodul.atcopCMD_gt; }

@@ -26,7 +26,7 @@ struct api_f
 	/*
 	 * create the frame & calc checksum
 	 * 0xFF - (AP type + frame ID [+ target address] [+ options] + main content [+ parameter]) = checksum
-	 *        |<---------------------------------- frame frame->bufLength ------------------->|
+	 *        |<---------------------------------- frame frame->bufLength ------------------>|
 	 */
 	uint8_t  crc;
 
@@ -34,6 +34,7 @@ struct api_f
 
 // === globals ============================================
 static struct api_f frame  = {0,0,0,0,{0},0,{0},0};
+static cmdIDs cmdValuesWithArray[] = {AT_NI,AT_KY,DE_FV};
 
 // === prototypes ==========================================
 static void SWAP_apFrameMsg(size_t length);
@@ -242,7 +243,7 @@ void SET_apFrameMsg(void *val, size_t len, const cmdIDs id)
  	memcpy( frame.msg, (uint8_t*) val, len);
 
 	// swap only if not NI command
- 	if ( AT_NI != id && 1 < len ) SWAP_apFrameMsg(len);
+ 	if (  memchr( cmdValuesWithArray, id, sizeof(cmdValuesWithArray) ) == NULL && 1 < len ) SWAP_apFrameMsg(len);
 }
 
 static void SWAP_apFrameMsg(size_t length)

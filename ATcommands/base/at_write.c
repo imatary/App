@@ -34,7 +34,7 @@ at_status_t AT_write(size_t len, bufType_n bufType, const CMD *cmd )
 {
 	if ( NULL == cmd ) return ERROR;
 
-	READ_deBufferData_atReadPosition( bufType, workArray, len);
+	READ_deBufferData_atReadPosition( bufType, workArray, len-4);
 
-	return cmd->valid(len, workArray, cmd, TRANSPARENT_MODE);
+	return cmd->valid(len-4, workArray, cmd, TRANSPARENT_MODE);
 }

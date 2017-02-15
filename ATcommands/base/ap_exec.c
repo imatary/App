@@ -45,7 +45,7 @@ at_status_t AP_exec( cmdIDs cmdID )
 			if ( DIRTYB_CH & dirtyBits ||\
 			     DIRTYB_ID & dirtyBits ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
 			if ( DIRTYB_AP & dirtyBits ) { SET_serintCMD_ap( GET_atAP_tmp() ); dirtyBits ^= DIRTYB_AP; }
-			if ( DIRTYB_CT & dirtyBits ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT; }
+			if ( DIRTYB_CT_AC & dirtyBits ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
 		}
 		break;
 

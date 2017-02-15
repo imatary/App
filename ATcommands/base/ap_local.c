@@ -250,7 +250,7 @@ static at_status_t AP_localDevice(bufType_n bufType)
 		switch ( pCommand->ID )
 		{
 /* FV */	case DE_FV :
-					SET_apFrameLength( 1, FALSE );
+					SET_apFrameLength( strlen(AT_VERSION), FALSE );
 					uint8_t *val = AT_VERSION;
 					SET_apFrameMsg( val, strlen(AT_VERSION)+1, DE_FV);
 				break;

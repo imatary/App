@@ -185,6 +185,7 @@ uint16_t GET_atCT_tmp(void);
 uint8_t GET_netCMD_mm   (void);
 uint8_t GET_serintCMD_ap(void);
 uint8_t GET_serintCMD_bd(void);
+uint8_t GET_serintCMD_ro(void);
 
 uint8_t  GET_atcopCMD_cc(void);
 uint16_t GET_atcopCMD_gt(void);

@@ -51,7 +51,7 @@ void SET_defaultInEEPROM(void)
 	RFmodul = GET_device();
 	size = GET_device_tSize();
 	memset(lary, 0xFF, size + 8);
-	lary[0] = 0x88;
+	lary[0] = 0x80;
 	lary[1] = 0xDE;
 	lary[2] = 0x02;
 	lary[3] = (uint8_t) size;
@@ -70,7 +70,10 @@ void SET_defaultInEEPROM(void)
 	memcpy( &lary[size + 6] , &crc_val, 2);
 
 	eeprom_write_block(lary, (void*) START_POS, size + 8 );
+	dirtyBits = DIRTYB_ID | DIRTYB_MY | DIRTYB_DH_DL | DIRTYB_BD;
 }
+
+
 
 /*
  * Get all AT command parameter which are stored in the EEPROM
@@ -99,6 +102,8 @@ void GET_allFromEEPROM(void)
 	if ( 0x10 > RFmodul->atcopCMD_ct ) RFmodul->atcopCMD_ct = 0x64;
 	dirtyBits = DIRTYB_ID | DIRTYB_MY | DIRTYB_DH_DL;
 }
+
+
 
 /*
  * Write changeable values of AT command parameter into EEPROM
@@ -138,6 +143,8 @@ void SET_userValInEEPROM(void)
 	eeprom_write_block( lary, (void*) START_POS, size + 8 );
 }
 
+
+
 // === helper functions ===================================
 /*
  * Optimized CRC-CCITT calculation.
@@ -166,6 +173,8 @@ static inline uint16_t crc_16_ccitt(uint16_t crc, uint8_t data)
 	return ((((uint16_t)data << 8) | (uint8_t)(crc >> 8)) ^ \
 	(uint8_t)(data >> 4) ^ ((uint16_t)data << 3));
 }
+
+
 
 /*
  * Calculate a CRC-16-CCITT over the given buffer.
