@@ -52,23 +52,17 @@ at_status_t max_u32val( size_t len, uint8_t *workArray, const CMD *cmd, const de
 
 	if( TRANSPARENT_MODE == devMode )
 	{
-		if ( 8 < len ) return INVALID_PARAMETER;
-
-		for (int i = 0; i< len; i++)
-		{
-			UART_printf(">> woa > %x", workArray[i] );
-		}
+		if ( 9 < len ) return INVALID_PARAMETER;
 
 		char *endptr;
 		val = strtoul( (const char*) workArray, &endptr, 16);
-		UART_printf("> val > %"PRIX32"\r> epr > %x\r> woa > %x",val, *(char*) endptr, workArray[len-1] );
 		if ( *endptr != workArray[len-1]) return INVALID_PARAMETER;
 	}
 	else
 	{
 		if ( 4 < len ) return INVALID_PARAMETER;
 
-		swap(workArray, len);
+		if ( 1 < len ) swap(workArray, len);
 		memcpy( &val, workArray, len);
 	}
 

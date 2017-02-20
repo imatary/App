@@ -18,7 +18,7 @@
 #include "../ATuracoli/stackrelated_timer.h"	// timer init
 
 // === globals ============================================
-uint8_t dirtyBits = 0;
+uint16_t dirtyBits = 0;
 
 // === functions ==========================================
 void main(void)

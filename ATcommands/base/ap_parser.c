@@ -14,6 +14,8 @@
 #include "../header/rfmodul.h"					// get baud and packetization timeout
 #include "../header/circularBuffer.h"			// buffer
 #include "../../ATuracoli/stackrelated_timer.h"	// timer
+#include "../../ATuracoli/stackdefines.h"
+#include "../../ATuracoli/stackrelated.h"
 
 // === defines ============================================
 #define STATEM_IDLE	 0x00
@@ -71,8 +73,10 @@ void AP_parser( uint8_t inchar, bufType_n bufType )
 			case 0x7 : timeout /= 115200; break;
 			default  : timeout /= deHIF_DEFAULT_BAUDRATE; break;
 		}
-	}
 
+		timeout =  deMSEC( timeout )/10;
+
+	}
 	ubuf = bufType;
 
 	switch ( state )
@@ -81,7 +85,7 @@ void AP_parser( uint8_t inchar, bufType_n bufType )
 		{
 			if ( 0x7E == inchar )
 			{
-				th = deTIMER_start(AP_expired_timeHandle, deUSEC( timeout ), 0 );
+				th = deTIMER_start(AP_expired_timeHandle, timeout, 0 );
 				state = AP_LENGTH_1;
 			}
 		}
@@ -89,7 +93,7 @@ void AP_parser( uint8_t inchar, bufType_n bufType )
 
 	case AP_LENGTH_1 :
 		{
-			th = deTIMER_restart(th, deMSEC( timeout ) );
+			th = deTIMER_restart(th, timeout );
 			SET_apFrameLength( (uint16_t) inchar << 8, FALSE ); // init new value
 			state = AP_LENGTH_2;
 		}
@@ -97,7 +101,7 @@ void AP_parser( uint8_t inchar, bufType_n bufType )
 
 	case AP_LENGTH_2 :
 		{
-			th = deTIMER_restart(th, deMSEC( timeout ) );
+			th = deTIMER_restart(th, timeout );
 			SET_apFrameLength( (uint16_t) inchar & 0xFF, TRUE ); // update value
 			state = AP_GET_DATA;
 		}
@@ -105,7 +109,7 @@ void AP_parser( uint8_t inchar, bufType_n bufType )
 
 	case AP_GET_DATA :
 		{
-			th = deTIMER_restart(th, deMSEC( timeout ) );
+			th = deTIMER_restart(th, timeout );
 
 			/*
 			 * push the character into the buffer

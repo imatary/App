@@ -9,6 +9,8 @@
 #include "timer.h"
 #include "stackrelated_timer.h"
 
+#include "hif.h"
+
 /*
  * deTIMER_init
  * prepared the module for timer related functions

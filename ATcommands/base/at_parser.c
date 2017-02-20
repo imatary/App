@@ -14,6 +14,7 @@
 #include "../header/at_commands.h"
 #include "../header/circularBuffer.h"			// buffer
 #include "../../ATuracoli/stackrelated.h"		// UART functions
+#include "../../ATuracoli/stackdefines.h"
 #include "../../ATuracoli/stackrelated_timer.h"	// timer
 
 // === defines ============================================
@@ -112,7 +113,7 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 			default  : timeout /= deHIF_DEFAULT_BAUDRATE; break;
 		}
 
-		timeout = deUSEC( timeout );
+		timeout = deMSEC( timeout )/10;
 	}
 
 	ubuf = bufType;

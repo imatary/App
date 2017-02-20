@@ -93,6 +93,7 @@ void AP_frameHandle_uart(bufType_n bufType)
 				{
 					SET_apFrameRet(INVALID_COMMAND);
 					AP_atLocal_response();
+					deBufferReadReset(bufType, '+', GET_apFrameLength() );
 					return;
 				}
 				if ( 4 == GET_apFrameLength() && EXEC & pCommand->rwxAttrib )
@@ -183,7 +184,6 @@ static at_status_t AP_getCommand( bufType_n bufType, CMD **cmd )
 	if ( 'a' <= outchar[2] && 'z' >= outchar[2] ) outchar[2] -= 0x20;
 	if ( 'a' <= outchar[3] && 'z' >= outchar[3] ) outchar[3] -= 0x20;
 	SET_apFrameATcmd( &outchar[2] );
-	SET_apFrameCRC( outchar[2] + outchar[3], TRUE );
 
 	*cmd = CMD_findInTable(outchar);
 	return ( NO_AT_CMD == (*cmd)->ID || NULL == *cmd )? INVALID_COMMAND : OP_SUCCESS;
