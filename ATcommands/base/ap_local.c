@@ -499,6 +499,7 @@ void AP_rxReceive( bufType_n bufType, uint16_t length, uint8_t dataStart, uint8_
 	 * checksum
 	 */
 	UART_putc( GET_apFrameCRC() );
+	deBufferReset( bufType );
 }
 
 
@@ -548,7 +549,7 @@ void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t data
 		dataStart += 2;
 	}
 
-	SET_apFrameID  ( GET_deBufferByteAt(bufType, 0) );
+	SET_apFrameID  ( GET_deBufferByteAt(bufType,  0 ) );
 	SET_apFrameType( GET_deBufferByteAt(bufType, 11 ) ); // the frame type variable will be used for option
 
 	deBufferReadReset(bufType, '+', 12 );
@@ -586,12 +587,14 @@ void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t data
 		if ( DIRTYB_BD & dirtyBits ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
 		if ( DIRTYB_CH & dirtyBits ||\
 		     DIRTYB_ID & dirtyBits ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
+		if ( DIRTYB_AP & dirtyBits ) { SET_serintCMD_ap( GET_atAP_tmp() ); dirtyBits ^= DIRTYB_AP; }
+		if ( DIRTYB_CT_AC & dirtyBits ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
 	}
 
 	TRX_send( NONE, REMOTE_RESPONSE, srcAddr, srcAddrLen );
 	pCommand = NULL;
 
-	deBufferReadReset( bufType, '+', 2 );			//  another reset because of RX crc
+	deBufferReset( bufType );
 }
 
 

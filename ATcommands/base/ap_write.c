@@ -39,6 +39,7 @@ at_status_t AP_write( bufType_n bufType, const CMD *cmd )
 	SET_apFrameRWXopt(WRITE);
 
 	READ_deBufferData_atReadPosition( bufType, workArray, GET_apFrameLength()-4 );
+	workArray[GET_apFrameLength()-5] = 0x0;
 
 	return cmd->valid( GET_apFrameLength()-4, workArray, cmd, AP_MODE);
 }

@@ -50,7 +50,7 @@ at_status_t max_u32val( size_t len, uint8_t *workArray, const CMD *cmd, const de
 {
 	uint32_t val = 0x0;
 
-	if( TRANSPARENT_MODE == devMode )
+	if( TRANSPARENT_MODE == devMode || cmd->cmdSize < len )
 	{
 		if ( 9 < len ) return INVALID_PARAMETER;
 
@@ -60,8 +60,6 @@ at_status_t max_u32val( size_t len, uint8_t *workArray, const CMD *cmd, const de
 	}
 	else
 	{
-		if ( 4 < len ) return INVALID_PARAMETER;
-
 		if ( 1 < len ) swap(workArray, len);
 		memcpy( &val, workArray, len);
 	}

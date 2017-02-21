@@ -188,8 +188,8 @@ void deBufferReadReset(bufType_n bufType, char operand , size_t len)
  * Buffer write pointer reset function,
  * reset the pointer position of a number of len
  * if the pointer hit the read pointer, set the write pointer for
- *		'+' operation to xbuffer[bufType].read - 1 (no further writing is posible until the xbuffer was read)
- *      '-' operation to xbuffer[bufType].read + 1 (no further reading is posible until new data was written into the xbuffer)
+ *		'+' operation to xbuffer[bufType].read - 1 (no further writing is possible until the xbuffer was read)
+ *      '-' operation to xbuffer[bufType].read + 1 (no further reading is possible until new data was written into the xbuffer)
  * and return
  *
  * Received:
@@ -202,7 +202,7 @@ void deBufferReadReset(bufType_n bufType, char operand , size_t len)
  *
  * last modified: 2016/11/28
  */
-void deBufferWriteReset(bufType_n bufType,char operand , size_t len)
+void deBufferWriteReset(bufType_n bufType, char operand , size_t len)
 {
 	if ( NONE == bufType ) { return; }
 
@@ -212,18 +212,18 @@ void deBufferWriteReset(bufType_n bufType,char operand , size_t len)
 		{
 			xbuffer[bufType].write = (xbuffer[bufType].write - 1) & DE_BUFFER_MASK;
 		}
-		if ( '-' == operand && xbuffer[bufType].read == xbuffer[bufType].write)
+		if ( '-' == operand && xbuffer[bufType].read == xbuffer[bufType].write )
 		{
-			xbuffer[bufType].read = xbuffer[bufType].read + 1;
+			xbuffer[bufType].write = xbuffer[bufType].read + 1;
 			return;
 		}
 		if ( '+' == operand )
 		{
-			xbuffer[bufType].read = (xbuffer[bufType].read + 1) & DE_BUFFER_MASK;
+			xbuffer[bufType].write = (xbuffer[bufType].write + 1) & DE_BUFFER_MASK;
 		}
-		if ( '+' == operand && xbuffer[bufType].read == xbuffer[bufType].write)
+		if ( '+' == operand && xbuffer[bufType].read == xbuffer[bufType].write )
 		{
-			xbuffer[bufType].read = xbuffer[bufType].read + 1;
+			xbuffer[bufType].write = xbuffer[bufType].read + 1;
 			return;
 		}
 	}
@@ -262,12 +262,13 @@ void deBufferReset(bufType_n bufType)
  */
 void CPY_deBufferData( bufType_n dest, bufType_n src, size_t len)
 {
-	 deBuffer_t *source = &xbuffer[src];
-	 deBuffer_t *destination = &xbuffer[dest];
+	deBuffer_t *source = &xbuffer[src];
+	deBuffer_t *destination = &xbuffer[dest];
 
-	 memcpy( &destination->data[ destination->write ], &source->data[ source->read ], len );
+	memcpy( &destination->data[ destination->write ], &source->data[ source->read ], len );
 
-	 deBufferReadReset(src, '+', len);
+	deBufferWriteReset(dest, '+', len+1);
+	deBufferReadReset(src, '+', len);
 }
 
 /*
@@ -287,5 +288,5 @@ void CPY_deBufferData( bufType_n dest, bufType_n src, size_t len)
 uint8_t GET_deBufferByteAt( bufType_n bufType, uint8_t pos)
 {
 	pos +=  xbuffer[ bufType ].read;
-	return xbuffer[ bufType ].data[ pos ];
+	return  xbuffer[ bufType ].data[ pos ];
 }

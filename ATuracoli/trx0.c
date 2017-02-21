@@ -319,12 +319,14 @@ static void TRX_txHandler(void)
 
 			case TRAC_CHANNEL_ACCESS_FAILURE:
 			/* TODO TX_CCA_FAIL; */
+			if ( TRANSPARENT_MODE < GET_serintCMD_ap() ) AP_txStatus(TRANSMIT_OUT_FAIL);
+			else UART_print_status(TRANSMIT_OUT_FAIL);
 			break;
 
 			case TRAC_NO_ACK:
 			tx_stat.fail++;
 			SET_diagCMD_ea(tx_stat.fail);
-			if ( TRANSPARENT_MODE > GET_serintCMD_ap() ) AP_txStatus(TRANSMIT_OUT_FAIL);
+			if ( TRANSPARENT_MODE < GET_serintCMD_ap() ) AP_txStatus(TRANSMIT_OUT_FAIL);
 			else UART_print_status(TRANSMIT_OUT_FAIL);
 			break;
 
