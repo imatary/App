@@ -103,7 +103,7 @@ at_status_t max_u32val( size_t len, uint8_t *workArray, const CMD *cmd, const de
  */
 at_status_t max_u64val( size_t len, uint8_t *workArray, const CMD *cmd, const device_mode devMode )
 {
-	uint64_t val;
+	uint64_t val = 0;
 
 	if( TRANSPARENT_MODE == devMode )
 	{
@@ -157,7 +157,7 @@ at_status_t max_u64val( size_t len, uint8_t *workArray, const CMD *cmd, const de
  */
 at_status_t node_identifier( size_t len, const uint8_t *workArray, const CMD *cmd, const device_mode devMode )
 {
-	if ( len <= cmd->max )
+	if ( len <= cmd->cmdSize )
 	{
 		cmd->mySet( (uint8_t*) workArray, len);
 

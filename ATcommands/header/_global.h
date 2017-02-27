@@ -25,12 +25,11 @@
 #define DIRTYB_CT_AC	     0x0004      // used in command AC
 #define DIRTYB_ID		     0x0008      // used in command AC
 #define DIRTYB_CH		     0x0010      // used in command AC
-#define DIRTYB_DH_DL	     0x0020      // used in send message function for MAC header update
-#define DIRTYB_MY			 0x0040      // used in send message function for MAC header update
-#define DIRTYB_RO			 0x0080		 // used in AT & AP parser
-#define DIRTYB_CC            0x0100		 // used in AT parser
-#define DIRTYB_GT            0x0200		 // used in AT parser
-#define DIRTYB_CT_AT         0x0400      // used in AT parser
+#define DIRTYB_MAC_UPDATE	 0x0020      // used in send message function for MAC header update
+#define DIRTYB_RO			 0x0040		 // used in AT & AP parser
+#define DIRTYB_CC            0x0080		 // used in AT parser
+#define DIRTYB_GT            0x0100		 // used in AT parser
+#define DIRTYB_CT_AT         0x0200      // used in AT parser
 
 // === typedef ============================================
 typedef enum { FALSE, TRUE }__attribute__((packed)) bool_t;

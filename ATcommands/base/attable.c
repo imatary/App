@@ -44,7 +44,7 @@ static const CMD StdCmdTable[] =
 	{ "ATBD", AT_BD, offsetof( device_t, serintCMD_bd ), READ | WRITE       ,  U8__SIZE, 0x00,       0x07, SET_serintCMD_bd, max_u32val      }, // B
 
 	{ "ATCA", AT_CA, offsetof( device_t, rfiCMD_ca    ), READ | WRITE       ,  U8__SIZE, 0x24,       0x50, SET_rfiCMD_ca   , max_u32val      }, // C
-	{ "ATCC", AT_CC, offsetof( device_t, atcopCMD_cc  ), READ | WRITE       ,  U8__SIZE, 0x00,       0x00, SET_atcopCMD_cc , max_u32val      },
+	{ "ATCC", AT_CC, offsetof( device_t, atcopCMD_cc  ), READ | WRITE       ,  U8__SIZE, 0x00,       0xFF, SET_atcopCMD_cc , max_u32val      },
 	{ "ATCE", AT_CE, offsetof( device_t, netCMD_ce    ), READ | WRITE       ,  U8__SIZE, 0x00,       0x01, SET_netCMD_ce   , max_u32val      },
 	{ "ATCH", AT_CH, offsetof( device_t, netCMD_ch    ), READ | WRITE       ,  U8__SIZE, 0x0B,       0x1A, SET_netCMD_ch   , max_u32val      },
 	{ "ATCN", AT_CN,                         NO_OFFSET ,			    EXEC,  0,														     },
@@ -63,7 +63,7 @@ static const CMD StdCmdTable[] =
 	{ "ATDD", AT_DD, offsetof( device_t, diagCMD_dd   ), READ | WRITE       ,  U32_SIZE, 0x00, 0xFFFFFFFF, SET_diagCMD_dd  , max_u32val      },
 	{ "ATDH", AT_DH, offsetof( device_t, netCMD_dh    ), READ | WRITE       ,  U32_SIZE, 0x00, 0xFFFFFFFF, SET_netCMD_dh   , max_u32val      },
 	{ "ATDL", AT_DL, offsetof( device_t, netCMD_dl    ), READ | WRITE       ,  U32_SIZE, 0x00, 0xFFFFFFFF, SET_netCMD_dl   , max_u32val      },
-	{ "ATDP", AT_DP, offsetof( device_t, sleepmCMD_dp ), READ | WRITE       ,  U16_SIZE, 0x01, 0x68B0    , SET_sleepmCMD_dp, max_u32val      },
+	{ "ATDP", AT_DP, offsetof( device_t, sleepmCMD_dp ), READ | WRITE       ,  U16_SIZE, 0x01,     0x68B0, SET_sleepmCMD_dp, max_u32val      },
 
 	{ "ATEA", AT_EA, offsetof( device_t, diagCMD_ea   ), READ               ,  U16_SIZE,													 }, // E
 	{ "ATEC", AT_EC, offsetof( device_t, diagCMD_ec   ), READ               ,  U16_SIZE,													 },
@@ -77,7 +77,7 @@ static const CMD StdCmdTable[] =
 	{ "ATIC", AT_IC, offsetof( device_t, ioserCMD_ic  ), READ | WRITE       ,  U8__SIZE, 0x00,       0xFF, SET_ioserCMD_ic , max_u32val      },
 	{ "ATID", AT_ID, offsetof( device_t, netCMD_id    ), READ | WRITE       ,  U16_SIZE, 0x00,     0xFFFF, SET_netCMD_id   , max_u32val      },
 	{ "ATIR", AT_IR, offsetof( device_t, ioserCMD_ir  ), READ | WRITE       ,  U16_SIZE, 0x00,     0xFFFF, SET_ioserCMD_ir , max_u32val      },
-	{ "ATIT", AT_IT, offsetof( device_t, ioserCMD_it  ), READ | WRITE       ,  U16_SIZE, 0x01,     0xFFFF, SET_ioserCMD_it , max_u32val      },
+	{ "ATIT", AT_IT, offsetof( device_t, ioserCMD_it  ), READ | WRITE       ,  U8__SIZE, 0x01,       0xFF, SET_ioserCMD_it , max_u32val      },
 	{ "ATIU", AT_IU, offsetof( device_t, ioserCMD_iu  ), READ | WRITE       ,  U8__SIZE, 0x00,       0x01, SET_ioserCMD_iu , max_u32val      },
 
 	{ "ATKY", AT_KY, offsetof( device_t, secCMD_ky    ),		WRITE | EXEC,        16, 0x00,       0xFF, SET_secCMD_ky   , ky_validator    }, // K

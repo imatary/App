@@ -86,7 +86,7 @@ int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send)
 	size_t length = GET_apFrameLength();
 	if ( 15 > length ) return 0;
 
-	int	pos;
+	int	pos = 3;
 
 	/* Step 1: prepare packed
 	 * - prepare MAC header, first byte
@@ -100,7 +100,11 @@ int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send)
 	     ACK_NO_MAXSTREAM   == RFmodul->netCMD_mm )    *(send) |= 0x20; // ACK on
 													   *(send) |= 0x40; // PAN Compression on
 
-	memcpy( send+3, &RFmodul->netCMD_id, 2);							// destination PAN_ID
+	/*
+	 * destination PAN_ID
+	 */
+	memcpy( send+pos, &RFmodul->netCMD_id, 2);
+	pos += 2;
 
 	READ_deBufferData_atReadPosition(bufType, workArray, length-2);
 
@@ -198,13 +202,13 @@ int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send)
  *
  * Received:
  *		uint8_t		pointer to send array
- *		uint8_t		pointer to source address array
- *		uint8_t		source address length
+ *		uint8_t		pointer to source address array, if remote frame (becomes dest. addr.)
+ *		uint8_t		source address length, if remote frame (becomes dest. addr.)
  *
  * Returns:
  *		final position in array
  *
- * last modified: 2017/01/27
+ * last modified: 2017/02/27
  */
 int TRX_atRemote_response(bufType_n bufType, uint8_t *send, uint8_t *srcAddr, uint8_t srcAddrLen)
 {
@@ -212,7 +216,7 @@ int TRX_atRemote_response(bufType_n bufType, uint8_t *send, uint8_t *srcAddr, ui
 	size_t length = GET_apFrameLength();
 	if ( PACKAGE_SIZE-1 <= length ) return 0;
 
-	int	pos	= 0;
+	int	pos	= 3;
 
 	/* Step 1: prepare packed
 	 * - prepare MAC header, first byte
@@ -226,17 +230,18 @@ int TRX_atRemote_response(bufType_n bufType, uint8_t *send, uint8_t *srcAddr, ui
 	     ACK_NO_MAXSTREAM   == RFmodul->netCMD_mm )    *(send) |= 0x20; // ACK on
 													   *(send) |= 0x40; // PAN Compression on
 
-	memcpy( send+3, &RFmodul->netCMD_id, 2);							// destination PAN_ID
+	/*
+	 * destination PAN_ID
+	 */
+	memcpy( send+pos, &RFmodul->netCMD_id, 2);
+	pos += 2;
 
 	/*
 	 * dest. addr.
 	 */
-	for ( pos = 5; pos < srcAddrLen+5; pos++ )
-	{
-		*(send+pos) = *(srcAddr+pos-5);
-	}
+	memcpy( send+pos, srcAddr, srcAddrLen);
 	*(send+1) |= (srcAddrLen == 8)? 0xC : 0x8;
-
+	pos += srcAddrLen;
 
 	/*
 	 * src. address

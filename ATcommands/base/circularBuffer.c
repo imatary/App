@@ -265,6 +265,13 @@ void CPY_deBufferData( bufType_n dest, bufType_n src, size_t len)
 	deBuffer_t *source = &xbuffer[src];
 	deBuffer_t *destination = &xbuffer[dest];
 
+	if ( DE_BUFFER_SIZE <= source->read + len ) // if we reach the end of the buffer data array
+	{
+		uint8_t lenOne = DE_BUFFER_SIZE - source->read;
+		memcpy( &destination->data[ destination->write ], &source->data[ source->read ], lenOne );
+		memcpy( &destination->data[ destination->write + lenOne ], &source->data[ 0 ], len - lenOne  );
+	}
+	else
 	memcpy( &destination->data[ destination->write ], &source->data[ source->read ], len );
 
 	deBufferWriteReset(dest, '+', len+1);

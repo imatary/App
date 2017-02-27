@@ -51,7 +51,7 @@ at_status_t AP_read( const CMD *cmd )
 		default :
 			{
 				 length = GET_deviceValue( workArray, cmd );
-				 SET_apFrameLength(length, FALSE);
+				 SET_apFrameLength( length, FALSE);
 				 SET_apFrameMsg ( workArray, length, cmd->ID );
 			}
 			break;

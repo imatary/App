@@ -183,25 +183,37 @@ void SET_serintCMD_bd(void *val, size_t len)
 void SET_netCMD_id   (void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_id   , val, len);
-	dirtyBits ^= DIRTYB_ID;
+	if ( !(dirtyBits & DIRTYB_MAC_UPDATE) != 0 )
+	{
+		dirtyBits ^= DIRTYB_MAC_UPDATE;
+	}
 }
 
 void SET_netCMD_my   (void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_my   , val, len);
-	dirtyBits ^= DIRTYB_MY;
+	if ( !(dirtyBits & DIRTYB_MAC_UPDATE) != 0 )
+	{
+		dirtyBits ^= DIRTYB_MAC_UPDATE;
+	}
 }
 
 void SET_netCMD_dh   (void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_dh   , val, len);
-	dirtyBits ^= DIRTYB_DH_DL;
+	if ( !(dirtyBits & DIRTYB_MAC_UPDATE) != 0 )
+	{
+		dirtyBits ^= DIRTYB_MAC_UPDATE;
+	}
 }
 
 void SET_netCMD_dl   (void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_dl   , val, len);
-	dirtyBits ^= DIRTYB_DH_DL;
+	if ( !(dirtyBits & DIRTYB_MAC_UPDATE) != 0 )
+	{
+		dirtyBits ^= DIRTYB_MAC_UPDATE;
+	}
 }
 
 void SET_netCMD_ch   (void *val, size_t len)

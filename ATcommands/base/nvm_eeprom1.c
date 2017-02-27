@@ -70,7 +70,7 @@ void SET_defaultInEEPROM(void)
 	memcpy( &lary[size + 6] , &crc_val, 2);
 
 	eeprom_write_block(lary, (void*) START_POS, size + 8 );
-	dirtyBits = DIRTYB_ID | DIRTYB_MY | DIRTYB_DH_DL | DIRTYB_BD | DIRTYB_RO |\
+	dirtyBits = DIRTYB_ID | DIRTYB_MAC_UPDATE | DIRTYB_BD | DIRTYB_RO |\
 	            DIRTYB_CT_AT | DIRTYB_GT | DIRTYB_CC;
 }
 
@@ -101,7 +101,7 @@ void GET_allFromEEPROM(void)
 	else						 memcpy( RFmodul, &lary[4], size );
 
 	if ( 0x10 > RFmodul->atcopCMD_ct ) RFmodul->atcopCMD_ct = 0x64;
-	dirtyBits = DIRTYB_ID | DIRTYB_MY | DIRTYB_DH_DL | DIRTYB_BD | DIRTYB_RO |\
+	dirtyBits = DIRTYB_ID | DIRTYB_MAC_UPDATE | DIRTYB_BD | DIRTYB_RO |\
 			    DIRTYB_CT_AT | DIRTYB_GT | DIRTYB_CC;
 }
 

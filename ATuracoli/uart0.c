@@ -63,9 +63,9 @@ void UART_print_status(at_status_t value)
 	{
 		case QUIT_CMD_MODE		: UART_print("Leave Command Mode.\r");						break;
 		case OP_SUCCESS			: UART_print("OK\r");										break;
+		case INVALID_COMMAND	: // UART_print("Invalid command!\r");							break; // not available on XBee
+		case INVALID_PARAMETER	: // UART_print("Invalid parameter!\r");						break; // not available on XBee
 		case ERROR				: UART_print("ERROR!\r");									break;
-		case INVALID_COMMAND	: UART_print("Invalid command!\r");							break;
-		case INVALID_PARAMETER	: UART_print("Invalid parameter!\r");						break;
 		case BUFFER_IN_FAIL		: UART_print("BufferIn error!\r"); 							break;
 		case BUFFER_OUT_FAIL	: UART_print("BufferOut error!\r"); 						break;
 		case TRANSMIT_OUT_FAIL	: UART_print("TX send fail!\r");							break;

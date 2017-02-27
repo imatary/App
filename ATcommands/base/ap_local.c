@@ -439,7 +439,7 @@ void AP_rxReceive( bufType_n bufType, uint16_t length, uint8_t dataStart, uint8_
 	 */
 	if ( srcAddrLen == 8 )
 	{
-		UART_putc( 0x80 );				// 64 bit src addr
+		UART_putc( 0x08 );				// 64 bit src addr
 		SET_apFrameCRC( 0x80, FALSE );
 	}
 	else
@@ -541,8 +541,8 @@ void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t data
 	 * - call response function
 	 */
 
-	deBufferReadReset(bufType, '+', dataStart - srcAddrLen );
-	READ_deBufferData_atReadPosition(bufType,srcAddr,srcAddrLen);
+	deBufferReadReset( bufType, '+', dataStart - srcAddrLen );
+	READ_deBufferData_atReadPosition( bufType, srcAddr, srcAddrLen );
 	if ( ACK_WITH_MAXSTREAM == mm_option || NO_ACK_WITH_MAXSTREAM == mm_option )
 	{
 		deBufferReadReset(bufType, '+', 2 );
@@ -641,5 +641,5 @@ void AP_atRemote_response(bufType_n bufType, uint16_t length, uint8_t dataStart)
 	}
 	UART_putc(0xFF - crc);							// checksum
 
-	deBufferReadReset( bufType, '+', 2 );			//  another reset because of RX crc
+	deBufferReset( bufType );
 }

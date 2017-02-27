@@ -48,7 +48,7 @@ void TRX_printContent( bufType_n bufType, uint8_t flen, uint8_t dataStart )
 	dataStart += ( NO_ACK_NO_MAXSTREAM == RFmodul->netCMD_mm ||\
 	               ACK_NO_MAXSTREAM    == RFmodul->netCMD_mm )? 0 : 2;
 
-	if ( 0x08 & GET_deBufferByteAt(RX_WORK_BUF, 0) )	// security enabled
+	if ( 0x08 & GET_deBufferByteAt(bufType, 0) )	// security enabled
 	{
 		UART_print("Cant read data now!"); /* TODO */
 	}
@@ -56,10 +56,11 @@ void TRX_printContent( bufType_n bufType, uint8_t flen, uint8_t dataStart )
 	{
 		for (uint8_t i = dataStart; i < flen-2 ; i++)
 		{
-			UART_putc( GET_deBufferByteAt(RX_WORK_BUF, i) );
+			UART_putc( GET_deBufferByteAt(bufType, i) );
 
 		}/* end for loop */
 	}
+	deBufferReset(bufType);
 }
 
 
@@ -81,29 +82,29 @@ void TRX_printContent( bufType_n bufType, uint8_t flen, uint8_t dataStart )
 int TRX_msgFrame( bufType_n bufType, uint8_t *package )
 {
 	        RFmodul = GET_device();
-	uint8_t   u8tmp = *(package+2);
+	uint8_t   u8tmp = package[2];
 	at_status_t ret = 0;
 
 	/*
 	 * if the value of pan id, dest. addr or src. short addr changed
 	 * create new mac header
 	 */
-	if ( dirtyBits & 0x68 )
+	if ( dirtyBits & DIRTYB_MAC_UPDATE )
 	{
 		SET_macHeader();
-		dirtyBits ^= (dirtyBits & 0x68);
+		dirtyBits ^= (dirtyBits & DIRTYB_MAC_UPDATE);
 	}
 
-	memcpy( (uint8_t*) package, (uint8_t*) macHeader, macHeaderSize);
-	*(package+2) = u8tmp;
+	memcpy( package, macHeader, macHeaderSize);
+	package[2] = u8tmp;
 
 	int pos = macHeaderSize;
 
 	if ( NO_ACK_NO_MAXSTREAM != RFmodul->netCMD_mm ||\
 	     ACK_NO_MAXSTREAM    != RFmodul->netCMD_mm )
 	{
-		*( package + pos     ) = (uint8_t) ( *( package + 2 ) + RFmodul->netCMD_sl & 0xFF );	// second counter, distance to frame counter is last byte of src extended addr.
-		*( package + pos + 2 ) = 0x00;													        // this byte will be used as command, 0x00 = no command is given
+		package[pos]     = (uint8_t) ( package[2] + (RFmodul->netCMD_sl & 0xFF) );  // second counter, distance to frame counter is last byte of src extended addr.
+		package[pos + 1] = 0x0;													    // this byte will be used as command, 0x00 = no command is given
 		pos += 2;
 	}
 
@@ -129,7 +130,6 @@ int TRX_msgFrame( bufType_n bufType, uint8_t *package )
  */
 static void SET_macHeader(void)
 {
-	RFmodul = GET_device();
 	uint64_t u64tmp;
 
 	/*
