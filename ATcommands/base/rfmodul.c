@@ -106,7 +106,7 @@ static uint16_t atCT_tmp = 0;
 	 RFmodul.atcopCMD_gt = GT_GUART_TIMES;
 	 RFmodul.atcopCMD_cc = CC_COMMAND_SEQUENCE_CHAR;
 
-	 dirtyBits = 0x68;
+	 dirtyBits = DIRTYB_ALL_ACTIVE;
  }
 
  /*
@@ -122,9 +122,9 @@ static uint16_t atCT_tmp = 0;
  * Last modified: 2016/01/19
  */
 void SET_netCMD_ni   (void *val, size_t len) { memcpy( RFmodul.netCMD_ni   , val, len); }
-void SET_secCMD_ky   (void *val, size_t len) { memcpy( RFmodul.secCMD_ky   , val, len); }
+void SET_secCMD_ky   (void *val, size_t len) { /* memcpy( RFmodul.secCMD_ky   , val, len); */ }
+
 void SET_serintCMD_ro(void *val, size_t len) { memcpy(&RFmodul.serintCMD_ro, val, len); }
-void SET_atcopCMD_cc (void *val, size_t len) { memcpy(&RFmodul.atcopCMD_cc , val, len); }
 void SET_iolpCMD_ia  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_ia  , val, len); }
 void SET_netCMD_nt   (void *val, size_t len) { memcpy(&RFmodul.netCMD_nt   , val, len); }
 void SET_netCMD_sc   (void *val, size_t len) { memcpy(&RFmodul.netCMD_sc   , val, len); }
@@ -147,7 +147,6 @@ void SET_diagCMD_hv  (void *val, size_t len) { memcpy(&RFmodul.diagCMD_hv  , val
 void SET_sleepmCMD_st(void *val, size_t len) { memcpy(&RFmodul.sleepmCMD_st, val, len); }
 void SET_sleepmCMD_sp(void *val, size_t len) { memcpy(&RFmodul.sleepmCMD_sp, val, len); }
 void SET_sleepmCMD_dp(void *val, size_t len) { memcpy(&RFmodul.sleepmCMD_dp, val, len); }
-void SET_atcopCMD_gt (void *val, size_t len) { memcpy(&RFmodul.atcopCMD_gt , val, len); }
 void SET_rfiCMD_ca   (void *val, size_t len) { memcpy(&RFmodul.rfiCMD_ca   , val, len); }
 void SET_netCMD_mm   (void *val, size_t len) { memcpy(&RFmodul.netCMD_mm   , val, len); }
 void SET_ioserCMD_d8 (void *val, size_t len) { memcpy(&RFmodul.ioserCMD_d8 , val, len); }
@@ -237,13 +236,46 @@ void SET_netCMD_a2   (void *val, size_t len)
 void SET_atCT_tmp    (void *val, size_t len)
 {
 	memcpy(&atCT_tmp, val, len);
-	dirtyBits ^= DIRTYB_CT_AC;
+
+	if ( !(dirtyBits & DIRTYB_CT_AC) != 0 )
+	{
+		dirtyBits ^= DIRTYB_CT_AC;
+	}
 }
 
 void SET_atAP_tmp    (void *val, size_t len)
 {
 	memcpy(&atAP_tmp, val, len);
-	dirtyBits ^= DIRTYB_AP;
+
+	if ( !(dirtyBits & DIRTYB_AP) != 0 )
+	{
+		dirtyBits ^= DIRTYB_AP;
+	}
+
+	if ( !(dirtyBits & DIRTYB_CC) != 0 )
+	{
+		dirtyBits ^= DIRTYB_CC;
+	}
+}
+
+void SET_atcopCMD_cc (void *val, size_t len)
+{
+	memcpy(&RFmodul.atcopCMD_cc , val, len);
+
+	if ( !(dirtyBits & DIRTYB_CC) != 0 )
+	{
+		dirtyBits ^= DIRTYB_CC;
+	}
+}
+
+void SET_atcopCMD_gt (void *val, size_t len)
+{
+	memcpy(&RFmodul.atcopCMD_gt , val, len);
+
+	if ( !(dirtyBits & DIRTYB_GT) != 0 )
+	{
+		dirtyBits ^= DIRTYB_GT;
+	}
 }
 
 void SET_diagCMD_ec  (uint16_t val) { RFmodul.diagCMD_ec   = val; } // not in use right now
@@ -296,7 +328,7 @@ uint16_t GET_deviceValue( void *dest, const CMD *cmd )
 	void *s = &RFmodul;
 	void *value = s+cmd->addr_offset;
 
-	memcpy( dest, value, cmd->cmdSize );
+	memcpy( (uint8_t*) dest, (uint8_t*) value, cmd->cmdSize );
 
 	if ( AT_AP == cmd->ID && cmd->max >= RFmodul.serintCMD_ap )
 	{

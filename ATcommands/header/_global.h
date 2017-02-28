@@ -31,6 +31,8 @@
 #define DIRTYB_GT            0x0100		 // used in AT parser
 #define DIRTYB_CT_AT         0x0200      // used in AT parser
 
+#define DIRTYB_ALL_ACTIVE    0x3FF
+
 // === typedef ============================================
 typedef enum { FALSE, TRUE }__attribute__((packed)) bool_t;
 typedef enum { TRANSPARENT_MODE, AP_MODE, AP_ESCAPE_MODE }__attribute__((packed)) device_mode;

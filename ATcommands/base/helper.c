@@ -103,11 +103,11 @@ at_status_t max_u32val( size_t len, uint8_t *workArray, const CMD *cmd, const de
  */
 at_status_t max_u64val( size_t len, uint8_t *workArray, const CMD *cmd, const device_mode devMode )
 {
-	uint64_t val = 0;
+	uint64_t val = 0x0;
 
 	if( TRANSPARENT_MODE == devMode )
 	{
-		if ( 16 < len ) return INVALID_PARAMETER;
+		if ( 16 < len-1 ) return INVALID_PARAMETER;
 
 		char *endptr;
 		uint8_t shift = 0x0;
@@ -116,14 +116,17 @@ at_status_t max_u64val( size_t len, uint8_t *workArray, const CMD *cmd, const de
 		{
 			memmove( &workArray[9], &workArray[8], len-8 );
 			workArray[8] = 0x20;
-			shift = 4 * (len-8);
+			shift = 4 * (len-9);
 		}
 
 		val  = (uint64_t) strtoul( (const char*) workArray, &endptr, 16) << shift;
-		if ( *endptr != workArray[len] && 8 >= len ) return INVALID_PARAMETER;
+		if ( *endptr != workArray[len-1] && 8 >= len ) return INVALID_PARAMETER;
 
-		val |= strtoul( (const char*) endptr, &endptr, 16);
-		if ( *endptr != workArray[len] && 8 < len ) return INVALID_PARAMETER;
+		if ( 8 < len )
+		{
+			val |= strtoul( (const char*) endptr, &endptr, 16);
+			if ( *endptr != workArray[len] && 8 < len ) return INVALID_PARAMETER;
+		}
 	}
 	else
 	{
@@ -159,9 +162,8 @@ at_status_t node_identifier( size_t len, const uint8_t *workArray, const CMD *cm
 {
 	if ( len <= cmd->cmdSize )
 	{
-		cmd->mySet( (uint8_t*) workArray, len);
+		cmd->mySet( (uint8_t*) workArray, len+1 );
 
-		if ( TRANSPARENT_MODE == devMode ) UART_print_status(OP_SUCCESS);
 		return OP_SUCCESS;
 	}
 	else
@@ -192,9 +194,8 @@ at_status_t node_identifier( size_t len, const uint8_t *workArray, const CMD *cm
  */
 at_status_t ky_validator( size_t len, const uint8_t *workArray, const CMD *cmd, const device_mode devMode )
 {
-	if ( 16 >= len )
+	if ( 32 >= len-1 )
 	{
-		//if ( TRANSPARENT_MODE == devMode ) UART_print_status(OP_SUCCESS);
 		return OP_SUCCESS;
 	}
 	else
