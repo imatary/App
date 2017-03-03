@@ -176,22 +176,30 @@ void SET_diagCMD_dd  (void *val, size_t len) { memcpy(&RFmodul.diagCMD_dd  , val
 void SET_serintCMD_bd(void *val, size_t len)
 {
 	memcpy(&RFmodul.serintCMD_bd, val, len);
-	dirtyBits ^= DIRTYB_BD;
+	if ( (dirtyBits & DIRTYB_BD) == 0 )
+	{
+		dirtyBits ^= DIRTYB_BD;
+	}
 }
 
 void SET_netCMD_id   (void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_id   , val, len);
-	if ( !(dirtyBits & DIRTYB_MAC_UPDATE) != 0 )
+	if ( (dirtyBits & DIRTYB_MAC_UPDATE) == 0 )
 	{
 		dirtyBits ^= DIRTYB_MAC_UPDATE;
+	}
+
+	if ( (dirtyBits & DIRTYB_ID) == 0 )
+	{
+		dirtyBits ^= DIRTYB_ID;
 	}
 }
 
 void SET_netCMD_my   (void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_my   , val, len);
-	if ( !(dirtyBits & DIRTYB_MAC_UPDATE) != 0 )
+	if ( (dirtyBits & DIRTYB_MAC_UPDATE) == 0 )
 	{
 		dirtyBits ^= DIRTYB_MAC_UPDATE;
 	}
@@ -200,7 +208,7 @@ void SET_netCMD_my   (void *val, size_t len)
 void SET_netCMD_dh   (void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_dh   , val, len);
-	if ( !(dirtyBits & DIRTYB_MAC_UPDATE) != 0 )
+	if ( (dirtyBits & DIRTYB_MAC_UPDATE) == 0 )
 	{
 		dirtyBits ^= DIRTYB_MAC_UPDATE;
 	}
@@ -209,7 +217,7 @@ void SET_netCMD_dh   (void *val, size_t len)
 void SET_netCMD_dl   (void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_dl   , val, len);
-	if ( !(dirtyBits & DIRTYB_MAC_UPDATE) != 0 )
+	if ( (dirtyBits & DIRTYB_MAC_UPDATE) == 0 )
 	{
 		dirtyBits ^= DIRTYB_MAC_UPDATE;
 	}
@@ -218,7 +226,10 @@ void SET_netCMD_dl   (void *val, size_t len)
 void SET_netCMD_ch   (void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_ch, val, len);
-	dirtyBits ^= DIRTYB_CH;
+	if ( (dirtyBits & DIRTYB_CH) == 0 )
+	{
+		dirtyBits ^= DIRTYB_CH;
+	}
 }
 
 void SET_netCMD_a1   (void *val, size_t len)
@@ -236,8 +247,7 @@ void SET_netCMD_a2   (void *val, size_t len)
 void SET_atCT_tmp    (void *val, size_t len)
 {
 	memcpy(&atCT_tmp, val, len);
-
-	if ( !(dirtyBits & DIRTYB_CT_AC) != 0 )
+	if ( (dirtyBits & DIRTYB_CT_AC) == 0 )
 	{
 		dirtyBits ^= DIRTYB_CT_AC;
 	}
@@ -247,12 +257,12 @@ void SET_atAP_tmp    (void *val, size_t len)
 {
 	memcpy(&atAP_tmp, val, len);
 
-	if ( !(dirtyBits & DIRTYB_AP) != 0 )
+	if ( (dirtyBits & DIRTYB_AP) == 0 )
 	{
 		dirtyBits ^= DIRTYB_AP;
 	}
 
-	if ( !(dirtyBits & DIRTYB_CC) != 0 )
+	if ( (dirtyBits & DIRTYB_CC) == 0 )
 	{
 		dirtyBits ^= DIRTYB_CC;
 	}
@@ -262,7 +272,7 @@ void SET_atcopCMD_cc (void *val, size_t len)
 {
 	memcpy(&RFmodul.atcopCMD_cc , val, len);
 
-	if ( !(dirtyBits & DIRTYB_CC) != 0 )
+	if ( (dirtyBits & DIRTYB_CC) == 0 )
 	{
 		dirtyBits ^= DIRTYB_CC;
 	}
@@ -272,7 +282,7 @@ void SET_atcopCMD_gt (void *val, size_t len)
 {
 	memcpy(&RFmodul.atcopCMD_gt , val, len);
 
-	if ( !(dirtyBits & DIRTYB_GT) != 0 )
+	if ( (dirtyBits & DIRTYB_GT) == 0 )
 	{
 		dirtyBits ^= DIRTYB_GT;
 	}

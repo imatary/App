@@ -12,6 +12,12 @@
 #include "../../ATuracoli/stackrelated.h"		// init functions
 #include "../../ATuracoli/stackrelated_timer.h"	// timer function
 
+// === globals ============================================
+static uint32_t writetimer;
+
+// === prototypes =========================================
+static uint32_t AT_writeEEPROM(uint32_t arg);
+
 // === function ===========================================
 /*
  * Command exec function executes commands
@@ -40,18 +46,18 @@ at_status_t AT_exec(uint32_t *th, cmdIDs cmdID)
 	/* WR - write config to firmware */
 		case AT_WR :
 			{
-				SET_userValInEEPROM();
+				writetimer = deTIMER_start(AT_writeEEPROM, 0x10, 0);
 			}
 			break;
 
 	/* AC - apply changes */
 		case AT_AC :
 			{
-				if ( DIRTYB_BD & dirtyBits ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
-				if ( DIRTYB_CH & dirtyBits ||\
-				     DIRTYB_ID & dirtyBits ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
-				if ( DIRTYB_AP & dirtyBits ) { SET_serintCMD_ap( GET_atAP_tmp() ); dirtyBits ^= DIRTYB_AP; }
-				if ( DIRTYB_CT_AC & dirtyBits ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
+				if ( (DIRTYB_BD & dirtyBits) != FALSE ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
+				if ( (DIRTYB_CH & dirtyBits) != FALSE ||\
+				     (DIRTYB_ID & dirtyBits) != FALSE ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
+				if ( (DIRTYB_AP & dirtyBits) != FALSE ) { SET_serintCMD_ap( GET_atAP_tmp() ); dirtyBits ^= DIRTYB_AP; deBufferReset(UART);}
+				if ( (DIRTYB_CT_AC & dirtyBits) != FALSE ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
 			}
 			break;
 
@@ -73,4 +79,21 @@ at_status_t AT_exec(uint32_t *th, cmdIDs cmdID)
 	}
 
 	return OP_SUCCESS;
+}
+
+/*
+ * timer for writing operation
+ *
+ * Received:
+ *		uint32_t arg	this argument can be used in this function
+ *
+ * Returns:
+ *		FALSE	to stop the timer
+ *
+ * last modified: 2017/03/03
+ */
+static uint32_t AT_writeEEPROM(uint32_t arg)
+{
+	SET_userValInEEPROM();
+	return FALSE;
 }

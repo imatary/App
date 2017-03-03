@@ -16,6 +16,7 @@
 #include "../header/circularBuffer.h"			// UART & RX buffer
 #include "../../ATuracoli/stackrelated.h"		// UART_print(f), TRX_send(f)
 #include "../../ATuracoli/stackdefines.h"		// defined register addresses
+#include "../../ATuracoli/stackrelated_timer.h"
 
 // === std. defines & frame types =========================
 #define STD_DELIMITER	0x7E
@@ -38,12 +39,14 @@
 static uint8_t outchar[256];
 static at_status_t ret;
 static CMD *pCommand  = NULL;
+static uint32_t writetimer = 0;
 
 // === Prototypes =========================================
 static at_status_t AP_getCommand( bufType_n bufType, CMD **cmd );
 static void		   AP_atLocal_response(void);
 
 static at_status_t AP_localDevice(bufType_n bufType);
+static uint32_t    AP_write_timedEEPROM(uint32_t arg);
 // === functions (local handling shared) ==================
 /*
  * AP_frameHandle_uart
@@ -109,11 +112,13 @@ void AP_frameHandle_uart(bufType_n bufType)
 					ret = AP_write( bufType, pCommand );
 					if ( OP_SUCCESS == ret && AT_COMMAND == GET_apFrameType() )
 					{
-						SET_userValInEEPROM();
+						writetimer = deTIMER_start(AP_write_timedEEPROM, 0x10, 0 );
 
-						if ( DIRTYB_BD & dirtyBits ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
-						if ( DIRTYB_CH & dirtyBits ||\
-						     DIRTYB_ID & dirtyBits ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
+						if ( (DIRTYB_BD & dirtyBits) != FALSE ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
+						if ( (DIRTYB_CH & dirtyBits) != FALSE ||\
+							 (DIRTYB_ID & dirtyBits) != FALSE ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
+						if ( (DIRTYB_AP & dirtyBits) != FALSE ) { SET_serintCMD_ap( GET_atAP_tmp() ); dirtyBits ^= DIRTYB_AP; }
+						if ( (DIRTYB_CT_AC & dirtyBits) != FALSE ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
 					}
 				}
 				SET_apFrameRet(ret);
@@ -584,11 +589,11 @@ void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t data
 	 */
 	if ( OP_SUCCESS == ret && 0x2 == GET_apFrameType() && WRITE == GET_apFrameRWXopt() )
 	{
-		if ( DIRTYB_BD & dirtyBits ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
-		if ( DIRTYB_CH & dirtyBits ||\
-		     DIRTYB_ID & dirtyBits ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
-		if ( DIRTYB_AP & dirtyBits ) { SET_serintCMD_ap( GET_atAP_tmp() ); dirtyBits ^= DIRTYB_AP; }
-		if ( DIRTYB_CT_AC & dirtyBits ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
+		if ( (DIRTYB_BD & dirtyBits) != FALSE ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
+		if ( (DIRTYB_CH & dirtyBits) != FALSE ||\
+		     (DIRTYB_ID & dirtyBits) != FALSE ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
+		if ( (DIRTYB_AP & dirtyBits) != FALSE ) { SET_serintCMD_ap( GET_atAP_tmp() ); dirtyBits ^= DIRTYB_AP; }
+		if ( (DIRTYB_CT_AC & dirtyBits) != FALSE ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
 	}
 
 	TRX_send( NONE, REMOTE_RESPONSE, srcAddr, srcAddrLen );
@@ -642,4 +647,23 @@ void AP_atRemote_response(bufType_n bufType, uint16_t length, uint8_t dataStart)
 	UART_putc(0xFF - crc);							// checksum
 
 	deBufferReset( bufType );
+}
+
+
+
+/*
+ * timer for writing operation
+ *
+ * Received:
+ *		uint32_t arg	this argument can be used in this function
+ *
+ * Returns:
+ *		FALSE	to stop the timer
+ *
+ * last modified: 2017/03/03
+ */
+static uint32_t AP_write_timedEEPROM(uint32_t arg)
+{
+	SET_userValInEEPROM();
+	return FALSE;
 }

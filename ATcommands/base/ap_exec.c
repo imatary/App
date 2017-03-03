@@ -11,6 +11,13 @@
 #include "../header/rfmodul.h"				// RFmodul GET_ and SET_ functions
 #include "../header/ap_frames.h"			// AP set function
 #include "../../ATuracoli/stackrelated.h"	// init functions
+#include "../../ATuracoli/stackrelated_timer.h"
+
+// === globals ============================================
+static uint32_t writetimer = 0;
+
+// === prototypes =========================================
+static uint32_t AP_write_timedEEPROM(uint32_t arg);
 
 // === function ===========================================
 /*
@@ -34,18 +41,18 @@ at_status_t AP_exec( cmdIDs cmdID )
 	/* WR - write config to firmware */
 	case AT_WR :
 		{
-			SET_userValInEEPROM();
+			writetimer = deTIMER_start(AP_write_timedEEPROM, 0x10, 0);
 		}
 		break;
 
 	/* AC - apply changes */
 	case AT_AC :
 		{
-			if ( DIRTYB_BD & dirtyBits ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
-			if ( DIRTYB_CH & dirtyBits ||\
-			     DIRTYB_ID & dirtyBits ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
-			if ( DIRTYB_AP & dirtyBits ) { SET_serintCMD_ap( GET_atAP_tmp() ); dirtyBits ^= DIRTYB_AP; }
-			if ( DIRTYB_CT_AC & dirtyBits ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
+			if ( (DIRTYB_BD & dirtyBits) != FALSE ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
+			if ( (DIRTYB_CH & dirtyBits) != FALSE ||\
+			     (DIRTYB_ID & dirtyBits) != FALSE ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
+			if ( (DIRTYB_AP & dirtyBits) != FALSE ) { SET_serintCMD_ap( GET_atAP_tmp() ); dirtyBits ^= DIRTYB_AP; deBufferReset(UART);}
+			if ( (DIRTYB_CT_AC & dirtyBits) != FALSE ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
 		}
 		break;
 
@@ -70,4 +77,23 @@ at_status_t AP_exec( cmdIDs cmdID )
 	}
 
 	return OP_SUCCESS;
+}
+
+
+
+/*
+ * timer for writing operation
+ *
+ * Received:
+ *		uint32_t arg	this argument can be used in this function
+ *
+ * Returns:
+ *		FALSE	to stop the timer
+ *
+ * last modified: 2017/03/03
+ */
+static uint32_t AP_write_timedEEPROM(uint32_t arg)
+{
+	SET_userValInEEPROM();
+	return FALSE;
 }
