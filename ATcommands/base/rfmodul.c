@@ -109,6 +109,8 @@ static uint16_t atCT_tmp = 0;
 	 dirtyBits = DIRTYB_ALL_ACTIVE;
  }
 
+
+
  /*
  * Set parameter values
  *
@@ -123,8 +125,6 @@ static uint16_t atCT_tmp = 0;
  */
 void SET_netCMD_ni   (void *val, size_t len) { memcpy( RFmodul.netCMD_ni   , val, len); }
 void SET_secCMD_ky   (void *val, size_t len) { /* memcpy( RFmodul.secCMD_ky   , val, len); */ }
-
-void SET_serintCMD_ro(void *val, size_t len) { memcpy(&RFmodul.serintCMD_ro, val, len); }
 void SET_iolpCMD_ia  (void *val, size_t len) { memcpy(&RFmodul.iolpCMD_ia  , val, len); }
 void SET_netCMD_nt   (void *val, size_t len) { memcpy(&RFmodul.netCMD_nt   , val, len); }
 void SET_netCMD_sc   (void *val, size_t len) { memcpy(&RFmodul.netCMD_sc   , val, len); }
@@ -173,18 +173,34 @@ void SET_netCMD_no   (void *val, size_t len) { memcpy(&RFmodul.netCMD_no   , val
 void SET_secCMD_ee   (void *val, size_t len) { memcpy(&RFmodul.secCMD_ee   , val, len); }
 void SET_diagCMD_dd  (void *val, size_t len) { memcpy(&RFmodul.diagCMD_dd  , val, len); }
 
+
+void SET_serintCMD_ro(void *val, size_t len)
+{
+	memcpy(&RFmodul.serintCMD_ro, val, len);
+	if ( (dirtyBits & DIRTYB_RO) == 0 )
+	{
+		dirtyBits ^= DIRTYB_RO;
+	}
+}
+
+
+
 void SET_serintCMD_bd(void *val, size_t len)
 {
 	memcpy(&RFmodul.serintCMD_bd, val, len);
+
 	if ( (dirtyBits & DIRTYB_BD) == 0 )
 	{
 		dirtyBits ^= DIRTYB_BD;
 	}
 }
 
-void SET_netCMD_id   (void *val, size_t len)
+
+
+void SET_netCMD_id(void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_id   , val, len);
+
 	if ( (dirtyBits & DIRTYB_MAC_UPDATE) == 0 )
 	{
 		dirtyBits ^= DIRTYB_MAC_UPDATE;
@@ -196,64 +212,85 @@ void SET_netCMD_id   (void *val, size_t len)
 	}
 }
 
-void SET_netCMD_my   (void *val, size_t len)
+
+
+void SET_netCMD_my(void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_my   , val, len);
+
 	if ( (dirtyBits & DIRTYB_MAC_UPDATE) == 0 )
 	{
 		dirtyBits ^= DIRTYB_MAC_UPDATE;
 	}
 }
 
-void SET_netCMD_dh   (void *val, size_t len)
+
+
+void SET_netCMD_dh(void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_dh   , val, len);
+
 	if ( (dirtyBits & DIRTYB_MAC_UPDATE) == 0 )
 	{
 		dirtyBits ^= DIRTYB_MAC_UPDATE;
 	}
 }
 
-void SET_netCMD_dl   (void *val, size_t len)
+
+
+void SET_netCMD_dl(void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_dl   , val, len);
+
 	if ( (dirtyBits & DIRTYB_MAC_UPDATE) == 0 )
 	{
 		dirtyBits ^= DIRTYB_MAC_UPDATE;
 	}
 }
 
-void SET_netCMD_ch   (void *val, size_t len)
+
+
+void SET_netCMD_ch(void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_ch, val, len);
+
 	if ( (dirtyBits & DIRTYB_CH) == 0 )
 	{
 		dirtyBits ^= DIRTYB_CH;
 	}
 }
 
-void SET_netCMD_a1   (void *val, size_t len)
+
+
+void SET_netCMD_a1(void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_a1, val, len);
 	RFmodul.netCMD_ai = RFmodul.netCMD_a1 & RFmodul.netCMD_a2;
 }
 
-void SET_netCMD_a2   (void *val, size_t len)
+
+
+void SET_netCMD_a2(void *val, size_t len)
 {
 	memcpy(&RFmodul.netCMD_a2, val, len);
 	RFmodul.netCMD_ai = RFmodul.netCMD_a1 & RFmodul.netCMD_a2;
 }
 
-void SET_atCT_tmp    (void *val, size_t len)
+
+
+void SET_atCT_tmp(void *val, size_t len)
 {
 	memcpy(&atCT_tmp, val, len);
+
 	if ( (dirtyBits & DIRTYB_CT_AC) == 0 )
 	{
 		dirtyBits ^= DIRTYB_CT_AC;
 	}
 }
 
-void SET_atAP_tmp    (void *val, size_t len)
+
+
+void SET_atAP_tmp(void *val, size_t len)
 {
 	memcpy(&atAP_tmp, val, len);
 
@@ -262,13 +299,36 @@ void SET_atAP_tmp    (void *val, size_t len)
 		dirtyBits ^= DIRTYB_AP;
 	}
 
-	if ( (dirtyBits & DIRTYB_CC) == 0 )
+	/*
+	 * while switching the modes
+	 * dirty Bits need to be set for reset timer interrupts
+	 */
+	if ( 0x0 == *(uint8_t*)val ) // AT mode only
 	{
-		dirtyBits ^= DIRTYB_CC;
+		if ( (dirtyBits & DIRTYB_CC) == 0 )
+		{
+			dirtyBits ^= DIRTYB_CC;
+		}
+		if ( (dirtyBits & DIRTYB_GT) == 0 )
+		{
+			dirtyBits ^= DIRTYB_GT;
+		}
+		if ( (dirtyBits & DIRTYB_CT_AT) == 0 )
+		{
+			dirtyBits ^= DIRTYB_CT_AT;
+		}
+
+	}
+
+	if ( (dirtyBits & DIRTYB_RO) == 0 ) // all modes
+	{
+		dirtyBits ^= DIRTYB_RO;
 	}
 }
 
-void SET_atcopCMD_cc (void *val, size_t len)
+
+
+void SET_atcopCMD_cc(void *val, size_t len)
 {
 	memcpy(&RFmodul.atcopCMD_cc , val, len);
 
@@ -278,7 +338,9 @@ void SET_atcopCMD_cc (void *val, size_t len)
 	}
 }
 
-void SET_atcopCMD_gt (void *val, size_t len)
+
+
+void SET_atcopCMD_gt(void *val, size_t len)
 {
 	memcpy(&RFmodul.atcopCMD_gt , val, len);
 
@@ -288,7 +350,9 @@ void SET_atcopCMD_gt (void *val, size_t len)
 	}
 }
 
-void SET_diagCMD_ec  (uint16_t val) { RFmodul.diagCMD_ec   = val; } // not in use right now
+
+
+void SET_diagCMD_ec  (uint16_t val) { RFmodul.diagCMD_ec   = val; } // right now not in use
 void SET_diagCMD_ea  (uint16_t val) { RFmodul.diagCMD_ea   = val; } // used in tx irq
 void SET_atcopCMD_ct (uint16_t val) { RFmodul.atcopCMD_ct  = val; } // used in AC command
 void SET_serintCMD_ap(uint8_t  val) { RFmodul.serintCMD_ap = val; } // used in AC command

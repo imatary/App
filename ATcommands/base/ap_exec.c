@@ -48,11 +48,17 @@ at_status_t AP_exec( cmdIDs cmdID )
 	/* AC - apply changes */
 	case AT_AC :
 		{
-			if ( (DIRTYB_BD & dirtyBits) != FALSE ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
-			if ( (DIRTYB_CH & dirtyBits) != FALSE ||\
-			     (DIRTYB_ID & dirtyBits) != FALSE ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
-			if ( (DIRTYB_AP & dirtyBits) != FALSE ) { SET_serintCMD_ap( GET_atAP_tmp() ); dirtyBits ^= DIRTYB_AP; deBufferReset(UART);}
-			if ( (DIRTYB_CT_AC & dirtyBits) != FALSE ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
+			if ( (DIRTYB_BD & dirtyBits) == FALSE ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
+			if ( (DIRTYB_CH & dirtyBits) == FALSE ||\
+			     (DIRTYB_ID & dirtyBits) == DIRTYB_ID ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
+			if ( (DIRTYB_CT_AC & dirtyBits) == DIRTYB_CT_AC ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
+			if ( (DIRTYB_AP & dirtyBits) == DIRTYB_AP )
+			{
+				SET_serintCMD_ap( GET_atAP_tmp() );
+				dirtyBits ^= DIRTYB_AP;
+				dirtyBits ^= DIRTYB_RO;
+				deBufferReset(UART);
+			}
 		}
 		break;
 

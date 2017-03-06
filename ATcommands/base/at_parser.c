@@ -26,14 +26,14 @@
 // === globals ============================================
 static uint8_t    state = STATEM_IDLE;
 static uint16_t counter = 0;
-static uint32_t	  GT_th;
-static uint32_t   CT_th;
-static uint32_t SEND_th;
+static uint16_t	  GT_th;
+static uint16_t   CT_th;
+static uint16_t SEND_th;
 
-static bufType_n        ubuf;
-static uint32_t      timeout;
-static uint16_t   guardTimes;
-static uint16_t ATcmdTimeOut;
+static bufType_n          ubuf;
+static uint32_t      attimeout;
+static uint16_t     guardTimes;
+static uint16_t   ATcmdTimeOut;
 static uint8_t commandSequenceChar;
 
 static CMD *pCommand  = NULL;
@@ -77,43 +77,43 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 {
 	static at_status_t ret = 0;
 
-	if ( DIRTYB_CC & dirtyBits )
+	if ( (DIRTYB_CC & dirtyBits) == DIRTYB_CC )
 	{
 		dirtyBits ^= DIRTYB_CC;
 		commandSequenceChar = GET_atcopCMD_cc();
 	}
 
-	if ( DIRTYB_GT & dirtyBits )
+	if ( (DIRTYB_GT & dirtyBits) == DIRTYB_GT )
 	{
 		dirtyBits ^= DIRTYB_GT;
 		guardTimes = deMSEC( GET_atcopCMD_gt() );
 	}
 
-	if ( DIRTYB_CT_AT & dirtyBits )
+	if ( (DIRTYB_CT_AT & dirtyBits) == DIRTYB_CT_AT )
 	{
 		dirtyBits ^= DIRTYB_CT_AT;
-		ATcmdTimeOut = deMSEC( GET_atcopCMD_ct() * 0x64UL );
+		ATcmdTimeOut = deMSEC( GET_atcopCMD_ct() ) * 0x64UL;
 	}
 
-	if ( DIRTYB_RO & dirtyBits )
+	if ( (DIRTYB_RO & dirtyBits) == DIRTYB_RO )
 	{
 		dirtyBits ^= DIRTYB_RO;
-		timeout = GET_serintCMD_ro() * 10000000;
+		attimeout = GET_serintCMD_ro() * 10000000;
 
 		switch( GET_serintCMD_bd() )
 		{
-			case 0x0 : timeout /=   1200; break;
-			case 0x1 : timeout /=   2400; break;
-			case 0x2 : timeout /=   4800; break;
-			case 0x3 : timeout /=   9600; break;
-			case 0x4 : timeout /=  19200; break;
-			case 0x5 : timeout /=  38400; break;
-			case 0x6 : timeout /=  57600; break;
-			case 0x7 : timeout /= 115200; break;
-			default  : timeout /= deHIF_DEFAULT_BAUDRATE; break;
+			case 0x0 : attimeout /=   1200; break;
+			case 0x1 : attimeout /=   2400; break;
+			case 0x2 : attimeout /=   4800; break;
+			case 0x3 : attimeout /=   9600; break;
+			case 0x4 : attimeout /=  19200; break;
+			case 0x5 : attimeout /=  38400; break;
+			case 0x6 : attimeout /=  57600; break;
+			case 0x7 : attimeout /= 115200; break;
+			default  : attimeout /= deHIF_DEFAULT_BAUDRATE; break;
 		}
 
-		timeout = deMSEC( timeout )/10;
+		attimeout = deMSEC( attimeout )/10;
 	}
 
 	ubuf = bufType;
@@ -192,11 +192,11 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	{
 		if ( 0 == SEND_th )
 		{
-			SEND_th = deTIMER_start(AT_sendTX_timeHandle, timeout, 0);
+			SEND_th = deTIMER_start(AT_sendTX_timeHandle, attimeout, 0);
 		}
 		else
 		{
-			SEND_th = deTIMER_restart( SEND_th, timeout );
+			SEND_th = deTIMER_restart( SEND_th, attimeout );
 		}
 	}
 
@@ -212,6 +212,7 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 		UART_print_status(INVALID_COMMAND);
 		deBufferReset( bufType );
 		counter = 0;
+		state = AT_MODE;
 	}
 	else if ( AT_HANDLE == state && 4 < counter )
 	{

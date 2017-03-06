@@ -19,16 +19,16 @@
 #include "../../ATuracoli/stackrelated_timer.h"
 
 // === std. defines & frame types =========================
-#define STD_DELIMITER	0x7E
-#define TX_MSG_64		0x00
-#define TX_MSG_16		0x01
-#define AT_COMMAND		0x08
-#define AT_COMMAND_Q	0x09
-#define REMOTE_AT_CMD	0x17
-#define DEVICE_AT_CMD	0x18
-#define RX_MSG_64		0x80
-#define RX_MSG_16		0x81
-#define REMOTE_RESPONSE 0x97
+#define STD_DELIMITER	      0x7E
+#define TX_MSG_64		      0x00
+#define TX_MSG_16		      0x01
+#define AT_COMMAND		      0x08
+#define AT_COMMAND_Q	      0x09
+#define REMOTE_AT_CMD	      0x17
+#define DEVICE_AT_CMD	      0x18
+#define RX_MSG_64		      0x80
+#define RX_MSG_16		      0x81
+#define REMOTE_RESPONSE       0x97
 
 #define ACK_WITH_MAXSTREAM    0x0
 #define NO_ACK_NO_MAXSTREAM   0x1
@@ -117,7 +117,6 @@ void AP_frameHandle_uart(bufType_n bufType)
 						if ( (DIRTYB_BD & dirtyBits) != FALSE ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
 						if ( (DIRTYB_CH & dirtyBits) != FALSE ||\
 							 (DIRTYB_ID & dirtyBits) != FALSE ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
-						if ( (DIRTYB_AP & dirtyBits) != FALSE ) { SET_serintCMD_ap( GET_atAP_tmp() ); dirtyBits ^= DIRTYB_AP; }
 						if ( (DIRTYB_CT_AC & dirtyBits) != FALSE ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
 					}
 				}
