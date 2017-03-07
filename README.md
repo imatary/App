@@ -3,13 +3,16 @@ Basic Firmware which supported same AT commands of XBee modules and make it posi
 
 ---
 
-#### Which Controller are supported
+#### Supported Controller
 
 * ARM Cortex M0
 
 #### Miscellaneous
 
 * created in [ Atmel Studio 7 ] [1]
+* current build created for [ µracoli stack ] [2] 
+ * based on IEEE 802.15.4 protocol
+ * 0.5.x [ repository version ] [3]
 
 #### Structure
 
@@ -243,5 +246,7 @@ The AT command version number contains two version numbers at once.
 #### Links
 
 [1]: http://www.atmel.com/tools/atmelstudio.aspx#download "Atmel Studio 7"
+[2]: http://uracoli.nongnu.org/ "µracoli stack"
+[3]: http://hg.savannah.nongnu.org/hgweb/uracoli/ "repository version"
 
 created by [ http://dresden-elektronik.de/](http://dresden-elektronik.de/)
