@@ -13,25 +13,36 @@ Basic Firmware which supported same AT commands of XBee modules and make it posi
 
 #### Structure
 
-ATcommands/atcommands.c (main file)
+ATcommands/at\_api\_main.c (main file)
 
-ATcommands/base/circularBuffer.c  
-ATcommands/base/setter.c  
-ATcommands/base/atlocal.c  
-ATcommands/base/attable.c  
-ATcommands/base/nvm_eeprom.c  
-ATcommands/base/apiframe.c  
+ATcommands/base/ap\_exec.c
+ATcommands/base/ap\_frame.c
+ATcommands/base/ap\_local.c
+ATcommands/base/ap\_parser.c
+ATcommands/base/ap\_read.c
+ATcommands/base/ap\_trx.c
+ATcommands/base/ap\_write.c
+ATcommands/base/at\_exec.c
+ATcommands/base/at\_parser.c
+ATcommands/base/at\_read.c
+ATcommands/base/at\_write.c
+ATcommands/base/attable.c
+ATcommands/base/circularBuffer.c
+ATcommands/base/helper.c
+ATcommands/base/nvm_eeprom1.c
+ATcommands/base/rfmodul.c
+ATcommands/base/tp\_trx.c
 
-ATcommands/header/\_global.h  
-ATcommands/header/rfmodul.h  
-ATcommands/header/atlocal.h  
-ATcommands/header/apiframe.h  
-ATcommands/header/defaultConfig.h  
-ATcommands/header/enum\_general.h  
-ATcommands/header/enum\_error.h  
-ATcommands/header/enum\_cmd.h  
-ATcommands/header/circularBuffer.h  
-ATcommands/header/cmd.h  
+ATcommands/header/\_global.h
+ATcommands/header/ap\_frames.h
+ATcommands/header/at\_commands.h
+ATcommands/header/circularBuffer.h
+ATcommands/header/cmd.h
+ATcommands/header/defaultConfig.h
+ATcommands/header/enum\_cmd.h
+ATcommands/header/enum\_status.h
+ATcommands/header/helper.h
+ATcommands/header/rfmodul.h
 
 ATuracoli/trx0.c   
 ATuracoli/uart0.c  
@@ -45,24 +56,34 @@ ATuracoli/stackdefines.h
 #### Version Number
 The AT command version number contains two version numbers at once.
 * the first part is the version number of the AT command API
-* the second part consists the firmware version on which the AT command API is besed
+* the second part consists the firmware version on which the AT command API is based
+
+#### Version 0.4.10EF
+* AT and API mode are running now with state machine parser
+* timer to enter and leave AT mode are equal to XBee implementation
+* add TX status API frames
+* add TX transmit API frames with 64-bit and 16-bit destination address
+* add missing RX receive API frames, except RX (Receive) Packet IO
+* adding support for broadcast messages
+* speed up molding process
 
 #### Version 0.3.10EF
 * configurable in AT & AP mode (XCTU, HTerm)
-* configurable in AT mode PuTTY (other programms are not tested)
+* configurable in AT mode PuTTY (other programs are not tested)
 * set PAN ID
 * set channel
-* set destination adress (64Bit)
-* read own IEEE address 64Bit (ConBee)
-* write params to EEPROM
+* set destination address (64-bit)
+* read own IEEE address 64-bit (ConBee)
+* set node identifier
+* write parameter to EEPROM
 * reset to default
 * set the Command Mode Timeout
 * stored the symbol to enter the AT command mode
 * sending of simple text messages (Point2Point)
- * the current version supported only a package size of 127Byte everthing else get lost
+ * current version support only a package size of 127 bytes, everything else get lost
 * sending of remote AT commands (Point2Point)
 * received text messages
-* received "API Frames" over air, except RX (Receive) Packet IO
+* received &ldquo;API Frames&rdquo; over air, except RX (Receive) Packets
 
 #### H Files
 1. _global.h
