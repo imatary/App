@@ -13,36 +13,36 @@ Basic Firmware which supported same AT commands of XBee modules and make it posi
 
 #### Structure
 
-ATcommands/at\_api\_main.c (main file)
+ATcommands/at\_api\_main.c (main file)  
 
-ATcommands/base/ap\_exec.c
-ATcommands/base/ap\_frame.c
-ATcommands/base/ap\_local.c
-ATcommands/base/ap\_parser.c
-ATcommands/base/ap\_read.c
-ATcommands/base/ap\_trx.c
-ATcommands/base/ap\_write.c
-ATcommands/base/at\_exec.c
-ATcommands/base/at\_parser.c
-ATcommands/base/at\_read.c
-ATcommands/base/at\_write.c
-ATcommands/base/attable.c
-ATcommands/base/circularBuffer.c
-ATcommands/base/helper.c
-ATcommands/base/nvm_eeprom1.c
-ATcommands/base/rfmodul.c
-ATcommands/base/tp\_trx.c
+ATcommands/base/ap\_exec.c  
+ATcommands/base/ap\_frame.c  
+ATcommands/base/ap\_local.c  
+ATcommands/base/ap\_parser.c  
+ATcommands/base/ap\_read.c  
+ATcommands/base/ap\_trx.c  
+ATcommands/base/ap\_write.c  
+ATcommands/base/at\_exec.c  
+ATcommands/base/at\_parser.c  
+ATcommands/base/at\_read.c  
+ATcommands/base/at\_write.c  
+ATcommands/base/attable.c  
+ATcommands/base/circularBuffer.c  
+ATcommands/base/helper.c  
+ATcommands/base/nvm_eeprom1.c  
+ATcommands/base/rfmodul.c  
+ATcommands/base/tp\_trx.c  
 
-ATcommands/header/\_global.h
-ATcommands/header/ap\_frames.h
-ATcommands/header/at\_commands.h
-ATcommands/header/circularBuffer.h
-ATcommands/header/cmd.h
-ATcommands/header/defaultConfig.h
-ATcommands/header/enum\_cmd.h
-ATcommands/header/enum\_status.h
-ATcommands/header/helper.h
-ATcommands/header/rfmodul.h
+ATcommands/header/\_global.h  
+ATcommands/header/ap\_frames.h  
+ATcommands/header/at\_commands.h  
+ATcommands/header/circularBuffer.h  
+ATcommands/header/cmd.h  
+ATcommands/header/defaultConfig.h  
+ATcommands/header/enum\_cmd.h  
+ATcommands/header/enum\_status.h  
+ATcommands/header/helper.h  
+ATcommands/header/rfmodul.h  
 
 ATuracoli/trx0.c   
 ATuracoli/uart0.c  
@@ -86,56 +86,131 @@ The AT command version number contains two version numbers at once.
 * received &ldquo;API Frames&rdquo; over air, except RX (Receive) Packets
 
 #### H Files
-1. _global.h
- * definition of globals
-2. apiframe.h
- * defines of API frame typs
- * definition of `api_f` struct
- * prototypes of functions which are called by other c-files
-3. circularBuffer.h
- * definition of typdef struct `deBuffer_t`
- * defines of the buffer size and buffer mask
- * prototypes of all buffer functions
-4. cmd.h
- * defines of read, write und execute actions
- * definition of typedef struct `CMD`
- * if you want to add new AT commands, this file needs to be edited
-5. defaultConfig.h
- * defines of standard values (XBee based)
- * if you add new XBee modules please add the standard values in this file
-6. atlocal.h
- * prototypes of functions which are called by other c-files
-7. enum_cmd.h
- * enumeration of all AT commands
- * if you want to add new AT commands, this file needs to be edited
-8. enum_status.h
- * enumeration of status and error messages
-9. rfmodul.h
- * definition of typedef struct `RFmodul` (stored all params of the module in flash memory)
- * prototypes of default setter
- * prototypes for reading from and writing to the EEPROM
-10. stackrelated.h – Stack dependency
- * prototype pointer to UART functions
- * prototype pointer to transreceiver functions
- * prototypes of functions which are called by other c-files
-11. stackdefines.h
- * renewed defines to make it easier to replace stack related defines
-12. stackrelated_timer.h
- * prototype pointer to Timer functions
+1. \_global.h  
+* declaration of global variable `uint16_t dirtyBits`  
+* definitions of dirty bits status values  
+* definition of prototype version string  
+* type definition of enumerated bool values `typedef enum { FALSE, TRUE }__attribute__((packed)) bool_t;`  
+* type definition of enumerated device modes `typedef enum { TRANSPARENT_MODE, AP_MODE, AP_ESCAPE_MODE }__attribute__((packed)) device_mode;`  
+
+2. ap\_frames.h  
+* declaration of prototypes for API frame functions  
+
+3. at\_commands.h  
+* declaration of prototypes for AT command functions 
+
+4. circularBuffer.h  
+* definition of buffer size  
+* type definition of enumerated buffer types `bufType_n`  
+* declaration of prototypes for buffer functions  
+
+5. cmd.h  
+* defines of read, write and execute actions  
+* definition of typedef struct `CMD`  
+* declaration of prototypes for finding commands in table  
+ 
+6. defaultConfig.h  
+* defines of standard values (XBee based)  
+* if you add new XBee modules please add the standard values in this file  
+
+7. enum\_cmd.h  
+* enumeration of all AT commands  
+* if you want to add new AT commands, this file needs to be edited  
+
+8. enum\_status.h  
+* enumeration of status and error messages
+
+9. helper.h  
+* declaration of prototypes for validation functions  
+
+10. rfmodul.h  
+* type definition of structure `RFmodul` (stored all parameters of the module in flash memory)
+* declaration of prototypes for set and get functions
+* declaration of prototypes for reading from EEPROM and writing to the EEPROM
+
+11. stackrelated.h – Stack dependency
+* declaration of prototype pointer to UART functions
+* declaration of prototype pointer to transceiver functions
+* prototypes of basic TRX and UART functions  
+ 
+12. stackdefines.h
+* renewed defines to make it easier to replace stack related defines
+ 
+13. stackrelated_timer.h
+* declaration of prototype pointer to Timer functions
 
 #### C Files
+1. at\_api\_main.c –-- main file with main function   
+* declaration and initialization of dirtyBits variable  
+* reads values of EEPROM and store it into FLASH  
+* configure the module for UART and transceiver operating
+* starting active waiting loop
+
+2. ap\_exec.c  
+* definition of execution function for API frames  
+
+3. ap\_frame.c  
+* definition of API frame structure `api_f`
+* initialization of `api_f frame`
+* definition of API frame access functions for api_f structure
+
+4. ap\_local.c  
+* definition of API frame type values  
+* definition of mac mode values    
+* definition of UART API frame handle function   
+* definition of local response messages  
+ * local device response API frame (for special DE commands)  
+ * local AT command response API frame  
+ * TX status API frame  
+ * RX receive package API frame
+ * remote frame response API frame
+* definition of local remote frame handling  
+
+5. ap\_parser.c  
+* definition of API frame parser with state machine
+
+6. ap\_read.c  
+* definition of read function for API frames  
+
+7. ap\_trx.c 
+* definition for API transceiver frames  
+ * TX transmit frame with 16-bit and 64-bit destination address 
+ * remote frame
+ * remote response frame
+
+8. ap\_write.c  
+* definition of write function for API frames  
+
+9. at\_exec.c  
+* definition of execution function for AT commands   
+
+ATcommands/base/at\_parser.c  
+
+ATcommands/base/at\_read.c  
+
+ATcommands/base/at\_write.c  
+
+ATcommands/base/attable.c  
+
+ATcommands/base/circularBuffer.c  
+
+ATcommands/base/helper.c  
+
+ATcommands/base/nvm_eeprom1.c  
+
+ATcommands/base/rfmodul.c  
+
+ATcommands/base/tp\_trx.c 
+
+
 1. atcommands.c – main file with main function
- * init of RF modul varibles
- * reads values of EEPROM and store it into FLASH
- * init UART and transceiver buffer
- * configure the modul for operrating
- * starting active waiting loop
+
 2. atlocal.c – functions for local AT handling
- * main function of the  AT Command Mode
- * functions read, write und exec for local handling
+ * main function of the AT Command Mode
+ * functions read, write and exec for local handling
 3. apiframe.c – function for API handling
- * main fubction of API Frame handling
- * call of diverent frame type functions  
+ * main function of API Frame handling
+ * call of different frame type functions
    \- 0x08 & 0x09 local AT commands, is defined in the rwx functions in atlocal.c  
    \- 0x18 specific device commands  
    \- 0x17 remote AT commands, is defined in trx0.c  
@@ -144,24 +219,24 @@ The AT command version number contains two version numbers at once.
 4. attable.c – table of AT commands
  * list of all commands and their rights (rwx) in one array
  * if you want to add new AT commands, this file needs to be edited
-5.	circularBuffer.c – buffer functions
+5. circularBuffer.c – buffer functions
  * programmed buffer functions
 6.	nvm_eeprom.c – save and read functions for EEPROM operations
- * definition of EEPROM struct `NVM`
+ * definition of EEPROM structure `NVM`
  * set user and default values functions
  * get function
  * EEPROM crc function
-7.	setter.c
+7. setter.c
  * set functions to restore the default values
-8.	timer0.c – defined the relation to the timer functions of the stack
- * init timer pointer
+8. timer0.c – defined the relation to the timer functions of the stack
+ * initialize timer pointer
  * definition of 'Millisecond'
-9.	trx0.c – defined the relation to the transceiver functions of the stack
- * init of transreceiver
+9. trx0.c – defined the relation to the transceiver functions of the stack
+ * initialize of transceiver functions
  * handler for sending and receiving
  * functions to pack data packages
-10.	uart.c – defined the relation to the user interface functions of the stack
- * init of UART pointer functions
+10. uart.c – defined the relation to the user interface functions of the stack
+ * initialize of UART pointer functions
 
 
 #### Links

@@ -12,12 +12,10 @@
 #include <inttypes.h>
 
 // === miscellaneous ======================================
-#define DEBUG 0			// debug mode ( 0 = off / 1 = on )
 #define FLASH_ATTR
 
 // === default values =====================================
 #define AT_VERSION	         "0.4.10E7"  // Hex: 30 2E 34 2E 31 30 45 37
-#define MAXBYTES			 100
 #define MAX_PARAMETER_LENGHT (20 + 2)    // +2 for buffer handling processes
 
 #define DIRTYB_AP		     0x0001      // used in command AC
