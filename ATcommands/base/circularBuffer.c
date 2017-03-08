@@ -170,7 +170,6 @@ void deBufferReadReset(bufType_n bufType, char operand , size_t len)
 		}
 		if ( '-' == operand && xbuffer[bufType].read == xbuffer[bufType].write)
 		{
-			xbuffer[bufType].read == xbuffer[bufType].write+1;
 			return;
 		}
 		if ( '+' == operand )

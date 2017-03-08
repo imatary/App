@@ -126,7 +126,17 @@ int TRX_msgFrame( bufType_n bufType, uint8_t *package )
 
 
 /*
+ * Set mac header will be called,
+ * if dirty bits are set for ID or MY or DH or DL.
+ * The macHeader array will be filled with information
+ * of network, destination and source address.
  *
+ * Note: The security auxiliary header is not implemented yet.
+ *
+ * Returns:
+ *     nothing
+ *
+ * last modified: 2017/02/26
  */
 static void SET_macHeader(void)
 {
