@@ -100,7 +100,7 @@ void GET_allFromEEPROM(void)
 	else						 memcpy( RFmodul, &lary[4], size );
 
 	if ( 0x10 > RFmodul->atcopCMD_ct ) RFmodul->atcopCMD_ct = 0x64;
-	dirtyBits = DIRTYB_ALL_ACTIVE;
+	dirtyBits = DIRTYB_ALL_ACTIVE ^ DIRTYB_AP;
 }
 
 

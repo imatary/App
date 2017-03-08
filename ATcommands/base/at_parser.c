@@ -218,7 +218,7 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 	{
 		ret	= AT_getCommand( bufType, &pCommand );
 
-		if      ( INVALID_COMMAND == ret || NULL == pCommand ) /* do nothing */;
+		if      ( INVALID_COMMAND == ret || NULL == pCommand ) UART_print_status(INVALID_COMMAND);
 		else if ( 5 == counter && EXEC & pCommand->rwxAttrib )
 		{
 			deBufferReadReset( bufType, '+', 1); // remove the '\0' from the buffer

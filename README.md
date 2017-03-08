@@ -1,5 +1,5 @@
 # README ATcommands
-Basic Firmware which supported same AT commands of XBee modules and make it posible to controll such modules via AT.
+Basic Firmware which supported same AT commands of XBee modules and make it possible to control such modules via AT.
 
 ---
 
