@@ -161,7 +161,6 @@ void SET_ioserCMD_d0 (void *val, size_t len) { memcpy(&RFmodul.ioserCMD_d0 , val
 void SET_serintCMD_nb(void *val, size_t len) { memcpy(&RFmodul.serintCMD_nb, val, len); }
 void SET_sleepmCMD_so(void *val, size_t len) { memcpy(&RFmodul.sleepmCMD_so, val, len); }
 void SET_sleepmCMD_sm(void *val, size_t len) { memcpy(&RFmodul.sleepmCMD_sm, val, len); }
-void SET_rfiCMD_pl   (void *val, size_t len) { memcpy(&RFmodul.rfiCMD_pl   , val, len); }
 void SET_netCMD_sd   (void *val, size_t len) { memcpy(&RFmodul.netCMD_sd   , val, len); }
 void SET_netCMD_rr   (void *val, size_t len) { memcpy(&RFmodul.netCMD_rr   , val, len); }
 void SET_netCMD_rn   (void *val, size_t len) { memcpy(&RFmodul.netCMD_rn   , val, len); }
@@ -350,6 +349,17 @@ void SET_atcopCMD_gt(void *val, size_t len)
 	}
 }
 
+
+
+void SET_rfiCMD_pl(void *val, size_t len)
+{
+	memcpy(&RFmodul.rfiCMD_pl   , val, len);
+
+	if ( (DIRTYB_PL & dirtyBits) == 0 )
+	{
+		dirtyBits ^= DIRTYB_PL;
+	}
+}
 
 
 void SET_diagCMD_ec  (uint16_t val) { RFmodul.diagCMD_ec   = val; } // right now not in use

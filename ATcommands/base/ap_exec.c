@@ -10,6 +10,7 @@
 #include "../header/enum_cmd.h"				// cmd ID definition
 #include "../header/rfmodul.h"				// RFmodul GET_ and SET_ functions
 #include "../header/ap_frames.h"			// AP set function
+#include "../header/execute.h"
 #include "../../ATuracoli/stackrelated.h"	// init functions
 #include "../../ATuracoli/stackrelated_timer.h"
 
@@ -48,17 +49,7 @@ at_status_t AP_exec( cmdIDs cmdID )
 	/* AC - apply changes */
 	case AT_AC :
 		{
-			if ( (DIRTYB_BD & dirtyBits) == FALSE ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
-			if ( (DIRTYB_CH & dirtyBits) == FALSE ||\
-			     (DIRTYB_ID & dirtyBits) == DIRTYB_ID ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
-			if ( (DIRTYB_CT_AC & dirtyBits) == DIRTYB_CT_AC ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
-			if ( (DIRTYB_AP & dirtyBits) == DIRTYB_AP )
-			{
-				SET_serintCMD_ap( GET_atAP_tmp() );
-				dirtyBits ^= DIRTYB_AP;
-				dirtyBits ^= DIRTYB_RO;
-				deBufferReset(UART);
-			}
+			apply_changes(NULL);
 		}
 		break;
 

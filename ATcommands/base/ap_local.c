@@ -14,6 +14,7 @@
 #include "../header/rfmodul.h"					// RF module information
 #include "../header/ap_frames.h"				// AP frame struct + AP TRX functions
 #include "../header/circularBuffer.h"			// UART & RX buffer
+#include "../header/execute.h"
 #include "../../ATuracoli/stackrelated.h"		// UART_print(f), TRX_send(f)
 #include "../../ATuracoli/stackdefines.h"		// defined register addresses
 #include "../../ATuracoli/stackrelated_timer.h"
@@ -113,11 +114,7 @@ void AP_frameHandle_uart(bufType_n bufType)
 					if ( OP_SUCCESS == ret && AT_COMMAND == GET_apFrameType() )
 					{
 						writetimer = deTIMER_start(AP_write_timedEEPROM, 0x10, 0 );
-
-						if ( (DIRTYB_BD & dirtyBits) != FALSE ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
-						if ( (DIRTYB_CH & dirtyBits) != FALSE ||\
-							 (DIRTYB_ID & dirtyBits) != FALSE ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
-						if ( (DIRTYB_CT_AC & dirtyBits) != FALSE ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
+						apply_changes(NULL);
 					}
 				}
 				SET_apFrameRet(ret);
@@ -253,10 +250,10 @@ static at_status_t AP_localDevice(bufType_n bufType)
 
 		switch ( pCommand->ID )
 		{
-/* FV */	case DE_FV :
+/* FV */	case DE_PT :
 					SET_apFrameLength( strlen(AT_VERSION), FALSE );
 					uint8_t *val = AT_VERSION;
-					SET_apFrameMsg( val, strlen(AT_VERSION)+1, DE_FV);
+					SET_apFrameMsg( val, strlen(AT_VERSION)+1, DE_PT);
 				break;
 
 			default:
@@ -465,7 +462,7 @@ void AP_rxReceive( bufType_n bufType, uint16_t length, uint8_t dataStart, uint8_
 	/*
 	 * RSSI value
 	 */
-	tmp = TRX_readReg(PHY_RSSI) & 0x1F;
+	tmp = (90 - 3 * ((TRX_readReg(PHY_RSSI) & 0x1F)-1));
 	UART_putc( tmp );
 	SET_apFrameCRC( tmp, TRUE );
 
@@ -588,11 +585,7 @@ void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t data
 	 */
 	if ( OP_SUCCESS == ret && 0x2 == GET_apFrameType() && WRITE == GET_apFrameRWXopt() )
 	{
-		if ( (DIRTYB_BD & dirtyBits) != FALSE ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
-		if ( (DIRTYB_CH & dirtyBits) != FALSE ||\
-		     (DIRTYB_ID & dirtyBits) != FALSE ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
-		if ( (DIRTYB_AP & dirtyBits) != FALSE ) { SET_serintCMD_ap( GET_atAP_tmp() ); dirtyBits ^= DIRTYB_AP; }
-		if ( (DIRTYB_CT_AC & dirtyBits) != FALSE ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
+		apply_changes(NULL);
 	}
 
 	TRX_send( NONE, REMOTE_RESPONSE, srcAddr, srcAddrLen );

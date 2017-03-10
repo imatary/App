@@ -34,7 +34,7 @@ struct api_f
 
 // === globals ============================================
 static struct api_f frame  = {0,0,0,0,{0},0,{0},0};
-static cmdIDs cmdValuesWithArray[] = {AT_NI,AT_KY,DE_FV};
+static cmdIDs cmdValuesWithArray[] = {AT_NI,AT_KY,DE_PT};
 
 // === prototypes ==========================================
 static void SWAP_apFrameMsg(size_t length);

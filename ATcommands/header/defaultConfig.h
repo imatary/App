@@ -47,7 +47,7 @@
  *
  * last modified: 2016/11/10
  */
-#define PL_POWER_LEVEL				(0x4)			// 0x0-0x4 (XBee default '4')
+#define PL_POWER_LEVEL				(0x3)			// 0x0-0x3 (XBee default '4')
 #define CA_CCA_TRESHOLD				(0x2C)			// 0x24-0x50 (XBee default '2C')
 
 /*
@@ -115,11 +115,11 @@
  *
  * last modified: 2016/11/10
  */
-#define VR_FIRMWARE_VERS			(0x10EF)		// cheat XBee Firmware			-> cheat value, read only
-#define HV_HARDWARE_VERS			(0x1746)		// cheat XBee Hardware Version	-> cheat value, read only
-#define DB_RECEIVED_SIGNAL_STRENGTH (0x0)			// dummy value					-> read only
-#define EC_CCA_FAILURES				(0x0)			// dummy value					-> read only
-#define EA_ACK_FAILURES				(0x0)			// dummy value					-> read only
+#define VR_FIRMWARE_VERS			(0xDE10)		// ConBee Firmware Version	-> read only
+#define HV_HARDWARE_VERS			(0x0)		    // ConBee Hardware Version	-> cheat value, read only
+#define DB_RECEIVED_SIGNAL_STRENGTH (0x0)			// dummy value				-> read only
+#define EC_CCA_FAILURES				(0x0)			// dummy value				-> read only
+#define EA_ACK_FAILURES				(0x0)			// dummy value				-> read only
 #define DD_DEVICE_TYPE_IDENTIFIER	(0x10000)		// 0x0-0xFFFFFFFF (XBee default '10000')
 
 /*

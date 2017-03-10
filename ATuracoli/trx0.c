@@ -15,6 +15,7 @@
 #include "../ATcommands/header/circularBuffer.h"
 #include "../ATcommands/header/ap_frames.h"
 #include "../ATcommands/header/at_commands.h"
+#include "../ATcommands/header/rfInterfacing.h"
 #include "stackrelated.h"
 #include "stackdefines.h"
 
@@ -68,7 +69,7 @@ static uint8_t    send[PACKAGE_SIZE] = {0};
  * last modified: 2017/01/19
  */
 uint8_t ret;
-uint8_t channel;
+uint8_t channel_pwl;
 uint16_t panid, shortaddr;
 uint32_t extaddrhigh, extaddrlow;
 uint8_t TRX_baseInit(void)
@@ -88,14 +89,20 @@ uint8_t TRX_baseInit(void)
 	TRX_writeTX		 = trx_frame_write;
 	TRX_readRX		 = trx_frame_read;
 	TRX_getRxLength  = trx_frame_get_length;
+	TRX_initDatarate = trx_set_datarate;
 
 
 	TRX_spiInit(deSPI_RATE_1_2);
+
+	cmd = CMD_findInTableByID(AT_PL);
+	GET_deviceValue( (uint8_t*) &channel_pwl, cmd);
+	config_powerlevel(channel_pwl);
+
 	ret = TRX_init();
 
 	/* catch all needed data */
 	cmd = CMD_findInTableByID(AT_CH);
-	GET_deviceValue( (uint8_t*) &channel, cmd);
+	GET_deviceValue( (uint8_t*) &channel_pwl, cmd);
 
 	cmd = CMD_findInTableByID(AT_ID);
 	GET_deviceValue( (uint16_t*) &panid, cmd);
@@ -110,7 +117,7 @@ uint8_t TRX_baseInit(void)
 	GET_deviceValue( (uint16_t*) &shortaddr, cmd);
 
 	/* set bits and bytes */
-	TRX_writeBit(deSR_CHANNEL, channel );
+	TRX_writeBit(deSR_CHANNEL, channel_pwl );
 	TRX_writeBit(deSR_TX_AUTO_CRC_ON, TRUE);
 
 	TRX_setPanId( panid );								            // target PAN ID
@@ -187,22 +194,10 @@ void TRX_send(bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t s
 	TRX_writeReg(deRG_TRX_STATE, deCMD_RX_AACK_ON);
 	if (tx_stat.in_progress == FALSE)
 	{
-#if DEBUG
-		UART_printf(">TX FRAME tx: %4d, fail: %3d, tx_seq: %3d\r", tx_stat.cnt, tx_stat.fail, send[2]);
-#endif
 		TRX_writeBit(deMAX_FRAME_RETRIES, 3);
 		/* some older SPI transceivers require this coming from RX_AACK*/
 		TRX_writeReg(deRG_TRX_STATE, deCMD_PLL_ON);
 		TRX_writeReg(deRG_TRX_STATE, deCMD_TX_ARET_ON);
-
-#if DEBUG
-	UART_print(">Send: ");
-	for (int i=0; i<pos; i++)
-	{
-		UART_printf("%02x ", send[i], i);
-	}
-	UART_print("\r");
-#endif
 
 		TRX_writeTX(pos + 2, send);
 		tx_stat.in_progress = TRUE;
@@ -231,7 +226,7 @@ at_status_t TRX_receive(bufType_n bufType)
 
 	rx_stat.done = FALSE;
 	SET_deBufferNewContent( bufType, FALSE);
-	SET_diagCMD_db( TRX_readReg(PHY_RSSI) & 0x1F );
+	SET_diagCMD_db( (90 - 3 * ((TRX_readReg(PHY_RSSI) & 0x1F)-1)) );
 
 	/*
 	 * read the len out of the buffer

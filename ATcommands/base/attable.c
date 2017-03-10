@@ -92,7 +92,7 @@ static const CMD StdCmdTable[] =
 
 	{ "ATP0", AT_P0, offsetof( device_t, ioserCMD_p0  ), READ | WRITE       ,  U8__SIZE, 0x00,       0x02, SET_ioserCMD_p0 , max_u32val      }, // P
 	{ "ATP1", AT_P1, offsetof( device_t, ioserCMD_p1  ), READ | WRITE       ,  U8__SIZE, 0x00,       0x02, SET_ioserCMD_p1 , max_u32val      },
-	{ "ATPL", AT_PL, offsetof( device_t, rfiCMD_pl    ), READ | WRITE       ,  U8__SIZE, 0x00,       0x04, SET_rfiCMD_pl   , max_u32val      },
+	{ "ATPL", AT_PL, offsetof( device_t, rfiCMD_pl    ), READ | WRITE       ,  U8__SIZE, 0x00,       0x03, SET_rfiCMD_pl   , max_u32val      },
 	{ "ATPR", AT_PR, offsetof( device_t, ioserCMD_pr  ), READ | WRITE       ,  U8__SIZE, 0x00,       0xFF, SET_ioserCMD_pr , max_u32val      },
 	{ "ATPT", AT_PT, offsetof( device_t, ioserCMD_pt  ), READ | WRITE       ,  U8__SIZE, 0x00,       0xFF, SET_ioserCMD_pt , max_u32val      },
 
@@ -123,12 +123,12 @@ static const CMD StdCmdTable[] =
 	{ "ATT6", AT_T6, offsetof( device_t, iolpCMD_t6   ), READ | WRITE       ,  U8__SIZE, 0x00,       0xFF, SET_iolpCMD_t6  , max_u32val      },
 	{ "ATT7", AT_T7, offsetof( device_t, iolpCMD_t7   ), READ | WRITE       ,  U8__SIZE, 0x00,       0xFF, SET_iolpCMD_t7  , max_u32val      },
 
-	{ "ATVR", AT_VR, offsetof( device_t, diagCMD_vr   ), READ | WRITE       ,  U16_SIZE, 0x00,     0xFFFF, SET_diagCMD_vr  , max_u32val      }, // V
+	{ "ATVR", AT_VR, offsetof( device_t, diagCMD_vr   ), READ               ,  U16_SIZE, 0x00,     0xFFFF, SET_diagCMD_vr  , max_u32val      }, // V
 
 	{ "ATWR", AT_WR,                         NO_OFFSET ,			    EXEC,  0,														     }, // W
 
     /* DE */
-	{ "DEFV", DE_FV,                         NO_OFFSET , READ               ,  0,														     }, // F
+	{ "DEPT", DE_PT,                         NO_OFFSET , READ               ,  0,														     }, // P (Prototype Version full)
 };
 
 const CMD *pStdCmdTable = StdCmdTable;

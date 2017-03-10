@@ -15,7 +15,7 @@
 #define FLASH_ATTR
 
 // === default values =====================================
-#define AT_VERSION	         "0.4.10E7"  // Hex: 30 2E 34 2E 31 30 45 37
+#define AT_VERSION	         "1.0.10EF"  // Prototype Version
 #define MAX_PARAMETER_LENGHT (20 + 2)    // +2 for buffer handling processes
 
 #define DIRTYB_AP		     0x0001      // used in command AC
@@ -28,8 +28,9 @@
 #define DIRTYB_CC            0x0080		 // used in AT parser
 #define DIRTYB_GT            0x0100		 // used in AT parser
 #define DIRTYB_CT_AT         0x0200      // used in AT parser
+#define DIRTYB_PL            0x0400		 // used in command AC
 
-#define DIRTYB_ALL_ACTIVE    0x3FF
+#define DIRTYB_ALL_ACTIVE    0x7FF
 
 // === typedef ============================================
 typedef enum { FALSE, TRUE }__attribute__((packed)) bool_t;

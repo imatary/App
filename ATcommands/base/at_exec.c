@@ -9,6 +9,7 @@
 
 #include "../header/enum_cmd.h"					// cmd ID definition
 #include "../header/rfmodul.h"					// RFmodul GET_ and SET_ functions
+#include "../header/execute.h"
 #include "../../ATuracoli/stackrelated.h"		// init functions
 #include "../../ATuracoli/stackrelated_timer.h"	// timer function
 
@@ -23,7 +24,7 @@ static uint32_t AT_writeEEPROM(uint32_t arg);
  * Command exec function executes commands
  *
  * Received:
- *		uint32_t	if in  AT Mode, a time handler else NULL pointer
+ *		uint16_t	if in  AT Mode, a time handler else NULL pointer
  *		cmdIDs		command ID
  *
  * Returns:
@@ -32,7 +33,7 @@ static uint32_t AT_writeEEPROM(uint32_t arg);
  *
  * last modified: 2017/01/25
  */
-at_status_t AT_exec(uint32_t *th, cmdIDs cmdID)
+at_status_t AT_exec(uint16_t *th, cmdIDs cmdID)
 {
 	switch ( cmdID )
 	{
@@ -53,18 +54,7 @@ at_status_t AT_exec(uint32_t *th, cmdIDs cmdID)
 	/* AC - apply changes */
 		case AT_AC :
 			{
-				if ( (DIRTYB_BD & dirtyBits) == DIRTYB_BD ) { UART_init(); dirtyBits ^= DIRTYB_BD; }
-				if ( (DIRTYB_CH & dirtyBits) == DIRTYB_CH ||\
-				     (DIRTYB_ID & dirtyBits) == DIRTYB_ID ) { TRX_baseInit(); dirtyBits ^= (DIRTYB_CH | DIRTYB_ID); }
-				if ( (DIRTYB_CT_AC & dirtyBits) == DIRTYB_CT_AC ) { SET_atcopCMD_ct ( GET_atCT_tmp() ); dirtyBits ^= DIRTYB_CT_AC; }
-				if ( (DIRTYB_AP & dirtyBits) == DIRTYB_AP )
-				{
-					SET_serintCMD_ap( GET_atAP_tmp() );
-					dirtyBits ^= DIRTYB_AP;
-					dirtyBits ^= DIRTYB_RO;
-					deBufferReset(UART);
-					if ( th != NULL) *th = deTIMER_restart(*th, deMSEC( 0x5 ));
-				}
+				apply_changes(th);
 			}
 			break;
 

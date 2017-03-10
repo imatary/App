@@ -115,7 +115,7 @@ typedef enum
 
 	AT_WR,					// WRITE
 
-	DE_FV,					// AT FIRMWARE VERSION
+	DE_PT,					// PROTOTYPE FIRMWARE VERSION FULL
 
 }__attribute__((packed)) cmdIDs;
 

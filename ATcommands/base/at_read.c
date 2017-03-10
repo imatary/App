@@ -59,7 +59,7 @@ at_status_t AT_read( CMD *cmd )
 			}
 		break;
 
-		case DE_FV :
+		case DE_PT :
 			{
 				UART_printf("%s\r", AT_VERSION);
 			}
