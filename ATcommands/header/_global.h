@@ -39,5 +39,4 @@ typedef enum { TRANSPARENT_MODE, AP_MODE, AP_ESCAPE_MODE }__attribute__((packed)
 // === shared globals =====================================
 extern uint16_t dirtyBits;
 
-
 #endif /* _GLOBAL_H_ */

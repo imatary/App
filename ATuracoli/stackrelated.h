@@ -28,6 +28,7 @@
  * UART_getc();		pointer to UART read function
  */
 void UART_init(void);
+void UART_baudInit(void);
 #define UART_print(fmt)			hif_echo(FLASH_STRING(fmt))
 #define UART_printf(fmt, ...)	hif_printf(FLASH_STRING(fmt), __VA_ARGS__)
 int  (*UART_getc) (void);

@@ -172,7 +172,7 @@ int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send)
 	     ACK_WITH_MAXSTREAM    == RFmodul->netCMD_mm )
 	{
 		*(send+pos)   = (uint8_t) ( *(send+2) + (RFmodul->netCMD_sl & 0xFF) );	// second counter, distance to frame counter is last byte of src extended addr.
-		*(send+pos+1) = 0x04;													    // this byte will be used as command, 0x04 AT remote command
+		*(send+pos+1) = 0x04;												    // this byte will be used as command, 0x04 AT remote command
 		pos += 2;
 	}
 

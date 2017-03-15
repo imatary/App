@@ -9,6 +9,7 @@
 #include "../ATcommands/header/_global.h"
 #include "../ATcommands/header/rfmodul.h"
 #include "../ATcommands/header/enum_status.h"
+#include "../ATcommands/header/defaultConfig.h"
 #include "stackrelated.h"
 #include "stackdefines.h"
 #include "board.h"
@@ -23,24 +24,33 @@
 void UART_init(void)
 {
 	mcu_init();
-	uint32_t baud;
-	switch( GET_serintCMD_bd() )
-	{
-		case 0x0 : baud =   1200; break;
-		case 0x1 : baud =   2400; break;
-		case 0x2 : baud =   4800; break;
-		case 0x3 : baud =   9600; break;
-		case 0x4 : baud =  19200; break;
-		case 0x5 : baud =  38400; break;
-		case 0x6 : baud =  57600; break;
-		case 0x7 : baud = 115200; break;
-		default  : baud = deHIF_DEFAULT_BAUDRATE; break;
-	}
-	hif_init(baud);
-
+	UART_baudInit();
 	UART_getc	= hif_getc;
 	UART_putc	= hif_putc;
 	UART_puts	= hif_puts;
+}
+
+void UART_baudInit(void)
+{
+	switch( GET_serintCMD_bd() )
+	{
+		//case 0x0 : hif_init(   1200); break; // not supported
+		case 0x1 : hif_init(   2400); break;
+		case 0x2 : hif_init(   4800); break;
+		case 0x3 : hif_init(   9600); break;
+		case 0x4 : hif_init(  19200); break;
+		case 0x5 : hif_init(  38400); break;
+		//case 0x6 : hif_init(  57600); break; // not supported
+		//case 0x7 : hif_init( 115200); break; // not supported
+		default  :
+		{
+			uint8_t val = BD_INTERFACE_DATA_RATE;
+			hif_init( deHIF_DEFAULT_BAUDRATE );
+			SET_serintCMD_bd( &val, 1 );
+			dirtyBits ^= DIRTYB_BD;
+		}
+	    break;
+	}
 }
 
 

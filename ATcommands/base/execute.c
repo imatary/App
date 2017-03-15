@@ -30,7 +30,7 @@ void apply_changes(uint16_t *th)
 	 */
 	if ( (DIRTYB_BD & dirtyBits) != FALSE )
 	{
-		UART_init();
+		UART_baudInit();
 		dirtyBits ^= DIRTYB_BD;
 	}
 
@@ -86,5 +86,13 @@ void apply_changes(uint16_t *th)
 		if ( (dirtyBits & DIRTYB_RO) == 0 ) dirtyBits ^= DIRTYB_RO;
 
 		if ( GET_atAP_tmp() != 0 && th != NULL) *th = deTIMER_restart(*th, deMSEC( 0x5 ));
+	}
+
+	/*
+	 * recalculate at next call Packetization Timeout
+	 */
+	if ( (dirtyBits & DIRTYB_RO) == 0 )
+	{
+		dirtyBits ^= DIRTYB_RO;
 	}
 }

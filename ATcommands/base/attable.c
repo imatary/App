@@ -41,7 +41,7 @@ static const CMD StdCmdTable[] =
 	{ "ATAI", AT_AI, offsetof( device_t, netCMD_ai    ), READ               ,  U8__SIZE,		      		 								 },
 	{ "ATAP", AT_AP, offsetof( device_t, serintCMD_ap ), READ | WRITE       ,  U8__SIZE, 0x00,       0x02, SET_atAP_tmp    , max_u32val      },
 
-	{ "ATBD", AT_BD, offsetof( device_t, serintCMD_bd ), READ | WRITE       ,  U8__SIZE, 0x00,       0x07, SET_serintCMD_bd, max_u32val      }, // B
+	{ "ATBD", AT_BD, offsetof( device_t, serintCMD_bd ), READ | WRITE       ,  U8__SIZE, 0x01,       0x05, SET_serintCMD_bd, max_u32val      }, // B
 
 	{ "ATCA", AT_CA, offsetof( device_t, rfiCMD_ca    ), READ | WRITE       ,  U8__SIZE, 0x24,       0x50, SET_rfiCMD_ca   , max_u32val      }, // C
 	{ "ATCC", AT_CC, offsetof( device_t, atcopCMD_cc  ), READ | WRITE       ,  U8__SIZE, 0x00,       0xFF, SET_atcopCMD_cc , max_u32val      },

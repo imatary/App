@@ -42,7 +42,7 @@ at_status_t AP_exec( cmdIDs cmdID )
 	/* WR - write config to firmware */
 	case AT_WR :
 		{
-			writetimer = deTIMER_start(AP_write_timedEEPROM, 0x10, 0);
+			writetimer = deTIMER_start(AP_write_timedEEPROM, 0x05, 0);
 		}
 		break;
 

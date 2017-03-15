@@ -171,16 +171,7 @@ void SET_netCMD_ce   (void *val, size_t len) { memcpy(&RFmodul.netCMD_ce   , val
 void SET_netCMD_no   (void *val, size_t len) { memcpy(&RFmodul.netCMD_no   , val, len); }
 void SET_secCMD_ee   (void *val, size_t len) { memcpy(&RFmodul.secCMD_ee   , val, len); }
 void SET_diagCMD_dd  (void *val, size_t len) { memcpy(&RFmodul.diagCMD_dd  , val, len); }
-
-
-void SET_serintCMD_ro(void *val, size_t len)
-{
-	memcpy(&RFmodul.serintCMD_ro, val, len);
-	if ( (dirtyBits & DIRTYB_RO) == 0 )
-	{
-		dirtyBits ^= DIRTYB_RO;
-	}
-}
+void SET_serintCMD_ro(void *val, size_t len) { memcpy(&RFmodul.serintCMD_ro, val, len); }
 
 
 
