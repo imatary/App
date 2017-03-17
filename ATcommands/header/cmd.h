@@ -3,15 +3,18 @@
  *
  * Created: 26.10.2016 08:46:58
  *  Author: TOE
- */ 
+ */
 
 
 #ifndef CMD_H_
 #define CMD_H_
 
-#include <stdint.h>		// uint8_t type
-#include <stdio.h>		// sizeof(), size_t
-#include "enum_cmd.h"	// enumerated commands
+// === includes ===========================================
+#include <inttypes.h>		// uint8_t type
+
+#include "circularBuffer.h"	// buffer functions
+#include "enum_status.h"	// at_status_t
+#include "enum_cmd.h"		// enumerated commands
 
 // === defined values =====================================
 #define READ	 (0x8)
@@ -19,12 +22,26 @@
 #define EXEC	 (0x2)
 
 // === struct and struct table ============================
-typedef struct {
-	const char *name;
-	cmdIDs		ID;			// AT ID of enum type cmdIDs
-	uint8_t		rwxAttrib;	// 8 Bit for rwx or rwx Attrib bit field
+typedef struct command {
+	char		*name;									// command name
+	cmdIDs	ID;											// AT ID of enum type cmdIDs
+	size_t	addr_offset;								// offset of RFmodul struct
+	uint8_t	  rwxAttrib;								// 8 Bit for rwx or rwx Attrib bit field
+	uint8_t     cmdSize;								// max command size depending on data type or array size
+	uint32_t	    min;		                        // allowed minimum value
+	uint32_t        max;								// allowed maximum value
+
+	void        (*mySet) ( void*, size_t );				// set function (data, length)
+	at_status_t (*valid) (size_t len,					// command parameter length
+	                      uint8_t *workArray,		    // array pointer to workArray which contained command param
+						  const struct command *cmd,	// pointer to command information in command table
+						  const device_mode devMode		// information from which mode this function was called
+						 );								// validation function, if data valid it call the set function
+
 }__attribute__((packed)) CMD;
 
-CMD *CMD_findInTable(uint8_t *cmd);
+// === prototypes =========================================
+CMD *CMD_findInTable(uint8_t  *cmd);
+CMD *CMD_findInTableByID(cmdIDs id);
 
 #endif /* CMD_H_ */

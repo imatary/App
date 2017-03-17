@@ -3,15 +3,18 @@
  *
  * Created: 26.10.2016 08:50:30
  *  Author: TOE
- */ 
+ */
 
 
 #ifndef STACKRELATED_H_
 #define STACKRELATED_H_
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "../ATcommands/header/_global.h"
 #include "../ATcommands/header/enum_status.h"
-#include "../ATcommands/header/apiframe.h"
+#include "../ATcommands/header/ap_frames.h"
 
 #include "hif.h"
 #include "transceiver.h"
@@ -25,6 +28,7 @@
  * UART_getc();		pointer to UART read function
  */
 void UART_init(void);
+void UART_baudInit(void);
 #define UART_print(fmt)			hif_echo(FLASH_STRING(fmt))
 #define UART_printf(fmt, ...)	hif_printf(FLASH_STRING(fmt), __VA_ARGS__)
 int  (*UART_getc) (void);
@@ -50,18 +54,19 @@ void UART_print_decimal(uint8_t number);
  * TRX_readRX();		pointer to function which read the received frame out of the frame buffer
  * TRX_getRxLength();	pointer to function which get the length of a received frame
  */
-static void		(*TRX_setPanId)		(uint16_t panid);
-static void		(*TRX_setShortAddr)	(uint16_t shortaddr);
-static void		(*TRX_setLongAddr)	(uint64_t longaddr);
+static void		(*TRX_setPanId)		(uint16_t);
+static void		(*TRX_setShortAddr)	(uint16_t);
+static void		(*TRX_setLongAddr)	(uint64_t);
 static uint8_t	(*TRX_init)			(void);
-	   void		(*TRX_spiInit)		(uint8_t spirate);
-	   void		(*TRX_writeReg)		(uint8_t addr, uint8_t val);	  
-	   uint8_t	(*TRX_readReg)		(uint8_t addr);
-	   void		(*TRX_writeBit)		(uint8_t addr, uint8_t mask, uint8_t pos, uint8_t value);
-	   uint8_t	(*TRX_readBit)		(uint8_t addr, uint8_t mask, uint8_t pos);      
-	   void		(*TRX_writeTX)		(uint8_t length, uint8_t *data);
-	   uint8_t	(*TRX_readRX)		(uint8_t *data, uint8_t datasz, uint8_t *lqi);
+	   void		(*TRX_spiInit)		(uint8_t);
+	   void		(*TRX_writeReg)		(uint8_t, uint8_t);
+	   uint8_t	(*TRX_readReg)		(uint8_t);
+	   void		(*TRX_writeBit)		(uint8_t, uint8_t, uint8_t, uint8_t);
+	   uint8_t	(*TRX_readBit)		(uint8_t, uint8_t, uint8_t);
+	   void		(*TRX_writeTX)		(uint8_t, uint8_t*);
+	   uint8_t	(*TRX_readRX)		(uint8_t*, uint8_t, uint8_t*);
 	   uint8_t	(*TRX_getRxLength)	(void);
+	   uint8_t  (*TRX_initDatarate) (uint8_t);
 
 /*
  * transceiver (trx) functions
@@ -71,9 +76,9 @@ static uint8_t	(*TRX_init)			(void);
  * TRX_receive();		function to receive data over the air
  * TRX_get_TXfail();	returns the send failures (ACK failures)
  */
-uint8_t		TRX_baseInit(void);
-void		TRX_send(uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen);
-at_status_t TRX_receive(void);
+uint8_t		TRX_baseInit  (void);
+void		TRX_send      (bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t srcAddrLen);
+at_status_t TRX_receive   (bufType_n bufType);
 uint8_t		TRX_get_TXfail(void);
 
 #endif /* STACKRELATED_H_ */
