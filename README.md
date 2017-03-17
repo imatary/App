@@ -61,6 +61,16 @@ The AT command version number contains two version numbers at once.
 * the first part is the version number of the AT command API
 * the second part consists the firmware version on which the AT command API is based
 
+#### Version 1.0.10EF (end of internship)
+* a bug which prevents to handle received frames was solved
+* the firmware version (ATVR) was changed to 0xde10
+* the hardware version (ATHV) was changed to 0x0
+ * consequence: the module can be read by X-CTU Tool only with dresden elektronik add on (not included in GIT folder)
+* the UART baud rate works now correctly
+* the power level setting is now included
+* ATWR updates data only if it has been modified
+* several minor bugs are solved
+
 #### Version 0.4.10EF
 * AT and API mode are running now with state machine parser
 * timer to enter and leave AT mode are equal to XBee implementation
@@ -68,7 +78,7 @@ The AT command version number contains two version numbers at once.
 * add TX transmit API frames with 64-bit and 16-bit destination address
 * add missing RX receive API frames, except RX (Receive) Packet IO
 * adding support for broadcast messages
-* speed up molding process
+* speed up writing process
 
 #### Version 0.3.10EF
 * configurable in AT & AP mode (XCTU, HTerm)
