@@ -9,15 +9,9 @@
 
 #include "../header/enum_cmd.h"					// cmd ID definition
 #include "../header/rfmodul.h"					// RFmodul GET_ and SET_ functions
-#include "../header/execute.h"
-#include "../../ATuracoli/stackrelated.h"		// init functions
+#include "../header/execute.h"					// apply changes function
+#include "../../ATuracoli/stackrelated.h"		// UART print function
 #include "../../ATuracoli/stackrelated_timer.h"	// timer function
-
-// === globals ============================================
-static uint32_t writetimer;
-
-// === prototypes =========================================
-static uint32_t AT_writeEEPROM(uint32_t arg);
 
 // === function ===========================================
 /*
@@ -31,7 +25,7 @@ static uint32_t AT_writeEEPROM(uint32_t arg);
  *		OP_SUCCESS			if command successful accomplished
  *		INVALID_COMMAND		if the command is not in the command table
  *
- * last modified: 2017/01/25
+ * last modified: 2017/03/16
  */
 at_status_t AT_exec(uint16_t *th, cmdIDs cmdID)
 {
@@ -47,7 +41,7 @@ at_status_t AT_exec(uint16_t *th, cmdIDs cmdID)
 	/* WR - write config to firmware */
 		case AT_WR :
 			{
-				writetimer = deTIMER_start(AT_writeEEPROM, 0x10, 0);
+				SET_userValInEEPROM();
 			}
 			break;
 
@@ -76,21 +70,4 @@ at_status_t AT_exec(uint16_t *th, cmdIDs cmdID)
 	}
 
 	return OP_SUCCESS;
-}
-
-/*
- * timer for writing operation
- *
- * Received:
- *		uint32_t arg	this argument can be used in this function
- *
- * Returns:
- *		FALSE	to stop the timer
- *
- * last modified: 2017/03/03
- */
-static uint32_t AT_writeEEPROM(uint32_t arg)
-{
-	SET_userValInEEPROM();
-	return FALSE;
 }

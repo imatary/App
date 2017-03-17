@@ -96,8 +96,6 @@ int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send)
 	 */
 													   *(send)  = 0x01; // send data to _one_ device
 	if ( TRUE == RFmodul->secCMD_ee )				   *(send) |= 0x08; // security active
-	if ( ACK_WITH_MAXSTREAM == RFmodul->netCMD_mm ||\
-	     ACK_NO_MAXSTREAM   == RFmodul->netCMD_mm )    *(send) |= 0x20; // ACK on
 													   *(send) |= 0x40; // PAN Compression on
 
 	/*
@@ -186,6 +184,15 @@ int TRX_atRemoteFrame(bufType_n bufType, uint8_t *send)
 	if ( PACKAGE_SIZE-1 < pos+length-12 ) return 0;
 
 	memcpy( send+pos, workArray, length-2 );
+
+
+	/*
+	 * check option field and set ACK
+	 */
+	if ( ACK_WITH_MAXSTREAM == RFmodul->netCMD_mm || ACK_NO_MAXSTREAM   == RFmodul->netCMD_mm || 0x0 != send[10] )
+	{
+		*(send) |= 0x20; // ACK on
+	}
 
 	return pos+length-2;
 }

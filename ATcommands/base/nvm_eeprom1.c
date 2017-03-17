@@ -16,6 +16,7 @@
 #include "../header/_global.h"
 #include "../header/defaultConfig.h"		// default values
 #include "../header/rfmodul.h"				// RFmodul struct
+#include "../../ATuracoli/stackrelated.h"
 
 
 // === defines ============================================
@@ -44,7 +45,7 @@ static size_t       size;
  * Returns:
  *     nothing
  *
- * Last modified: 2016/12/23
+ * Last modified: 2017/03/16
  */
 void SET_defaultInEEPROM(void)
 {
@@ -69,7 +70,7 @@ void SET_defaultInEEPROM(void)
 	uint16_t crc_val = calc_crc( lary, size + 4 );
 	memcpy( &lary[size + 6] , &crc_val, 2);
 
-	eeprom_write_block(lary, (void*) START_POS, size + 8 );
+	eeprom_update_block(lary, (void*) START_POS, size + 8 );
 }
 
 
@@ -114,7 +115,7 @@ void GET_allFromEEPROM(void)
  * Returns:
  *     nothing
  *
- * Last modified: 2017/01/13
+ * Last modified: 2017/03/16
  */
 void SET_userValInEEPROM(void)
 {
@@ -139,7 +140,7 @@ void SET_userValInEEPROM(void)
 	uint16_t crc_val = calc_crc(lary, size + 4 );
 	memcpy( &lary[size + 6], &crc_val, 2);
 
-	eeprom_write_block( lary, (void*) START_POS, size + 8 );
+	eeprom_update_block( lary, (void*) START_POS, size + 8 );
 }
 
 

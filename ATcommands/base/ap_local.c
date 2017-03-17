@@ -15,6 +15,7 @@
 #include "../header/ap_frames.h"				// AP frame struct + AP TRX functions
 #include "../header/circularBuffer.h"			// UART & RX buffer
 #include "../header/execute.h"
+#include "../header/rfinterfacing.h"
 #include "../../ATuracoli/stackrelated.h"		// UART_print(f), TRX_send(f)
 #include "../../ATuracoli/stackdefines.h"		// defined register addresses
 #include "../../ATuracoli/stackrelated_timer.h"
@@ -583,15 +584,57 @@ void AP_atRemoteFrame_localExec(bufType_n bufType, uint16_t length, uint8_t data
 	/*
 	 * if the apply option and some parameter are received, reconfigure the device
 	 */
-	if ( OP_SUCCESS == ret && 0x2 == GET_apFrameType() && WRITE == GET_apFrameRWXopt() )
+	if ( OP_SUCCESS == ret &&\
+	     0x2 == GET_apFrameType() &&\
+		 WRITE == GET_apFrameRWXopt() &&\
+		 AT_AP != pCommand->ID )
 	{
-		apply_changes(NULL);
+		/*
+		 * reinitialize user interface
+		 */
+		if ( (DIRTYB_BD & dirtyBits) != FALSE )
+		{
+			UART_baudInit();
+			dirtyBits ^= DIRTYB_BD;
+		}
+
+		/*
+		 * reinitialize transceiver
+		 */
+		if ( (DIRTYB_CH & dirtyBits) != FALSE ||\
+		     (DIRTYB_ID & dirtyBits) != FALSE )
+		{
+			TRX_baseInit();
+			dirtyBits ^= (DIRTYB_CH | DIRTYB_ID);
+
+			if ( (DIRTYB_PL & dirtyBits) != FALSE ) dirtyBits ^= DIRTYB_PL;
+		}
+
+		/*
+		 * reinitialize transceiver power level
+		 */
+		if ( (DIRTYB_PL & dirtyBits) != FALSE )
+		{
+			CMD *cmd = CMD_findInTableByID(AT_PL);
+			uint8_t pwl;
+			GET_deviceValue( (uint8_t*) &pwl, cmd);
+
+			config_powerlevel(pwl);
+			dirtyBits ^= DIRTYB_PL;
+		}
+
+		/*
+		 * recalculate at next call Packetization Timeout
+		 */
+		if ( (dirtyBits & DIRTYB_RO) == 0 )
+		{
+			dirtyBits ^= DIRTYB_RO;
+		}
+
 	}
 
 	TRX_send( NONE, REMOTE_RESPONSE, srcAddr, srcAddrLen );
 	pCommand = NULL;
-
-	deBufferReset( bufType );
 }
 
 

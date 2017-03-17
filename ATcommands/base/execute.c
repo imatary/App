@@ -16,7 +16,7 @@
  * this function apply changed parameter values
  *
  * Received:
- *		uint16_t	if in  AT Mode, a time handler else NULL pointer
+ *		uint16_t	if AT Mode it will be a time handler, else NULL pointer
  *
  * Returns:
  *     nothing

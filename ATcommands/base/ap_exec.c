@@ -5,20 +5,11 @@
  *  Author: TOE
  */
 // === includes ===========================================
-#include "../header/_global.h"				// TRANSPARENT_MODE = 0
 #include "../header/cmd.h"					// EXEC definition
 #include "../header/enum_cmd.h"				// cmd ID definition
-#include "../header/rfmodul.h"				// RFmodul GET_ and SET_ functions
-#include "../header/ap_frames.h"			// AP set function
-#include "../header/execute.h"
-#include "../../ATuracoli/stackrelated.h"	// init functions
-#include "../../ATuracoli/stackrelated_timer.h"
-
-// === globals ============================================
-static uint32_t writetimer = 0;
-
-// === prototypes =========================================
-static uint32_t AP_write_timedEEPROM(uint32_t arg);
+#include "../header/rfmodul.h"				// RFmodul set user values in EEPROM and set default values functions
+#include "../header/ap_frames.h"			// Set API Frame RWX option function
+#include "../header/execute.h"				// apply changes function
 
 // === function ===========================================
 /*
@@ -31,7 +22,7 @@ static uint32_t AP_write_timedEEPROM(uint32_t arg);
  *		OP_SUCCESS			if command successful accomplished
  *		INVALID_COMMAND		if the command is not in the command table
  *
- * last modified: 2017/01/26
+ * last modified: 2017/03/16
  */
 at_status_t AP_exec( cmdIDs cmdID )
 {
@@ -42,7 +33,7 @@ at_status_t AP_exec( cmdIDs cmdID )
 	/* WR - write config to firmware */
 	case AT_WR :
 		{
-			writetimer = deTIMER_start(AP_write_timedEEPROM, 0x05, 0);
+			SET_userValInEEPROM();
 		}
 		break;
 
@@ -74,23 +65,4 @@ at_status_t AP_exec( cmdIDs cmdID )
 	}
 
 	return OP_SUCCESS;
-}
-
-
-
-/*
- * timer for writing operation
- *
- * Received:
- *		uint32_t arg	this argument can be used in this function
- *
- * Returns:
- *		FALSE	to stop the timer
- *
- * last modified: 2017/03/03
- */
-static uint32_t AP_write_timedEEPROM(uint32_t arg)
-{
-	SET_userValInEEPROM();
-	return FALSE;
 }

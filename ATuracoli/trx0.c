@@ -216,7 +216,7 @@ void TRX_send(bufType_n bufType, uint8_t senderInfo, uint8_t *srcAddr, uint8_t s
  *     OP_SCCESS			frame is received successfully without error
  *	   TRANSMIT_IN_FAIL		frame is received and an error has occurred
  *
- * last modified: 2017/01/03
+ * last modified: 2017/03/17
  */
 at_status_t TRX_receive(bufType_n bufType)
 {
@@ -269,11 +269,13 @@ at_status_t TRX_receive(bufType_n bufType)
 			case 0x48 : TRX_createAPframe( RX_WORK_BUF, flen, dataStart+7, srcAddrLen, 0x48 ); break;	// security  enabled, PAN compression  enabled = add 7 bytes for src PAN ID and Auxiliary Sec. header
 			default:
 				rx_stat.fail++;
+				deBufferReset( RX_WORK_BUF );
 				return TRANSMIT_IN_FAIL;
 		}
 	}
 
 	rx_stat.cnt += 1;
+	deBufferReset( RX_WORK_BUF );
 	return OP_SUCCESS;
 }
 
@@ -320,6 +322,7 @@ static void TRX_txHandler(void)
 
 			case TRAC_NO_ACK:
 			tx_stat.fail++;
+			tx_stat.cnt++;
 			SET_diagCMD_ea(tx_stat.fail);
 			if ( TRANSPARENT_MODE < GET_serintCMD_ap() ) AP_txStatus(TRANSMIT_OUT_FAIL);
 			else UART_print_status(TRANSMIT_OUT_FAIL);
@@ -327,6 +330,7 @@ static void TRX_txHandler(void)
 
 			default:
 			tx_stat.fail++;
+			tx_stat.cnt++;
 			SET_diagCMD_ea(tx_stat.fail);
 			if ( TRANSPARENT_MODE < GET_serintCMD_ap() ) AP_txStatus(TRANSMIT_OUT_FAIL);
 			else UART_print_status(TRANSMIT_OUT_FAIL);

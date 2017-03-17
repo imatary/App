@@ -186,11 +186,23 @@ void AT_parser( uint8_t inchar, bufType_n bufType )
 
 
 	/*
+	 * if in inchar a carriage return character,
+	 *  - check whether the the send timer is active and stop it, if true
+	 *  - send buffer content immediately
 	 * if counter != 0 and state machine in idle mode start send timer
 	 */
 	if ( STATEM_IDLE == state && 0 != counter )
 	{
-		if ( 0 == SEND_th )
+		if ( '\r' == inchar )
+		{
+			if ( 0 != SEND_th ) deTIMER_stop(SEND_th);
+
+			deBufferIn( ubuf, 0x00 );
+			TRX_send( ubuf, 0, NULL, 0);
+			SEND_th = 0;
+			counter = 0;
+		}
+		else if ( 0 == SEND_th )
 		{
 			SEND_th = deTIMER_start(AT_sendTX_timeHandle, attimeout, 0);
 		}
@@ -287,7 +299,7 @@ static at_status_t AT_getCommand( bufType_n bufType, CMD **cmd )
  * Returns:
  *		FALSE	to stop the timer
  *
- * last modified: 2017/02/08
+ * last modified: 2017/03/16
  */
 static uint32_t AT_guardTime_timeHandle(uint32_t arg)
 {
@@ -311,6 +323,7 @@ uint32_t AT_commandTime_timeHandle(uint32_t arg)
 	state   = STATEM_IDLE;
 	counter = 0;
 	UART_print_status(QUIT_CMD_MODE);
+	deBufferReset( ubuf );
 
 	return 0;
 }
